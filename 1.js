@@ -1,2 +1,3 @@
 11
 console.log('test git rebase');
+console.log('test git pull --rebase');
