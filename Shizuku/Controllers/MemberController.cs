@@ -79,14 +79,20 @@ namespace Shizuku.Controllers
 
         public IActionResult Edit(int? id)
         {
+            if (id == null)
+                return RedirectToAction("List");
+
             DbShizukuDemoContext db = new DbShizukuDemoContext();
             TMember x = db.TMembers.FirstOrDefault(p => p.FId == id);
             if (x == null)
                 return RedirectToAction("List");
-            return View(x);
+
+            CMemberWrap wrapper = new CMemberWrap();
+            wrapper.member = x;
+            return View(wrapper);
         }
         [HttpPost]
-        public IActionResult Edit(TMember uiCustomer)
+        public IActionResult Edit(CMemberWrap uiCustomer)
         {
             DbShizukuDemoContext db = new DbShizukuDemoContext();
             TMember dbCustomer = db.TMembers.FirstOrDefault(p => p.FId == uiCustomer.FId);
