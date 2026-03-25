@@ -45,7 +45,7 @@ namespace testCshap.Controllers
                 query = query.Where(p =>
                     p.FNumber.Contains(vm.txtKeyword) ||
                     p.FName.Contains(vm.txtKeyword) ||
-                    //p.FAddress.Contains(vm.txtKeyword) ||
+                    p.FAddress.Contains(vm.txtKeyword) ||
                     p.FPhone.Contains(vm.txtKeyword) ||
                     p.FEmail.Contains(vm.txtKeyword) ||
                     p.FStatus.Contains(vm.txtKeyword) ||
@@ -78,8 +78,6 @@ namespace testCshap.Controllers
         public IActionResult Create(TEmployee p)
         {
             DbShizukuDemoContext db = new DbShizukuDemoContext();
-
-
             p.FStatus = "在職";
 
             ModelState.Remove("FStatus");
