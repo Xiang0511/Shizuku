@@ -13,10 +13,17 @@ namespace Shizuku.Controllers
 
         public IActionResult List(CKeywordViewModel vm)
         {
+
             DbShizukuDemoContext db = new DbShizukuDemoContext();
-            IEnumerable<TMember> datas = null;
-            datas = from p in db.TMembers
-                    select p;
+
+            var query = db.TMembers;
+
+            List<CMemberWrap> datas = new List<CMemberWrap>();
+            foreach (var p in query)
+            {
+                datas.Add(new CMemberWrap { member = p });
+            }
+
             return View(datas);
         }
         public IActionResult Block_List(CKeywordViewModel vm)
