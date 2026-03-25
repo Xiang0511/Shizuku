@@ -54,15 +54,15 @@ namespace Shizuku.Models
         [DisplayName("Email帳號")]
         public string? FEmail
         {
-            get { return _prod.FName; }
-            set { _prod.FName = value; }
+            get { return _prod.FEmail; }
+            set { _prod.FEmail = value; }
         }
 
         [DisplayName("電話號碼")]
         public string? FPhone
         {
-            get { return _prod.FEmail; }
-            set { _prod.FEmail = value; }
+            get { return _prod.FPhone; }
+            set { _prod.FPhone = value; }
         }
 
 

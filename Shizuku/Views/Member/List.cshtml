@@ -59,7 +59,11 @@
                                 <td class="text-muted">@count</td>
                                 <td><span class="fw-bold text-dark">@Html.DisplayFor(modelItem => item.FMemberId)</span></td>
                                 <td>@Html.DisplayFor(modelItem => item.FName)</td>
-                                <td><a href="mailto:@item.FEmail" class="text-decoration-none">@Html.DisplayFor(modelItem => item.FEmail)</a></td>
+                                <td>
+                                    <a href="mailto:@item.FEmail" class="text-decoration-none fw-medium">
+                                        @Html.DisplayFor(modelItem => item.FEmail)
+                                    </a>
+                                </td>
                                 <td>
                                     <span>
                                         Level @item.FLevel
