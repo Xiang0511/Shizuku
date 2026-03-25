@@ -45,7 +45,7 @@ namespace testCshap.Controllers
                 query = query.Where(p =>
                     p.FNumber.Contains(vm.txtKeyword) ||
                     p.FName.Contains(vm.txtKeyword) ||
-                    p.FAddress.Contains(vm.txtKeyword) ||
+                    //p.FAddress.Contains(vm.txtKeyword) ||
                     p.FPhone.Contains(vm.txtKeyword) ||
                     p.FEmail.Contains(vm.txtKeyword) ||
                     p.FStatus.Contains(vm.txtKeyword) ||
