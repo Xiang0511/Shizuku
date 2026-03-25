@@ -1,0 +1,65 @@
+﻿@model IEnumerable<Shizuku.Models.TMember>
+
+@{
+    ViewData["Title"] = "List";
+}
+
+<h1>會員清單</h1>
+
+<p>
+    <a asp-action="Create">新增會員</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.FMemberId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FEmail)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FName)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FLevel)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FLoginTime)
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @{
+            @foreach (var item in Model)
+            {
+
+                <tr>
+                    @if (item.FIsActive == true)
+                    {
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FMemberId)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FEmail)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FName)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FLevel)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FLoginTime)
+                        </td>
+                        <td>
+                            @Html.ActionLink("編輯", "Edit", new { /* id=item.PrimaryKey */ }) |
+                            @Html.ActionLink("黑名單", "Delete", new { /* id=item.PrimaryKey */ })
+                        </td>
+                    }
+                </tr>
+            }
+        }
+    </tbody>
+</table>
