@@ -11,8 +11,8 @@ public partial class TEmployee
     public string FName { get; set; } = null!;
     [DisplayName("員工密碼")]
     public string FPassword { get; set; } = null!;
-    [DisplayName("員工地址")]
-    public string? FAddress { get; set; }
+    //[DisplayName("員工地址")]
+    //public string? FAddress { get; set; }
     [DisplayName("員工信箱")]
     public string? FEmail { get; set; }
     [DisplayName("員工電話")]
