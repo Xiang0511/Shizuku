@@ -1,61 +1,109 @@
-﻿@model IEnumerable<Shizuku.Models.TMember>
+﻿@model IEnumerable<Shizuku.Models.CMemberWrap>
 
 @{
-    ViewData["Title"] = "Block_List";
+    ViewData["Title"] = "黑名單管理";
 }
 
-<h1>黑名單列表</h1>
+@* 標頭區塊 - 使用警告色調區分 *@
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-danger">停權會員名單</h2>
+        <small class="text-muted">管理已停權或封鎖的會員紀錄，可進行解除黑名單操作</small>
+    </div>
+    <div>
+        <a asp-action="List" class="btn btn-outline-secondary shadow-sm rounded-pill px-4">
+            返回會員清單
+        </a>
+    </div>
+</div>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.FMemberId)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FEmail)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FLevel)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FLoginTime)
-            </th>
-        </tr>
-    </thead>
-    <tbody>
-        @{
-            @foreach (var item in Model)
-            {
-
-                <tr>
-                    @if (item.FIsActive == false)
-                    {
-                        <td>
-                            @Html.DisplayFor(modelItem => item.FMemberId)
-                        </td>
-                        <td>
-                            @Html.DisplayFor(modelItem => item.FEmail)
-                        </td>
-                        <td>
-                            @Html.DisplayFor(modelItem => item.FName)
-                        </td>
-                        <td>
-                            @Html.DisplayFor(modelItem => item.FLevel)
-                        </td>
-                        <td>
-                            @Html.DisplayFor(modelItem => item.FLoginTime)
-                        </td>
-                        <td>
-                            @Html.ActionLink("解除黑名單", "Restore", "Member", new { id = @item.FId },
-                            new { onclick = "return confirm('確定要解除黑名單嗎?')" })
-            </td>
-                        }
-                </tr>
-            }
+@* 搜尋與篩選卡片 *@
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4">
+        @using (Html.BeginForm("Block_List", "Member", FormMethod.Post, new { id = "searchForm" }))
+        {
+            <div class="row g-3 align-items-center bg-light p-3 rounded-3">
+                <div class="col-auto flex-grow-1">
+                    <label class="text-muted small fw-bold mb-1">黑名單關鍵字搜尋</label>
+                    <div class="input-group input-group-sm">
+                        @Html.TextBox("txtKeyword", null, new { @class = "form-control border-0 shadow-none", placeholder = "請輸入姓名、信箱、編號等進行搜尋..." })
+                        <button type="submit" class="btn btn-dark px-3">查詢</button>
+                    </div>
+                </div>
+            </div>
         }
-    </tbody>
-</table>
+    </div>
+
+    @* 表格區塊 *@
+    <div class="card-body px-4 pt-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" id="blockTable">
+                <thead class="table-light text-muted small">
+                    <tr>
+                        <th class="fw-normal">序</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FMemberId)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FName)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FEmail)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FLevel)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FLoginTime)</th>
+                        <th class="fw-normal text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    @{
+                        int count = 0;
+                        foreach (var item in Model)
+                        {
+                            // 這裡不用再寫 if(item.FIsActive == false)，因為 Controller 已經濾掉了
+                            count++;
+                            <tr>
+                                <td class="text-muted">@count</td>
+                                <td><span class="fw-bold text-dark">@Html.DisplayFor(modelItem => item.FMemberId)</span></td>
+                                <td>@Html.DisplayFor(modelItem => item.FName)</td>
+                                <td><a href="mailto:@item.FEmail" class="text-decoration-none">@Html.DisplayFor(modelItem => item.FEmail)</a></td>
+                                <td>
+                                    <span>
+                                        Level @item.FLevel
+                                    </span>
+                                </td>
+                                <td class="text-muted small">@Html.DisplayFor(modelItem => item.FLoginTime)</td>
+                                <td class="text-end">
+                                    <a asp-action="Restore" asp-route-id="@item.FId"
+                                       class="btn btn-sm btn-success rounded-pill px-3 shadow-sm"
+                                       onclick="return confirm('確定要解除此會員的黑名單狀態嗎？');">
+                                        🔓 解除黑名單
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#blockTable').DataTable({
+                "searching": false, // 關閉右側搜尋框
+                "lengthMenu": [[10, 20, 50, -1], [10, 20, 50, "全部"]],
+                "pageLength": 10,
+                "language": {
+                    "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json"
+                },
+                "columnDefs": [
+                    { "orderable": false, "targets": [0, 6] }
+                ],
+                "dom": "<'row mb-3'<'col-sm-12 col-md-6'l>>" +
+                       "<'row'<'col-sm-12'tr>>" +
+                       "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            });
+        });
+    </script>
+}
