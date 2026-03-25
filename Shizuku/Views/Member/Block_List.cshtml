@@ -1,0 +1,60 @@
+﻿@model IEnumerable<Shizuku.Models.TMember>
+
+@{
+    ViewData["Title"] = "Block_List";
+}
+
+<h1>黑名單列表</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.FMemberId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FEmail)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FName)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FLevel)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FLoginTime)
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @{
+            @foreach (var item in Model)
+            {
+
+                <tr>
+                    @if (item.FIsActive == false)
+                    {
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FMemberId)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FEmail)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FName)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FLevel)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.FLoginTime)
+                        </td>
+                        <td>
+                            @Html.ActionLink("解除黑名單", "Remove_Block", new { /* id=item.PrimaryKey */ })
+                        </td>
+                    }
+                </tr>
+            }
+        }
+    </tbody>
+</table>

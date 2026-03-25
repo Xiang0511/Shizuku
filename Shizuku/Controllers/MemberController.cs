@@ -21,7 +21,6 @@ namespace Shizuku.Controllers
         }
         public IActionResult Block_List(CKeywordViewModel vm)
         {
-
             DbShizukuDemoContext db = new DbShizukuDemoContext();
             IEnumerable<TMember> datas = null;
             datas = from p in db.TMembers
