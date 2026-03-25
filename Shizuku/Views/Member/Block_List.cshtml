@@ -50,9 +50,10 @@
                             @Html.DisplayFor(modelItem => item.FLoginTime)
                         </td>
                         <td>
-                            @Html.ActionLink("解除黑名單", "Remove_Block", new { /* id=item.PrimaryKey */ })
-                        </td>
-                    }
+                            @Html.ActionLink("解除黑名單", "Restore", "Member", new { id = @item.FId },
+                            new { onclick = "return confirm('確定要解除黑名單嗎?')" })
+            </td>
+                        }
                 </tr>
             }
         }
