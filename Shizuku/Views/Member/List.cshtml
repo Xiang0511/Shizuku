@@ -54,30 +54,27 @@
                         int count = 0;
                         foreach (var item in Model)
                         {
-                            // 這裡保留你的軟刪除判斷，但建議在 Controller 就過濾掉
-                            if (item.FIsActive == true)
-                            {
-                                count++;
-                                <tr>
-                                    <td class="text-muted">@count</td>
-                                    <td><span class="fw-bold text-dark">@Html.DisplayFor(modelItem => item.FMemberId)</span></td>
-                                    <td>@Html.DisplayFor(modelItem => item.FName)</td>
-                                    <td><a href="mailto:@item.FEmail" class="text-decoration-none">@Html.DisplayFor(modelItem => item.FEmail)</a></td>
-                                    <td>
-                                        <span>
-                                            Level @item.FLevel
-                                        </span>
-                                    </td>
-                                    <td class="text-muted small">@Html.DisplayFor(modelItem => item.FLoginTime)</td>
-                                    <td class="text-end">
-                                        <div class="btn-group">
-                                            <a asp-action="Edit" asp-route-id="@item.FId" class="btn btn-sm btn-outline-primary">編輯</a>
-                                            <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger" 
-                                               onclick="return confirm('確定要刪除這筆資料嗎?');">刪除</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
+                            count++;
+                            <tr>
+                                <td class="text-muted">@count</td>
+                                <td><span class="fw-bold text-dark">@Html.DisplayFor(modelItem => item.FMemberId)</span></td>
+                                <td>@Html.DisplayFor(modelItem => item.FName)</td>
+                                <td><a href="mailto:@item.FEmail" class="text-decoration-none">@Html.DisplayFor(modelItem => item.FEmail)</a></td>
+                                <td>
+                                    <span>
+                                        Level @item.FLevel
+                                    </span>
+                                </td>
+                                <td class="text-muted small">@Html.DisplayFor(modelItem => item.FLoginTime)</td>
+                                <td class="text-end">
+                                    <div class="btn-group">
+                                        <a asp-action="Edit" asp-route-id="@item.FId" class="btn btn-sm btn-outline-primary">編輯</a>
+                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger" 
+                                            onclick="return confirm('確定要刪除這筆資料嗎?');">刪除</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            
                         }
                     }
                 </tbody>
@@ -94,6 +91,7 @@
     <script>
         $(document).ready(function () {
             $('#memberTable').DataTable({
+                "searching": false,
                 "lengthMenu": [[10, 20, 50, -1], [10, 20, 50, "全部"]],
                 "pageLength": 10,
                 "language": {
@@ -102,9 +100,9 @@
                 "columnDefs": [
                     { "orderable": false, "targets": [0, 6] } // 序號與操作不排序
                 ],
-                "dom": "<'row mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-                       "<'row'<'col-sm-12'tr>>" +
-                       "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+                "dom": "<'row mb-3'<'col-sm-12 col-md-6'l>>" +
+                   "<'row'<'col-sm-12'tr>>" +
+                   "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             });
         });
     </script>
