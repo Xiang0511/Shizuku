@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace Shizuku.Models;
 
@@ -68,7 +66,7 @@ public partial class DbShizukuDemoContext : DbContext
             entity.ToTable("tAttendanceRecords");
 
             entity.Property(e => e.FId)
-                .ValueGeneratedNever()
+                .ValueGeneratedOnAdd()
                 .HasColumnName("fId");
             entity.Property(e => e.FClockInTime)
                 .HasColumnType("datetime")
@@ -316,9 +314,8 @@ public partial class DbShizukuDemoContext : DbContext
             entity.HasKey(e => e.FId).HasName("PK_Payment_transactions");
 
             entity.ToTable("tPaymentTransactions");
-
             entity.Property(e => e.FId)
-                .ValueGeneratedNever()
+                .ValueGeneratedOnAdd()
                 .HasColumnName("fId");
             entity.Property(e => e.FAmount)
                 .HasColumnType("decimal(18, 2)")

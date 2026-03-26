@@ -1,14 +1,44 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
+using Shizuku.ViewModels;
 namespace Shizuku.Controllers
 {
     public class AttendanceController : Controller
     {
         // 1. 顯示打卡畫面
+        [HttpGet]
         public IActionResult CheckIn()
         {
-            return View();
+            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+
+            // 抓取今日前 10 筆打卡紀錄 (包含員工姓名)
+            // 注意：這裡假設你的 TAttendanceRecord 導覽屬性是 FEmployee
+            var records = db.TAttendanceRecords
+                .Include(r => r.FEmployee) // 記得加上 Include 才能抓到員工姓名
+                .Where(r => r.FWorkDate == today)
+                .OrderByDescending(r => r.FId) // 最新的在上面
+                .Take(10)
+                .Select(r => new AttendanceSummaryViewModel
+                {
+                    EmployeeName = r.FEmployee.FName,
+                    EmployeeNumber = r.FEmployee.FNumber,
+                    ClockInTime = r.FClockInTime.ToString("HH:mm:ss"),
+                    // 如果還沒下班（下班時間等於上班時間），顯示橫線
+                    ClockOutTime = r.FClockOutTime == r.FClockInTime ? "---" : r.FClockOutTime.ToString("HH:mm:ss"),
+                    Status = r.FStatus
+                }).ToList();
+
+            // 建立 ViewModel 並把清單塞進去
+            var viewModel = new CheckInViewModel
+            {
+                TodayRecords = records
+            };
+
+            return View(viewModel); // 把 ViewModel 丟給 View
         }
+
         //處理打卡邏輯
         [HttpPost]
         public IActionResult CheckIn(string input)
@@ -98,5 +128,11 @@ namespace Shizuku.Controllers
 
             return RedirectToAction("CheckIn");
         }
+
+        public IActionResult History()
+        {
+            return View();
+        }
+
     }
 }

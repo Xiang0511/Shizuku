@@ -15,4 +15,5 @@ public partial class TAttendanceRecord
     public string? FStatus { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
+    public virtual TEmployee FEmployee { get; set; }
 }

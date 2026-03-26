@@ -1,4 +1,5 @@
-﻿@{
+﻿@model Shizuku.ViewModels.CheckInViewModel
+@{
     ViewData["Title"] = "員工打卡系統";
     //不套用Layout直接顯示全畫面
     // Layout = null;
@@ -50,7 +51,74 @@
             }
         </div>
     </div>
+
+    <!-- 3. 今日打卡紀錄清單 (新增部分) -->
+    <div class="w-100" style="max-width: 850px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-bold text-dark mb-0"><i class="bi bi-journal-text me-2"></i>今日最新紀錄</h3>
+            <span class="badge bg-info text-dark">顯示最近 10 筆</span>
+        </div>
+        
+        <div class="table-responsive shadow-sm rounded-4 bg-white p-3">
+            <table class="table table-hover align-middle mb-0 text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3">編號</th>
+                        <th class="py-3">姓名</th>
+                        <th class="py-3">上班時間</th>
+                        <th class="py-3">下班時間</th>
+                        <th class="py-3">狀態</th>
+                    </tr>
+                </thead>
+                <tbody class="fs-5">
+                    @if (Model.TodayRecords != null && Model.TodayRecords.Any())
+                    {
+                        foreach (var record in Model.TodayRecords)
+                        {
+                            <tr>
+                                <td><code class="fw-bold">@record.EmployeeNumber</code></td>
+                                <td class="fw-bold">@record.EmployeeName</td>
+                                <td>@record.ClockInTime</td>
+                                <td>
+                                    @if (record.ClockOutTime == "---")
+                                    {
+                                        <span class="text-muted">--:--:--</span>
+                                    }
+                                    else
+                                    {
+                                        @record.ClockOutTime
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        // 根據不同狀態顯示不同顏色
+                                        string statusClass = record.Status switch
+                                        {
+                                            "正常" => "bg-success",
+                                            "遲到" => "bg-warning text-dark",
+                                            "早退" => "bg-warning text-dark",
+                                            _ => "bg-danger" // 包含遲到, 早退
+                                        };
+                                    }
+                                    <span class="badge @statusClass rounded-pill px-3">@record.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="py-5 text-muted">今天還沒有人打卡喔！加油！</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
+
+
 
 @section Scripts {
     <!-- 4. 用 JavaScript 讓時鐘每一秒跳動 -->
