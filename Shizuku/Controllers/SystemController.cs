@@ -46,7 +46,7 @@ namespace Shizuku.Controllers
                 {
                     Id = l.Id,
                     // 修正：確保顯示的是台灣時間
-                    Timestamp = l.Timestamp.DateTime,
+                    Timestamp = l.Timestamp,
                     Level = l.Level,
                     Message = l.Message,
                     Exception = l.Exception,

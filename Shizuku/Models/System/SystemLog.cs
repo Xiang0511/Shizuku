@@ -16,7 +16,7 @@ namespace Shizuku.Models.System
         public string? Level { get; set; }
 
         // Timestamp 通常不為空，所以不用加
-        public DateTimeOffset Timestamp { get; set; }
+        public DateTime Timestamp { get; set; }
 
         public string? Exception { get; set; }
 
