@@ -15,7 +15,7 @@ namespace Shizuku.Controllers
             _context = context;
         }
 
-        public IActionResult Index(string? level) // 新增參數
+        public IActionResult Index(string? level, DateTime? startTime, DateTime? endTime) // 新增參數
         {
             // 1. 先建立查詢基底 (這就是老師說的，在記憶體中先準備好 Query)
             var query = _context.SystemLogs.AsQueryable();
@@ -25,6 +25,18 @@ namespace Shizuku.Controllers
             {
                 query = query.Where(l => l.Level == level);
             }
+
+            //時間區間
+            if (startTime.HasValue)
+            {
+                query = query.Where(l => l.Timestamp >= startTime.Value);
+            }
+            if (endTime.HasValue)
+            {
+                var preciseEnd = endTime.Value.AddSeconds(59);
+                query = query.Where(l => l.Timestamp <= preciseEnd);
+            }
+
 
             // 3. 執行查詢
             var logs = query
@@ -43,6 +55,8 @@ namespace Shizuku.Controllers
 
             // 把目前的等級存進 ViewBag，讓 View 的下拉選單可以「定住」在那個選項
             ViewBag.CurrentLevel = level;
+            ViewBag.StartTime = startTime?.ToString("yyyy-MM-ddTHH:mm");
+            ViewBag.EndTime = endTime?.ToString("yyyy-MM-ddTHH:mm");
 
             return View(logs);
         }
