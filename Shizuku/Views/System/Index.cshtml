@@ -1,0 +1,50 @@
+﻿@model IEnumerable<Shizuku.ViewModels.LogViewModel>
+
+@{
+    ViewData["Title"] = "系統日誌管理";
+}
+
+<div class="container-fluid mt-4">
+    <h2 class="mb-4"><i class="fas fa-list-alt"></i> 系統日誌 (System Logs)</h2>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>時間</th>
+                        <th>等級</th>
+                        <th>訊息內容</th>
+                        <th>詳細資訊</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>@item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                @if (item.Level == "Error" || item.Level == "Fatal")
+                                {
+                                    <span class="badge bg-danger">@item.Level</span>
+                                }
+                                else if (item.Level == "Warning")
+                                {
+                                    <span class="badge bg-warning text-dark">@item.Level</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info">@item.Level</span>
+                                }
+                            </td>
+                            <td class="text-truncate" style="max-width: 400px;">@item.Message</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="showDetail('@item.Id')">查看</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
