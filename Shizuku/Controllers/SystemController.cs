@@ -15,23 +15,34 @@ namespace Shizuku.Controllers
             _context = context;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string? level) // 新增參數
         {
-            // 撈取最新的 50 筆 Log
-            var logs = _context.SystemLogs
+            // 1. 先建立查詢基底 (這就是老師說的，在記憶體中先準備好 Query)
+            var query = _context.SystemLogs.AsQueryable();
+
+            // 2. 判斷有沒有要篩選等級 (例如：點選了 Error)
+            if (!string.IsNullOrEmpty(level))
+            {
+                query = query.Where(l => l.Level == level);
+            }
+
+            // 3. 執行查詢
+            var logs = query
                 .OrderByDescending(l => l.Timestamp)
-                .Take(50)
+                .Take(100) // 既然有篩選，我們可以多看幾筆 (例如 100 筆)
                 .Select(l => new LogViewModel
                 {
                     Id = l.Id,
-                    //Timestamp = l.Timestamp.ToOffset(TimeSpan.FromHours(8)).DateTime,
-                    Timestamp = l.Timestamp.UtcDateTime, // 轉換成當地時間
+                    // 修正：確保顯示的是台灣時間
+                    Timestamp = l.Timestamp.DateTime,
                     Level = l.Level,
                     Message = l.Message,
                     Exception = l.Exception,
-                    // 這裡可以預留一個解析邏輯
                     Properties = l.Properties
                 }).ToList();
+
+            // 把目前的等級存進 ViewBag，讓 View 的下拉選單可以「定住」在那個選項
+            ViewBag.CurrentLevel = level;
 
             return View(logs);
         }
