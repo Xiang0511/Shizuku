@@ -157,7 +157,7 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FEndDate)
                 .HasColumnType("datetime")
                 .HasColumnName("fEnd_date");
-            entity.Property(e => e.FLeaveType).HasColumnName("fLeave_type");
+            entity.Property(e => e.FLeaveType).HasDefaultValue(1).HasColumnName("fLeave_type");
             entity.Property(e => e.FStartDate)
                 .HasColumnType("datetime")
                 .HasColumnName("fStart_date");

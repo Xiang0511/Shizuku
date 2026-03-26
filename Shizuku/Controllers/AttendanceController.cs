@@ -129,9 +129,55 @@ namespace Shizuku.Controllers
             return RedirectToAction("CheckIn");
         }
 
-        public IActionResult History()
+        [HttpGet]
+        public IActionResult History(string? searchEmployee, string? startDate, string? endDate)
         {
-            return View();
+            DbShizukuDemoContext db = new DbShizukuDemoContext();
+
+            // 1. 取得基礎查詢 
+            var query = db.TAttendanceRecords.Include(r => r.FEmployee).AsQueryable();
+
+            // 2. 篩選：員工編號或姓名
+            if (!string.IsNullOrEmpty(searchEmployee))
+            {
+                query = query.Where(r => r.FEmployee.FNumber.Contains(searchEmployee) ||
+                                         r.FEmployee.FName.Contains(searchEmployee));
+            }
+
+            // 3. 篩選：日期範圍
+            if (DateOnly.TryParse(startDate, out var start))
+            {
+                query = query.Where(r => r.FWorkDate >= start);
+            }
+            if (DateOnly.TryParse(endDate, out var end))
+            {
+                query = query.Where(r => r.FWorkDate <= end);
+            }
+
+            // 4. 執行查詢並轉換成 ViewModel
+            var results = query
+                .OrderByDescending(r => r.FWorkDate) // 日期由近到遠
+                .ThenByDescending(r => r.FId)
+                .Select(r => new AttendanceHistoryRowViewModel
+                {
+                    WorkDate = r.FWorkDate.HasValue ? r.FWorkDate.Value.ToString("yyyy-MM-dd") : "---",
+                    EmployeeNumber = r.FEmployee.FNumber,
+                    EmployeeName = r.FEmployee.FName,
+                    ClockInTime = r.FClockInTime.ToString("HH:mm:ss"),
+                    ClockOutTime = (r.FClockOutTime == r.FClockInTime) ? "---" : r.FClockOutTime.ToString("HH:mm:ss"),
+                    Status = r.FStatus ?? "未知"
+                }).ToList();
+
+            // 5. 打包回傳
+            var vm = new AttendanceHistoryViewModel
+            {
+                SearchEmployee = searchEmployee,
+                StartDate = startDate,
+                EndDate = endDate,
+                Results = results
+            };
+
+            return View(vm);
         }
 
     }

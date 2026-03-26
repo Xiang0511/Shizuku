@@ -1,0 +1,110 @@
+﻿@model Shizuku.ViewModels.LeaveViewModel
+@using Shizuku.Enums
+@{
+    ViewData["Title"] = "請假申請系統";
+}
+
+<div class="container py-5">
+    <div class="row">
+        <!-- 左側：申請表單 -->
+        <div class="col-lg-4">
+            <div class="card shadow border-0 rounded-4 mb-4">
+                <div class="card-header bg-primary text-white py-3 rounded-top-4">
+                    <h4 class="mb-0"><i class="bi bi-pencil-square me-2"></i>填寫假單</h4>
+                </div>
+                <div class="card-body p-4">
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+                    }
+                    @if (TempData["ErrorMessage"] != null)
+                    {
+                        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+                    }
+
+                    <form asp-action="Apply" method="post">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">員工編號</label>
+                            <input type="text" asp-for="EmployeeNumber" class="form-control" placeholder="例如: EMP001" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">假別選擇</label>
+                                <select asp-for="SelectedLeaveType" class="form-select">
+                                    @foreach (var type in Enum.GetValues(typeof(LeaveType)))
+                                    {
+                                        <option value="@((int)type)">@type.ToString()</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">開始時間</label>
+                                <input type="datetime-local" asp-for="StartDate" class="form-control" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">結束時間</label>
+                                    <input type="datetime-local" asp-for="EndDate" class="form-control" required>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100 py-2 fs-5 rounded-pill shadow-sm">
+                                        送出申請
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：最近紀錄清單 -->
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>最近請假紀錄</h3>
+                        </div>
+                        <div class="table-responsive shadow-sm rounded-4 bg-white p-3">
+                            <table class="table table-hover align-middle mb-0 text-center">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>姓名</th>
+                                        <th>假別</th>
+                                        <th>開始時間</th>
+                                        <th>結束時間</th>
+                                        <th>狀態</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (Model.LeaveRecords.Any())
+                                    {
+                                        foreach (var item in Model.LeaveRecords)
+                                        {
+                                            <tr>
+                                                <td class="fw-bold">@item.EmployeeName</td>
+                                                <td><span class="badge bg-info text-dark">@item.LeaveTypeName</span></td>
+                                                <td class="small">@item.StartDate</td>
+                                                <td class="small">@item.EndDate</td>
+                                                <td>
+                                                    @{
+                                                        string statusColor = item.StatusName switch
+                                                        {
+                                                            "已核准" => "bg-success",
+                                                            "駁回" => "bg-danger",
+                                                            _ => "bg-secondary" // 待審核
+                                                        };
+                                                    }
+                                                    <span class="badge @statusColor rounded-pill">@item.StatusName</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="py-5 text-muted">目前沒有請假紀錄</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
