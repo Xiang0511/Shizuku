@@ -127,5 +127,21 @@ namespace Shizuku.Controllers
             }
             return RedirectToAction("List");
         }
+
+        [HttpPost]
+        public IActionResult UpdateLevelAjax(int id, int newLevel)
+        {
+            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            var member = db.TMembers.FirstOrDefault(p => p.FId == id);
+
+            if (member != null)
+            {
+                member.FLevel = newLevel;
+                db.SaveChanges();
+                return Json(new { success = true, message = "等級已更新" });
+            }
+
+            return Json(new { success = false, message = "找不到該會員" });
+        }
     }
 }

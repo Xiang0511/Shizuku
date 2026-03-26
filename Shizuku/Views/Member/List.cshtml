@@ -65,16 +65,21 @@
                                     </a>
                                 </td>
                                 <td>
-                                    <span>
-                                        Level @item.FLevel
-                                    </span>
+                                    <select class="form-select form-select-sm border-0 bg-light level-select"
+                                            data-id="@item.FId"
+                                            style="width: 120px; cursor: pointer;">
+                                        <option value="1" selected="@(item.FLevel == 1)">Level 1</option>
+                                        <option value="2" selected="@(item.FLevel == 2)">Level 2</option>
+                                        <option value="3" selected="@(item.FLevel == 3)">Level 3</option>
+                                        <option value="4" selected="@(item.FLevel == 4)">Level 4</option>
+                                    </select>
                                 </td>
                                 <td class="text-muted small">@Html.DisplayFor(modelItem => item.FLoginTime)</td>
                                 <td class="text-end">
                                     <div class="btn-group">
                                         <a asp-action="Edit" asp-route-id="@item.FId" class="btn btn-sm btn-outline-primary">編輯</a>
-                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger" 
-                                            onclick="return confirm('確定要刪除這筆資料嗎?');">刪除</a>
+                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('確定要刪除這筆資料嗎?');">刪除</a>
                                     </div>
                                 </td>
                             </tr>
@@ -94,20 +99,52 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script>
         $(document).ready(function () {
-            $('#memberTable').DataTable({
-                "searching": false,
-                "lengthMenu": [[10, 20, 50, -1], [10, 20, 50, "全部"]],
-                "pageLength": 10,
-                "language": {
-                    "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json"
-                },
-                "columnDefs": [
-                    { "orderable": false, "targets": [0, 6] } // 序號與操作不排序
-                ],
-                "dom": "<'row mb-3'<'col-sm-12 col-md-6'l>>" +
-                   "<'row'<'col-sm-12'tr>>" +
-                   "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-            });
+        $('#memberTable').DataTable({
+        "searching": false,
+        "lengthMenu": [[10, 20, 50, -1], [10, 20, 50, "全部"]],
+        "pageLength": 10,
+        "language": {
+        "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json"
+        },
+        "columnDefs": [
+        { "orderable": false, "targets": [0, 6] } // 序號與操作不排序
+        ],
+        "dom": "<'row mb-3'<'col-sm-12 col-md-6'l>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        });
+        $('.level-select').on('change', function () {
+        const memberId = $(this).data('id');   // 取得隱藏的 FId
+        const selectedLevel = $(this).val();   // 取得選中的新等級
+        const $select = $(this);               // 備份元素
+
+        // 加上一個視覺反饋（變淡）代表正在處理
+        $select.css('opacity', '0.5');
+
+        $.ajax({
+        url: '@Url.Action("UpdateLevelAjax", "Member")',
+        type: 'POST',
+        data: {
+        id: memberId,
+        newLevel: selectedLevel
+        },
+        success: function (response) {
+        if (response.success) {
+        // 成功後閃一下綠色背景提示
+        $select.css('opacity', '1').addClass('is-valid');
+        setTimeout(() => $select.removeClass('is-valid'), 1000);
+        } else {
+        alert(response.message);
+        location.reload(); // 失敗則重整恢復原狀
+        }
+        },
+        error: function () {
+        alert("系統連線失敗，請稍後再試");
+        location.reload();
+        }
+        });
+        });
         });
     </script>
+
 }
