@@ -18,6 +18,9 @@
                 <option value="Error" selected="@(currentLevel == "Error")">Error</option>
                 <option value="Fatal" selected="@(currentLevel == "Fatal")">Fatal</option>
             </select>
+            <button type="button" class="btn btn-success" onclick="exportLogs()">
+                <i class="fas fa-file-download"></i> 匯出 TXT
+            </button>
         </div>
     </div>
 
@@ -73,6 +76,12 @@
         function filterLogs() {
             var selectedLevel = document.getElementById("levelFilter").value;
             window.location.href = "/System/Index?level=" + selectedLevel;
+        }
+
+        function exportLogs() {
+            var selectedLevel = document.getElementById("levelFilter").value;
+            // 跳轉到 Export Action，並帶著當前的等級參數
+            window.location.href = "/System/Export?level=" + selectedLevel;
         }
     </script>
 }
