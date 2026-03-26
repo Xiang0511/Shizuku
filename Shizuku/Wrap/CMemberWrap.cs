@@ -1,6 +1,7 @@
-﻿using System.ComponentModel;
+﻿using Shizuku.Models;
+using System.ComponentModel;
 
-namespace Shizuku.Models
+namespace Shizuku.Wrap
 {
     public class CMemberWrap
     {
