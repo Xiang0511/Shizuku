@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Shizuku.Models;
+﻿namespace Shizuku.Models;
 
 public partial class TAttendanceRecord
 {

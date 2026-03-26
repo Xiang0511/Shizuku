@@ -17,14 +17,10 @@ namespace testCshap.Controllers
             // 將目前的過濾狀態存入 ViewBag，讓前端的下拉選單能維持選取狀態
             ViewBag.StatusFilter = statusFilter;
 
-            // ==========================================
-            // 步驟 1：建立基礎查詢 (Base Query)
-            // ==========================================
+            //：建立基礎查詢 (Base Query)
             var query = db.TEmployees.AsQueryable();
 
-            // ==========================================
             // 步驟 2：根據下拉選單進行狀態過濾 (核心邏輯升級)
-            // ==========================================
             if (statusFilter == "Active")
             {
                 // 僅顯示在職 (過濾掉離職)
@@ -36,10 +32,6 @@ namespace testCshap.Controllers
                 query = query.Where(p => p.FStatus == "離職");
             }
             // 如果是 "All"，則不加任何狀態過濾條件，直接往下走
-
-            // ==========================================
-            // 步驟 3：疊加關鍵字搜尋條件
-            // ==========================================
             if (!string.IsNullOrEmpty(vm.txtKeyword))
             {
                 query = query.Where(p =>
@@ -53,10 +45,8 @@ namespace testCshap.Controllers
                     p.FHireDate.ToString().Contains(vm.txtKeyword)
                 );
             }
+            // 執行查詢並回傳
 
-            // ==========================================
-            // 步驟 4：執行查詢並回傳
-            // ==========================================
             var datas = query.ToList();
 
             return View(datas);

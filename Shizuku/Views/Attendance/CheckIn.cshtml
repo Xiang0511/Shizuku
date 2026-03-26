@@ -1,0 +1,83 @@
+﻿@{
+    ViewData["Title"] = "員工打卡系統";
+    //不套用Layout直接顯示全畫面
+    // Layout = null;
+}
+
+<div class="container d-flex flex-column align-items-center justify-content-center" style="min-height: 80vh;">
+    
+    <!-- 1. 顯示打卡成功或失敗的提示訊息 -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show w-100 text-center fs-4 mb-4 shadow-sm" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show w-100 text-center fs-4 mb-4 shadow-sm" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="card shadow-lg border-0 rounded-4" style="max-width: 500px; width: 100%;">
+        <div class="card-body p-5 text-center">
+            
+            <!-- 2. 巨大的電子時鐘 -->
+            <h1 class="display-1 fw-bold text-primary mb-0" id="clock">00:00:00</h1>
+            <p class="text-muted fs-5 mb-4" id="date">YYYY年MM月DD日</p>
+
+            <hr class="mb-4">
+
+            <!-- 3. 打卡輸入表單 -->
+            @using (Html.BeginForm("CheckIn", "Attendance", FormMethod.Post))
+            {
+                <div class="mb-4">
+                    <label class="form-label fs-5 fw-bold text-dark">請輸入員工編號</label>
+                    <!-- autofocus 確保一進畫面游標就在這裡，支援條碼槍隨插即用 -->
+                    <!-- autocomplete="off" 避免瀏覽器記憶一堆歷史號碼擋住視線 -->
+                    <input type="text" name="input" class="form-control form-control-lg text-center fs-3"
+                           placeholder="EMP001" autofocus autocomplete="off" required>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill fs-4 shadow-sm">
+                        確認打卡
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- 4. 用 JavaScript 讓時鐘每一秒跳動 -->
+    <script>
+        function updateClock() {
+            const now = new Date();
+            
+            // 處理時間 00:00:00 格式
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+
+            // 處理日期
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            document.getElementById('date').textContent = `${year}年${month}月${day}日`;
+        }
+
+        // 每 1000 毫秒 (1秒) 更新一次
+        setInterval(updateClock, 1000);
+        updateClock(); // 網頁一載入立刻執行一次，避免出現 00:00:00 的殘影
+        
+        // UX 優化：如果有顯示成功或失敗訊息，5秒後自動隱藏，保持畫面乾淨
+        setTimeout(function() {
+            $('.alert').alert('close');
+        }, 5000);
+    </script>
+}
