@@ -1,0 +1,150 @@
+﻿@model IEnumerable<Shizuku.Wrap.CMemberWrap>
+
+@{
+    ViewData["Title"] = "會員管理";
+}
+
+@* 標頭區塊 *@
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark">會員資料一覽表</h2>
+        <small class="text-muted">檢視、篩選與管理系統內的所有會員紀錄</small>
+    </div>
+    <div>
+        <a asp-action="Create" class="btn btn-primary shadow-sm rounded-pill px-4">
+            + 新增會員
+        </a>
+    </div>
+</div>
+
+@* 搜尋與篩選卡片 *@
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4">
+        @using (Html.BeginForm("List", "Member", FormMethod.Post, new { id = "searchForm" }))
+        {
+            <div class="row g-3 align-items-center bg-light p-3 rounded-3">
+                <div class="col-auto flex-grow-1">
+                    <label class="text-muted small fw-bold mb-1">關鍵字搜尋</label>
+                    <div class="input-group input-group-sm">
+                        @Html.TextBox("txtKeyword", null, new { @class = "form-control border-0 shadow-none", placeholder = "請輸入姓名、信箱、編號等關鍵字..." })
+                        <button type="submit" class="btn btn-secondary px-3">查詢</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* 表格區塊 *@
+    <div class="card-body px-4 pt-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle border-top" id="memberTable">
+                <thead class="table-light text-muted small">
+                    <tr>
+                        <th class="fw-normal">序</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FMemberId)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FName)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FEmail)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FLevel)</th>
+                        <th class="fw-normal">@Html.DisplayNameFor(model => model.FLoginTime)</th>
+                        <th class="fw-normal text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    @{
+                        int count = 0;
+                        foreach (var item in Model)
+                        {
+                            count++;
+                            <tr>
+                                <td class="text-muted">@count</td>
+                                <td><span class="fw-bold text-dark">@Html.DisplayFor(modelItem => item.FMemberId)</span></td>
+                                <td>@Html.DisplayFor(modelItem => item.FName)</td>
+                                <td>
+                                    <a href="mailto:@item.FEmail" class="text-decoration-none fw-medium">
+                                        @Html.DisplayFor(modelItem => item.FEmail)
+                                    </a>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm border-0 bg-light level-select"
+                                            data-id="@item.FId"
+                                            style="width: 120px; cursor: pointer;">
+                                        <option value="1" selected="@(item.FLevel == 1)">Level 1</option>
+                                        <option value="2" selected="@(item.FLevel == 2)">Level 2</option>
+                                        <option value="3" selected="@(item.FLevel == 3)">Level 3</option>
+                                        <option value="4" selected="@(item.FLevel == 4)">Level 4</option>
+                                    </select>
+                                </td>
+                                <td class="text-muted small">@Html.DisplayFor(modelItem => item.FLoginTime)</td>
+                                <td class="text-end">
+                                    <div class="btn-group">
+                                        <a asp-action="Edit" asp-route-id="@item.FId" class="btn btn-sm btn-outline-primary">編輯</a>
+                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('確定要刪除這筆資料嗎?');">刪除</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function () {
+        $('#memberTable').DataTable({
+        "searching": false,
+        "lengthMenu": [[10, 20, 50, -1], [10, 20, 50, "全部"]],
+        "pageLength": 10,
+        "language": {
+        "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json"
+        },
+        "columnDefs": [
+        { "orderable": false, "targets": [0, 6] } // 序號與操作不排序
+        ],
+        "dom": "<'row mb-3'<'col-sm-12 col-md-6'l>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        });
+        $('.level-select').on('change', function () {
+        const memberId = $(this).data('id');   // 取得隱藏的 FId
+        const selectedLevel = $(this).val();   // 取得選中的新等級
+        const $select = $(this);               // 備份元素
+
+        // 加上一個視覺反饋（變淡）代表正在處理
+        $select.css('opacity', '0.5');
+
+        $.ajax({
+        url: '@Url.Action("UpdateLevelAjax", "Member")',
+        type: 'POST',
+        data: {
+        id: memberId,
+        newLevel: selectedLevel
+        },
+        success: function (response) {
+        if (response.success) {
+        // 成功後閃一下綠色背景提示
+        $select.css('opacity', '1').addClass('is-valid');
+        setTimeout(() => $select.removeClass('is-valid'), 1000);
+        } else {
+        alert(response.message);
+        location.reload(); // 失敗則重整恢復原狀
+        }
+        },
+        error: function () {
+        alert("系統連線失敗，請稍後再試");
+        location.reload();
+        }
+        });
+        });
+        });
+    </script>
+
+}

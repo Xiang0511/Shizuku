@@ -62,20 +62,15 @@
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="member/Block_List">
-                                            <span data-feather="award"></span>等級權限設定
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
                                         <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Member" asp-action="Block_List">
                                             <span data-feather="slash"></span>黑名單列表
                                         </a>
                                     </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                    @* <li class="nav-item">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Member" asp-action="Verification_Log">
                                             <span data-feather="shield"></span>驗證紀錄監控
                                         </a>
-                                    </li>
+                                    </li> *@
                                 </ul>
                             </div>
                         </li>
@@ -282,7 +277,7 @@
             });
         });
     </script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/site.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 
