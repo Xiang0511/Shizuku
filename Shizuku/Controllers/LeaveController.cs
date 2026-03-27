@@ -12,17 +12,30 @@ namespace Shizuku.Controllers
 
         // 1. 顯示請假頁面
         [HttpGet]
-        public IActionResult Apply()
+        public IActionResult Apply(string statusFilter = "Pending") // 預設只看待審核
         {
-            var records = db.TLeaveRecords
-                .Include(r => r.FEmployee)
+            ViewBag.StatusFilter = statusFilter;
+
+            var query = db.TLeaveRecords.Include(r => r.FEmployee).AsQueryable();
+
+            // 邏輯篩選
+            if (statusFilter == "Pending")
+            {
+                query = query.Where(r => r.FStatus == (int)LeaveStatus.待審核);
+            }
+            else if (statusFilter == "History")
+            {
+                // 顯示已核准(1) 與 駁回(2)
+                query = query.Where(r => r.FStatus == (int)LeaveStatus.已核准 || r.FStatus == (int)LeaveStatus.駁回);
+            }
+
+            var records = query
                 .OrderByDescending(r => r.FCreatedAt)
-                .Take(20) // 顯示最近 20 筆
+                .AsEnumerable()
                 .Select(r => new LeaveHistoryItem
                 {
                     FId = r.FId,
                     EmployeeName = r.FEmployee.FName,
-                    // 轉型 Enum 顯示中文
                     LeaveTypeName = ((LeaveType)r.FLeaveType).ToString(),
                     StartDate = r.FStartDate.ToString("yyyy-MM-dd HH:mm"),
                     EndDate = r.FEndDate.ToString("yyyy-MM-dd HH:mm"),
