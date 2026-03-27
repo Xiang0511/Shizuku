@@ -65,7 +65,7 @@ public partial class DbShizukuDemoContext : DbContext
         modelBuilder.Entity<SystemLog>(entity =>
         {
             entity.Property(e => e.Level).HasMaxLength(16);
-            entity.Property(e => e.TimeStamp).HasColumnType("datetime");
+            entity.Property(e => e.Timestamp).HasColumnType("datetime");
         });
 
         modelBuilder.Entity<TAttendanceRecord>(entity =>
