@@ -1,49 +1,99 @@
 ﻿@model Shizuku.Wrap.CMemberWrap
 
 @{
-    ViewData["Title"] = "Create";
+    ViewData["Title"] = "新增會員";
 }
 
-<h1>新增會員作業</h1>
-
-<h4>輸入會員資料</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Create">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-            <div class="form-group">
-                <label asp-for="FName" class="control-label" required></label>
-                <input asp-for="FName" class="form-control" />
-                <span asp-validation-for="FName" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FEmail" class="control-label" required></label>
-                <input asp-for="FEmail" class="form-control" />
-                <span asp-validation-for="FEmail" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FPassword" class="control-label" required></label>
-                <input asp-for="FPassword" class="form-control" />
-                <span asp-validation-for="FPassword" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FPhone" class="control-label" required></label>
-                <input asp-for="FPhone" class="form-control" />
-                <span asp-validation-for="FPhone" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="新增" class="btn btn-primary" />
-            </div>
-        </form>
+@* 標頭區塊 *@
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark">新增會員作業</h2>
+        <small class="text-muted">請填寫下方表單以建立新的會員帳號</small>
+    </div>
+    <div>
+        <a asp-action="List" class="btn btn-outline-secondary shadow-sm rounded-pill px-4">
+            ← 返回列表
+        </a>
     </div>
 </div>
 
-<div>
-    <a asp-action="List">取消新增</a>
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        @* 表單卡片 *@
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <form asp-action="Create">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 rounded-3 small"></div>
+
+                    <div class="row g-4">
+                        @* 姓名 *@
+                        <div class="col-12">
+                            <label asp-for="FName" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FName" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請輸入真實姓名" />
+                            <span asp-validation-for="FName" class="text-danger small"></span>
+                        </div>
+
+                        @* 電子郵件 *@
+                        <div class="col-12">
+                            <label asp-for="FEmail" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FEmail" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="example@mail.com" />
+                            <span asp-validation-for="FEmail" class="text-danger small"></span>
+                        </div>
+
+                        @* 密碼 *@
+                        <div class="col-12">
+                            <label asp-for="FPassword" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FPassword" type="password" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請設定登入密碼" />
+                            <span asp-validation-for="FPassword" class="text-danger small"></span>
+                        </div>
+
+                        @* 電話 *@
+                        <div class="col-12">
+                            <label asp-for="FPhone" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FPhone" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="09xx-xxx-xxx" />
+                            <span asp-validation-for="FPhone" class="text-danger small"></span>
+                        </div>
+
+                        @* 按鈕區 *@
+                        <div class="col-12 mt-5">
+                            <button type="submit" class="btn btn-primary w-100 py-3 shadow-sm rounded-3 fw-bold">
+                                確認建立會員
+                            </button>
+                            <div class="text-center mt-3">
+                                <a asp-action="List" class="text-decoration-none text-muted small">取消並返回列表</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
+@* 專屬 CSS 修飾 *@
+<style>
+    /* 必填星號樣式 */
+    .custom-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    /* 輸入框 Focus 效果 */
+    .form-control:focus {
+        background-color: #fff !important;
+        box-shadow: 0 0 0 0.25 margin-top: rgba(13, 110, 253, 0.1) !important;
+        border: 1px solid #0d6efd !important;
+    }
+
+    /* 調整 Label 字級 */
+    .form-label {
+        font-size: 0.9rem;
+        margin-left: 4px;
+    }
+</style>
+
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }
