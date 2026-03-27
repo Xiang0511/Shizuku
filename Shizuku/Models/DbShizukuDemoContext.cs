@@ -1,4 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Shizuku.Models.System;
+using System;
+using System.Collections.Generic;
 
 namespace Shizuku.Models;
 
@@ -12,9 +15,7 @@ public partial class DbShizukuDemoContext : DbContext
         : base(options)
     {
     }
-
-    public virtual DbSet<SystemLog> SystemLogs { get; set; }
-
+    public DbSet<SystemLog> SystemLogs { get; set; }
     public virtual DbSet<TAttendanceRecord> TAttendanceRecords { get; set; }
 
     public virtual DbSet<TDepartment> TDepartments { get; set; }
