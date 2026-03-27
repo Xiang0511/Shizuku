@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Shizuku.Models;
 using Shizuku.ViewModels;
 
-namespace testCshap.Controllers
+namespace Shizuku.Controllers
 {
     public class employeeController : Controller
     {
