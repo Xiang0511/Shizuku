@@ -474,13 +474,6 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("fSkuCode");
             entity.Property(e => e.FStock).HasColumnName("fStock");
-            // ✨ 加上這段：強制指定外鍵關聯，解決 TProductFId 報錯
-            entity.HasOne(d => d.TProduct)
-                .WithMany(p => p.TProductVariants)
-                .HasForeignKey(d => d.FProductId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_tProductVariants_tProduct");
-
         });
 
         modelBuilder.Entity<TRefund>(entity =>
