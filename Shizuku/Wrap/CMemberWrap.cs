@@ -40,6 +40,9 @@ namespace Shizuku.Wrap
         }
 
         [Required(ErrorMessage = "請輸入密碼")]
+        [StringLength(20, MinimumLength = 8, ErrorMessage = "密碼長度必須在 8 到 20 字元之間")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$",
+    ErrorMessage = "密碼必須包含大、小寫英文及數字")]
         [DisplayName("密碼")]
         public string? FPassword
         {

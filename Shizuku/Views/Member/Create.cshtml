@@ -42,9 +42,23 @@
 
                         @* 密碼 *@
                         <div class="col-12">
-                            <label asp-for="FPassword" class="form-label fw-bold text-secondary custom-required"></label>
-                            <input asp-for="FPassword" type="password" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請設定登入密碼" />
-                            <span asp-validation-for="FPassword" class="text-danger small"></span>
+                            <label asp-for="FPassword" class="form-label fw-bold text-secondary custom-required">設定密碼</label>
+                            <div class="position-relative">
+                                <input asp-for="FPassword" type="password" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請設定 8 位以上包含大小寫英數密碼" />
+                            </div>
+    
+                            @* 強度提示視覺區 *@
+                            <div class="mt-2 px-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small id="pwd-strength-msg" class="fw-bold" style="font-size: 0.75rem; min-height: 18px;"></small>
+                                    <small class="text-muted" style="font-size: 0.7rem;">密碼強度</small>
+                                </div>
+                                <div id="pwd-strength-bar" class="progress" style="height: 6px; background-color: #e9ecef; border-radius: 10px; display: none;">
+                                    <div id="pwd-progress" class="progress-bar" role="progressbar" style="width: 0%; transition: all 0.4s ease; border-radius: 10px;"></div>
+                                </div>
+                            </div>
+
+                            <span asp-validation-for="FPassword" class="text-danger small mt-1 d-block"></span>
                         </div>
 
                         @* 電話 *@
@@ -96,4 +110,46 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    <script>
+        $(document).ready(function () {
+                $('input[name="FPassword"]').on('input', function () {
+            const pwd = $(this).val();
+            const $msg = $('#pwd-strength-msg');
+            const $bar = $('#pwd-strength-bar');
+            const $progress = $('#pwd-progress');
+        
+            if (pwd.length === 0) {
+                $msg.text('');
+                $bar.hide();
+                return;
+            }
+
+            $bar.show();
+            let strength = 0;
+            if (pwd.length >= 8) strength++;
+            if (/[A-Z]/.test(pwd)) strength++;
+            if (/[a-z]/.test(pwd)) strength++;
+            if (/[0-9]/.test(pwd)) strength++;
+
+            // 根據強度調整顏色與長度
+            let color = "#dc3545"; // 預設紅色 (弱)
+            let width = "25%";
+            let text = "❌ 強度：太弱";
+
+            if (strength >= 2 && pwd.length >= 8) {
+                color = "#ffc107"; // 黃色 (中)
+                width = "60%";
+                text = "⚠️ 強度：一般";
+            }
+            if (strength >= 4) {
+                color = "#198754"; // 綠色 (強)
+                width = "100%";
+                text = "✅ 強度：安全";
+            }
+
+            $msg.text(text).css('color', color);
+            $progress.css({ 'width': width, 'background-color': color });
+        });
+        });
+    </script>
 }
