@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.ViewModel;
 
-namespace Shizuku.Controllers
+namespace testcoreproduct.Controllers
 {
     public class ProductController : Controller
     {
