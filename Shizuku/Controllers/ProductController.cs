@@ -22,7 +22,7 @@ namespace Shizuku.Controllers
             // 1. 取得產品主表
             var query = _context.TProducts.Where(p => p.FStatus != 0);
 
-            // 2. 關鍵字過濾
+            /// 2. 關鍵字過濾
             if (!string.IsNullOrEmpty(txtKeyword))
             {
                 query = query.Where(p => p.FName.Contains(txtKeyword) || p.FProduct.Contains(txtKeyword));
