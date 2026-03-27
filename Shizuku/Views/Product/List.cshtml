@@ -1,0 +1,113 @@
+﻿@model IEnumerable<Shizuku.Models.CProductwrap>
+
+@{
+    ViewData["Title"] = "List";
+}
+
+<h1>產品列表</h1>
+@using (Html.BeginForm())
+{
+    @:關鍵字 @Html.TextBox("txtKeyword")
+    <input type="submit" value="查詢" />
+}
+
+<p>
+    <a asp-action="Create">新增產品</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>序號</th>
+            <th>
+                @* 這裡直接對準 Wrap 裡的 FImage *@
+                @Html.DisplayNameFor(model => model.FImage)
+            </th>
+            <th>
+                @* 這裡補上 FProduct 的包裝屬性 (記得看下方 CProductwrap 的修改) *@
+                @Html.DisplayNameFor(model => model.FProduct)
+            </th>
+            <th>
+                @* 這裡直接對準 Wrap 裡的 FName，就會顯示 "商品名稱" *@
+                @Html.DisplayNameFor(model => model.FName)
+            </th>
+            <th>
+                規格 (顏色/尺寸)
+            </th>
+            <th>
+                @* 這裡直接對準 Wrap 裡的 FPrice，就會顯示 "價格" *@
+                @Html.DisplayNameFor(model => model.FPrice)
+            </th>
+            <th>
+                @* 這裡建議在 Wrap 也補一個 FStatus *@
+                @Html.DisplayNameFor(model => model.FStatus)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @{
+            int count = 0;
+            foreach (var item in Model)
+            {
+                count++;
+                <tr>
+                    <td>@count</td>
+                    <td>
+                        @* ✨ 顯示圖片 *@
+                        @if (!string.IsNullOrEmpty(item.FImage))
+                        {
+                            <img src="@item.FImage" width="80" class="img-thumbnail" />
+                        }
+                    </td>
+                    <td>
+                        @* ✨ 存取要加 .product *@
+                        @Html.DisplayFor(modelItem => item.product.FProduct)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.product.FName)
+                    </td>
+                    <td>
+                        @* ✨ 顯示手動 Join 的規格列表 *@
+                        @foreach (var v in item.Variants)
+                        {
+                            <small class="badge bg-secondary">@v.Color / @v.Size (@v.Stock)</small>
+
+                            <bAr />
+                        }
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.product.FPrice)
+                    </td>
+                    <td>
+                        @{
+                            // 取得狀態值並轉為 int 方便判斷
+                            int status = Convert.ToInt32(item.FStatus);
+
+                            if (status == 1)
+                            {
+                                <span>上架中</span>
+                            }
+                            else if (status == 2)
+                            {
+                                <span>下架</span>
+                            }
+                            else if (status == 0)
+                            {
+                                <span class="text-danger">刪除</span>
+                            }
+                            else
+                            {
+                                <span>未知狀態 (@status)</span>
+                            }
+                        }
+                    </td>
+                    <td>
+                        @* ✨ 修改與刪除的 ID 通常是 item.product.FId *@
+                        @Html.ActionLink("修改", "Edit", "Product", new { id = item.product.FId }, new { @class = "btn btn-sm btn-outline-primary" })
+                        @Html.ActionLink("刪除", "Delete", "Product", new { id = item.product.FId }, new { onclick = "return confirm('確定要下架嗎？');", @class = "btn btn-sm btn-outline-danger" })
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

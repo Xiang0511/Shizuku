@@ -90,12 +90,13 @@
                             <div class="collapse fs-5" id="ProductSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        @* 修改這裡：加入 asp-controller 和 asp-action *@
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Product" asp-action="List">
                                             <i class="bi bi-list"></i> 商品列表
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Product" asp-action="Create">
                                             <i class="bi bi-bag-plus"></i> 商品新增
                                         </a>
                                     </li>
@@ -281,8 +282,8 @@
             });
         });
     </script>
-
-
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 
 </html>
