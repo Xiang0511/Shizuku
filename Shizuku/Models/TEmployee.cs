@@ -38,4 +38,5 @@ public partial class TEmployee
     public DateTime? FCreatedAt { get; set; }
     [DisplayName("最後更新")]
     public DateTime? FUpdatedAt { get; set; }
+
 }
