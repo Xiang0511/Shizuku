@@ -21,5 +21,6 @@
         public string EndDate { get; set; }
         public string StatusName { get; set; }
         public string CreatedAt { get; set; }
+        public string TotalHours { get; set; }
     }
 }

@@ -40,6 +40,7 @@ namespace Shizuku.Controllers
                     StartDate = r.FStartDate.ToString("yyyy-MM-dd HH:mm"),
                     EndDate = r.FEndDate.ToString("yyyy-MM-dd HH:mm"),
                     StatusName = ((LeaveStatus)(r.FStatus ?? 0)).ToString(),
+                    TotalHours = (r.FEndDate - r.FStartDate).TotalHours.ToString("N1"),
                     CreatedAt = r.FCreatedAt.HasValue ? r.FCreatedAt.Value.ToString("yyyy-MM-dd") : ""
                 }).ToList();
 
@@ -72,6 +73,31 @@ namespace Shizuku.Controllers
                 return RedirectToAction("Apply");
             }
 
+            // --- 開始計算請假時數 ---
+            double totalHours = 0;
+            DateTime currentStart = vm.StartDate;
+            DateTime currentEnd = vm.EndDate;
+
+            // 1. 計算總差距
+            TimeSpan duration = currentEnd - currentStart;
+            totalHours = duration.TotalHours;
+
+            // 2. 扣除午休時間 (簡單邏輯：只要請假跨越了 12:00 ~ 13:00 就扣 1 小時)
+            // 這裡我們只處理「同一天」的情況，這對大多數假單已足夠
+            if (currentStart.Date == currentEnd.Date)
+            {
+                // 如果開始時間在 12:00 以前，且結束時間在 13:00 以後
+                if (currentStart.Hour < 12 && currentEnd.Hour >= 13)
+                {
+                    totalHours -= 1;
+                }
+            }
+            else
+            {
+                // 如果跨天，邏輯會變得很複雜（需扣除每天的午休），暫時以總時數計算
+                // 建議實務上請假盡量拆開按天請
+            }
+
             // 建立紀錄
             TLeaveRecord newRecord = new TLeaveRecord
             {
@@ -86,7 +112,8 @@ namespace Shizuku.Controllers
             db.TLeaveRecords.Add(newRecord);
             db.SaveChanges();
 
-            TempData["SuccessMessage"] = $"{employee.FName} 的{((LeaveType)vm.SelectedLeaveType)}申請已送出，等待審核中。";
+
+            TempData["SuccessMessage"] = $"{employee.FName} 的{((LeaveType)vm.SelectedLeaveType)}申請已送出，等待審核中。共計 {totalHours:N1} 小時。";
             return RedirectToAction("Apply");
         }
 
