@@ -151,25 +151,25 @@
                             <div class="collapse fs-5" id="CustomerSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                       <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="List">
                                             <span class="bi bi-collection"></span> 所有案件
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
-                                            <span class="bi bi-envelope-exclamation"></span>代處理案件
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="Pending">
+                                            <span class="bi bi-envelope-exclamation"></span>待處理案件
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="Categories">
                                             <span class="bi bi-tags"></span>問題分類管理
                                         </a>
                                     </li>
-                                    <li class="nav-item">
+                                    @* <li class="nav-item">
                                         <a class="nav-link d-flex align-items-center" href="#">
                                             <span class="bi bi-person-badge"></span>我的經辦案件
                                         </a>
-                                    </li>
+                                    </li> *@
                                 </ul>
                             </div>
                         </li>
