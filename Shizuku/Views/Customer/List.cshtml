@@ -1,0 +1,187 @@
+﻿@model  IEnumerable<Shizuku.Models.TTicketsCustomer>
+
+@{
+    ViewData["Title"] = "List";
+}
+
+<h1>@ViewBag.TitleName</h1>
+@using (Html.BeginForm())
+{
+    <div class="search-box p-3 bg-light rounded shadow-sm mb-3">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <span class="fw-bold">關鍵字：</span>
+                @* 這裡的名稱一定要叫 txtKeyword，對應你的 ViewModel *@
+                @Html.TextBox("txtKeyword", null, new { @class = "form-control d-inline-block", style = "width:200px;", placeholder = "輸入主旨或分類..." })
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-dark">查詢</button>
+            </div>
+        </div>
+    </div>
+}
+<p>
+    <a asp-action="Create">新增案件</a>
+</p>
+<table class="table table-hover align-middle border-bottom">
+    <thead class="table-light">
+        @* 表頭給個淡淡的灰色底 *@
+        <tr class="text-center">
+            @* 表頭文字全部置中 *@
+            <th>
+                序
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FMemberId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FOrderId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FCategoryId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FSubject)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FStatus)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FPriority)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FAssignedAgentId)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FCreatedAt)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @{
+            int count = 0;
+            foreach (var item in Model)
+            {
+                count++;
+                <tr class="text-center">
+                    @* 每一列的內容預設全部置中 *@
+                    <td>
+                        @count
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FId)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FMemberId)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FOrderId)
+                    </td>
+                    <td>
+                        @* 問題類型加個小粗體，比較好辨認 *@
+                        <span class="fw-bold text-primary">
+                            @(item.FCategory != null ? item.FCategory.FName : "未分類")
+                        </span>
+                    </td>
+                    <td class="text-start">
+                        @Html.DisplayFor(modelItem => item.FSubject)
+                    </td>
+                    <td>
+                        @if (item.FStatus == "待處理")
+                        {
+                            <span class="badge bg-danger">
+                                @Html.DisplayFor(modelItem => item.FStatus)
+                            </span>
+                        }
+                        else if (item.FStatus == "處理中")
+                        {
+                            <span class="badge bg-warning text-dark">
+                                @Html.DisplayFor(modelItem => item.FStatus)
+                            </span>
+                        }
+                        else if (item.FStatus == "已結案")
+                        {
+                            <span class="badge bg-success">
+                                @Html.DisplayFor(modelItem => item.FStatus)
+                            </span>
+                        }
+                        else if (item.FStatus == "不予處理")
+                        {
+                            @* 不予處理用灰色 (secondary) 比較符合直覺 *@
+                            <span class="badge bg-secondary">
+                                @Html.DisplayFor(modelItem => item.FStatus)
+                            </span>
+                        }
+                        else
+                        {
+                            @* 預防萬一有奇怪的字串出現 *@
+                            <span class="badge bg-light text-dark">
+                                @Html.DisplayFor(modelItem => item.FStatus)
+                            </span>
+                        }
+                    </td>
+                    <td>
+                        @* 使用三元運算式，根據等級自動換 class *@
+                        <span class="@(item.FPriority == "高" ? "text-danger fw-bold" :
+                                                                                                                   item.FPriority == "中" ? "text-warning" : "text-secondary")">
+                            @Html.DisplayFor(modelItem => item.FPriority)
+                        </span>
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FAssignedAgentId)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.FCreatedAt)
+                    </td>
+                    <td>
+                        @Html.ActionLink("編輯", "Edit", "Customer", new { id = @item.FId }, null) |
+                        @Html.ActionLink("刪除", "Delete", "Customer", new { id = @item.FId },
+                        new { onclick = "return confirm('確定要刪除嗎?')" })
+                    </td>
+                </tr>
+            }
+
+        }
+    </tbody>
+</table>
+<style>
+
+    /* 7. 超連結變身按鈕 */
+    .table td a {
+        text-decoration: none;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+    }
+
+    /* 處理按鈕 */
+    a[href*="Edit"] {
+        color: #0d6efd;
+        border: 1px solid #0d6efd;
+    }
+
+        a[href*="Edit"]:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+    /* 刪除按鈕 */
+    a[onclick*="confirm"] {
+        color: #dc3545;
+        border: 1px solid #dc3545;
+    }
+
+        a[onclick*="confirm"]:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+
+    /* 8. 狀態與等級的自動上色 (選配，若想手動標色可用此招) */
+    /* 這裡偵測文字內容如果是「高」就變紅 */
+    /* 注意：這部分需要內容精準匹配，若要更強大建議在 HTML 加 class */
+</style>
