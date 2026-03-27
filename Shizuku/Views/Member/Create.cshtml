@@ -14,27 +14,27 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="form-group">
-                <label asp-for="FName" class="control-label"></label>
+                <label asp-for="FName" class="control-label" required></label>
                 <input asp-for="FName" class="form-control" />
                 <span asp-validation-for="FName" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="FEmail" class="control-label"></label>
+                <label asp-for="FEmail" class="control-label" required></label>
                 <input asp-for="FEmail" class="form-control" />
                 <span asp-validation-for="FEmail" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="FPassword" class="control-label"></label>
+                <label asp-for="FPassword" class="control-label" required></label>
                 <input asp-for="FPassword" class="form-control" />
                 <span asp-validation-for="FPassword" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="FPhone" class="control-label"></label>
+                <label asp-for="FPhone" class="control-label" required></label>
                 <input asp-for="FPhone" class="form-control" />
                 <span asp-validation-for="FPhone" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <input type="submit" value="Create" class="btn btn-primary" />
+                <input type="submit" value="新增" class="btn btn-primary" />
             </div>
         </form>
     </div>
