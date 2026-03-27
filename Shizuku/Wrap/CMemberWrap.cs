@@ -1,5 +1,6 @@
 ﻿using Shizuku.Models;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 
 namespace Shizuku.Wrap
 {
@@ -38,6 +39,10 @@ namespace Shizuku.Wrap
             set { _prod.FAccount = value; }
         }
 
+        [Required(ErrorMessage = "請輸入密碼")]
+        [StringLength(20, MinimumLength = 8, ErrorMessage = "密碼長度必須在 8 到 20 字元之間")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$",
+    ErrorMessage = "密碼必須包含大、小寫英文及數字")]
         [DisplayName("密碼")]
         public string? FPassword
         {
@@ -45,6 +50,7 @@ namespace Shizuku.Wrap
             set { _prod.FPassword = value; }
         }
 
+        [Required(ErrorMessage = "請輸入姓名")]
         [DisplayName("會員名稱")]
         public string? FName
         {
@@ -52,6 +58,7 @@ namespace Shizuku.Wrap
             set { _prod.FName = value; }
         }
 
+        [Required(ErrorMessage = "請輸入電子郵件")]
         [DisplayName("Email帳號")]
         public string? FEmail
         {
@@ -59,6 +66,7 @@ namespace Shizuku.Wrap
             set { _prod.FEmail = value; }
         }
 
+        [Required(ErrorMessage = "請輸入電話")]
         [DisplayName("電話號碼")]
         public string? FPhone
         {

@@ -87,6 +87,12 @@ namespace Shizuku.Controllers
         [HttpPost]
         public IActionResult Create(CMemberWrap p)
         {
+            // 檢查驗證是否通過
+            if (!ModelState.IsValid)
+            {
+                return View(p); // 驗證失敗，返回原頁面，會帶入剛才填的資料與錯誤訊息
+            }
+
             DbShizukuDemoContext db = new DbShizukuDemoContext();
             db.TMembers.Add(p.member);
             db.SaveChanges();
@@ -116,6 +122,11 @@ namespace Shizuku.Controllers
         [HttpPost]
         public IActionResult Edit(CMemberWrap uiCustomer)
         {
+            if (!ModelState.IsValid)
+            {
+                return View(uiCustomer); // 驗證失敗，返回編輯頁
+            }
+
             DbShizukuDemoContext db = new DbShizukuDemoContext();
             TMember dbCustomer = db.TMembers.FirstOrDefault(p => p.FId == uiCustomer.FId);
             if (dbCustomer != null)
