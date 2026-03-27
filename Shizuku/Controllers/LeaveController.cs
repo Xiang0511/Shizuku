@@ -76,5 +76,52 @@ namespace Shizuku.Controllers
             TempData["SuccessMessage"] = $"{employee.FName} 的{((LeaveType)vm.SelectedLeaveType)}申請已送出，等待審核中。";
             return RedirectToAction("Apply");
         }
+
+        [HttpGet]
+        public IActionResult Review()
+        {
+            // 抓出所有「待審核」的假單 (Status = 0)
+            var pendingRecords = db.TLeaveRecords
+                .Include(r => r.FEmployee)
+                .Where(r => r.FStatus == (int)LeaveStatus.待審核) // 只看待審核
+                .OrderBy(r => r.FStartDate) // 越早要請的排越前面
+                .Select(r => new LeaveHistoryItem
+                {
+                    FId = r.FId,
+                    EmployeeName = r.FEmployee.FName,
+                    LeaveTypeName = ((LeaveType)r.FLeaveType).ToString(),
+                    StartDate = r.FStartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = r.FEndDate.ToString("yyyy-MM-dd HH:mm"),
+                    StatusName = ((LeaveStatus)r.FStatus).ToString(),
+                    CreatedAt = r.FCreatedAt.HasValue ? r.FCreatedAt.Value.ToString("yyyy-MM-dd") : ""
+                }).ToList();
+
+            return View(pendingRecords);
+        }
+
+        // 4. 執行審核動作 (POST)
+        [HttpPost]
+        public IActionResult UpdateStatus(int id, int status)
+        {
+            // 找那一筆假單
+            var record = db.TLeaveRecords.Find(id);
+
+            if (record != null)
+            {
+                // 更新狀態 (1: 已核准, 2: 駁回)
+                record.FStatus = status;
+                db.SaveChanges();
+
+                string statusText = (status == (int)LeaveStatus.已核准) ? "已核准" : "已駁回";
+                TempData["SuccessMessage"] = $"假單編號 {id} {statusText} 成功！";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "找不到該筆假單。";
+            }
+
+            return RedirectToAction("Review");
+        }
+
     }
 }
