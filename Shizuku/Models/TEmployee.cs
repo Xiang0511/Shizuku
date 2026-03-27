@@ -28,4 +28,6 @@ public partial class TEmployee
     public DateTime FCreatedAt { get; set; }
 
     public DateTime? FUpdatedAt { get; set; }
+
+    public string? FAddress { get; set; }
 }

@@ -26,4 +26,6 @@ public partial class TTicketsCustomer
     public DateTime? FUpdatedAt { get; set; }
 
     public DateTime? FClosedAt { get; set; }
+
+    public bool? FIsDeleted { get; set; }
 }

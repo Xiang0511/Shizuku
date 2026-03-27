@@ -12,4 +12,6 @@ public partial class TTicketCategory
     public string? FDescription { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
+
+    public bool? FIsDeleted { get; set; }
 }

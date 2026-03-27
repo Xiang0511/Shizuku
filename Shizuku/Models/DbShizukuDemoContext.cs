@@ -15,6 +15,8 @@ public partial class DbShizukuDemoContext : DbContext
     {
     }
 
+    public virtual DbSet<SystemLog> SystemLogs { get; set; }
+
     public virtual DbSet<TAttendanceRecord> TAttendanceRecords { get; set; }
 
     public virtual DbSet<TDepartment> TDepartments { get; set; }
@@ -61,15 +63,19 @@ public partial class DbShizukuDemoContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<SystemLog>(entity =>
+        {
+            entity.Property(e => e.Level).HasMaxLength(16);
+            entity.Property(e => e.TimeStamp).HasColumnType("datetime");
+        });
+
         modelBuilder.Entity<TAttendanceRecord>(entity =>
         {
             entity.HasKey(e => e.FId).HasName("PK_Attendance_records");
 
             entity.ToTable("tAttendanceRecords");
 
-            entity.Property(e => e.FId)
-                .ValueGeneratedNever()
-                .HasColumnName("fId");
+            entity.Property(e => e.FId).HasColumnName("fId");
             entity.Property(e => e.FClockInTime)
                 .HasColumnType("datetime")
                 .HasColumnName("fClock_in_time");
@@ -83,7 +89,6 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FEmployeeId).HasColumnName("fEmployee_id");
             entity.Property(e => e.FStatus)
                 .HasMaxLength(50)
-                .IsUnicode(false)
                 .HasColumnName("fStatus");
             entity.Property(e => e.FWorkDate).HasColumnName("fWork_date");
         });
@@ -109,6 +114,9 @@ public partial class DbShizukuDemoContext : DbContext
             entity.ToTable("tEmployees");
 
             entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FAddress)
+                .HasMaxLength(200)
+                .HasColumnName("fAddress");
             entity.Property(e => e.FCreatedAt)
                 .HasDefaultValueSql("(getdate())", "DF_Employees_fCreated_at")
                 .HasColumnType("datetime")
@@ -134,8 +142,7 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasColumnName("fPhone");
             entity.Property(e => e.FPositionId).HasColumnName("fPosition_id");
             entity.Property(e => e.FStatus)
-                .HasMaxLength(10)
-                .IsUnicode(false)
+                .HasMaxLength(50)
                 .HasDefaultValue("active", "DF_Employees_fStatus")
                 .HasColumnName("fStatus");
             entity.Property(e => e.FUpdatedAt)
@@ -168,13 +175,13 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TMember>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tMember__D9F8227CACBC4015");
+            entity.HasKey(e => e.FId).HasName("PK__tMember__D9F8227C49D3B076");
 
             entity.ToTable("tMember");
 
-            entity.HasIndex(e => e.FAccount, "UQ__tMember__E1299463B805A6EB").IsUnique();
+            entity.HasIndex(e => e.FAccount, "UQ__tMember__E1299463029448AA").IsUnique();
 
-            entity.HasIndex(e => e.FAccount, "UQ__tMember__E1299463E01CED70").IsUnique();
+            entity.HasIndex(e => e.FAccount, "UQ__tMember__E12994638CC4844E").IsUnique();
 
             entity.Property(e => e.FId).HasColumnName("fId");
             entity.Property(e => e.FAccount)
@@ -243,7 +250,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TMemberVerification>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tMemberV__D9F8227CE0249DB4");
+            entity.HasKey(e => e.FId).HasName("PK__tMemberV__D9F8227C9F10AE3B");
 
             entity.ToTable("tMemberVerification");
 
@@ -317,9 +324,7 @@ public partial class DbShizukuDemoContext : DbContext
 
             entity.ToTable("tPaymentTransactions");
 
-            entity.Property(e => e.FId)
-                .ValueGeneratedNever()
-                .HasColumnName("fId");
+            entity.Property(e => e.FId).HasColumnName("fId");
             entity.Property(e => e.FAmount)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("fAmount");
@@ -353,14 +358,13 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FId).HasColumnName("fID");
             entity.Property(e => e.FLevel).HasColumnName("fLevel");
             entity.Property(e => e.FPositionName)
-                .HasMaxLength(100)
-                .IsUnicode(false)
+                .HasMaxLength(200)
                 .HasColumnName("fPosition_name");
         });
 
         modelBuilder.Entity<TProduct>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CF383BD6C");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CA9D0A366");
 
             entity.ToTable("tProduct");
 
@@ -383,16 +387,20 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasColumnName("fProduct");
             entity.Property(e => e.FStatus)
                 .HasDefaultValue((byte)1)
+                .HasComment("0: 刪除 1:上架 2:下架")
                 .HasColumnName("fStatus");
         });
 
         modelBuilder.Entity<TProductCategory>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C9310AC51");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C43D194BC");
 
             entity.ToTable("tProductCategories");
 
             entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FCodePrefix)
+                .HasMaxLength(10)
+                .HasColumnName("fCodePrefix");
             entity.Property(e => e.FCreatedAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
@@ -408,7 +416,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductColor>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C4197CE8D");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C322208B3");
 
             entity.ToTable("tProductColors");
 
@@ -423,7 +431,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductImage>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CF9BF3973");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C1A32E26B");
 
             entity.ToTable("tProductImages");
 
@@ -438,7 +446,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductSize>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C9977EC5A");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C333036AA");
 
             entity.ToTable("tProductSizes");
 
@@ -451,7 +459,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductVariant>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CEF523E06");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C49146C6E");
 
             entity.ToTable("tProductVariants");
 
@@ -509,6 +517,9 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FDescription)
                 .HasMaxLength(255)
                 .HasColumnName("fDescription");
+            entity.Property(e => e.FIsDeleted)
+                .HasDefaultValue(false)
+                .HasColumnName("fIsDeleted");
             entity.Property(e => e.FName)
                 .HasMaxLength(50)
                 .HasColumnName("fName");
@@ -549,6 +560,9 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("fCreated_at");
+            entity.Property(e => e.FIsDeleted)
+                .HasDefaultValue(false)
+                .HasColumnName("fIsDeleted");
             entity.Property(e => e.FMemberId).HasColumnName("fMember_id");
             entity.Property(e => e.FOrderId).HasColumnName("fOrder_id");
             entity.Property(e => e.FPriority)

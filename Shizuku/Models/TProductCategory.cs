@@ -12,4 +12,6 @@ public partial class TProductCategory
     public string? FParentId { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
+
+    public string? FCodePrefix { get; set; }
 }
