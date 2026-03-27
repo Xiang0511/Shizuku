@@ -1,0 +1,77 @@
+﻿@model List<Shizuku.ViewModels.LeaveHistoryItem>
+@using Shizuku.Enums
+@{
+    ViewData["Title"] = "主管假單審核";
+}
+
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark"><i class="bi bi-shield-check me-2"></i>待審核假單清單</h2>
+        <span class="badge bg-secondary">目前共有 @Model.Count 筆待處理</span>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success border-0 shadow-sm mb-4">@TempData["SuccessMessage"]</div>
+    }
+
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 text-center">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="py-3">申請人</th>
+                        <th class="py-3">假別</th>
+                        <th class="py-3">開始時間</th>
+                        <th class="py-3">結束時間</th>
+                        <th class="py-3">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="fs-5">
+                    @if (Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="fw-bold">@item.EmployeeName</td>
+                                <td><span class="badge bg-info text-dark">@item.LeaveTypeName</span></td>
+                                <td class="small">@item.StartDate</td>
+                                <td class="small">@item.EndDate</td>
+                                <td>
+                                    <!-- 使用 Form 傳送審核結果 -->
+                                    <form asp-action="UpdateStatus" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@item.FId" />
+                                        
+                                        <!-- 同意按鈕 -->
+                                        <button type="submit" name="status" value="@((int)LeaveStatus.已核准)"
+                                                class="btn btn-success btn-sm rounded-pill px-3 me-1">
+                                            <i class="bi bi-check-lg"></i> 同意
+                                        </button>
+
+                                        <!-- 駁回按鈕 -->
+                                        <button type="submit" name="status" value="@((int)LeaveStatus.駁回)"
+                                                class="btn btn-danger btn-sm rounded-pill px-3">
+                                            <i class="bi bi-x-lg"></i> 駁回
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="py-5 text-muted">🎉 太棒了！目前沒有待審核的假單。</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="mt-4 text-center">
+        <a href="@Url.Action("Apply")" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回申請頁面
+        </a>
+    </div>
+</div>
