@@ -80,15 +80,15 @@
                                 <td>
                                     @if (item.FStatus == "離職")
                                     {
-                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">@item.FStatus</span>
+                                        <span class="badge rounded-pill bg-danger px-3">@item.FStatus</span>
                                     }
                                     else if (item.FStatus == "在職")
                                     {
-                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">@item.FStatus</span>
+                                        <span class="badge rounded-pill bg-success px-3">@item.FStatus</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">@item.FStatus</span>
+                                        <span class="badge rounded-pill bg-secondary px-3">@item.FStatus</span>
                                     }
                                 </td>
                                 <td class="text-muted small">@Html.DisplayFor(modelItem => item.FCreatedAt)</td>
@@ -96,7 +96,7 @@
                                 <td class="text-end">
                                     <div class="btn-group">
                                         <a asp-action="Edit" asp-route-id="@item.FId" class="btn btn-sm btn-outline-primary">編輯</a>
-                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定要移除這筆資料嗎?');">移除</a>
+                                        <a asp-action="Delete" asp-route-id="@item.FId" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定要停用這筆資料嗎?');">停用</a>
                                     </div>
                                 </td>
                             </tr>

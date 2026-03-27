@@ -6,11 +6,13 @@ namespace Shizuku.Controllers
 {
     public class AttendanceController : Controller
     {
+
+        private readonly DbShizukuDemoContext db = new DbShizukuDemoContext();
         // 1. 顯示打卡畫面
         [HttpGet]
         public IActionResult CheckIn()
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
             DateOnly today = DateOnly.FromDateTime(DateTime.Now);
 
             // 抓取今日前 10 筆打卡紀錄 (包含員工姓名)
@@ -49,7 +51,7 @@ namespace Shizuku.Controllers
                 return RedirectToAction("CheckIn");
             }
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
             var employee = db.TEmployees.FirstOrDefault(p => (p.FNumber == input || p.FEmail == input) && p.FStatus != "離職");
 
             if (employee == null)
@@ -132,7 +134,7 @@ namespace Shizuku.Controllers
         [HttpGet]
         public IActionResult History(string? searchEmployee, string? startDate, string? endDate)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
 
             // 1. 取得基礎查詢 
             var query = db.TAttendanceRecords.Include(r => r.FEmployee).AsQueryable();
@@ -179,6 +181,5 @@ namespace Shizuku.Controllers
 
             return View(vm);
         }
-
     }
 }
