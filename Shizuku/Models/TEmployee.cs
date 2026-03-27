@@ -30,5 +30,4 @@ public partial class TEmployee
     [DisplayName("最後更新")]
     public DateTime? FUpdatedAt { get; set; }
 
-    public string? FAddress { get; set; }
 }
