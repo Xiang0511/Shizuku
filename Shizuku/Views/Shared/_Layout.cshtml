@@ -201,6 +201,24 @@
                                 </ul>
                             </div>
                         </li>
+                        @* 系統管理 *@
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="collapse" aria-current="page" href="#SystemSubmenu">
+                                <!-- <span data-feather="home"></span> -->
+                                <i class="bi bi-gear fs-4"></i>
+                                系統管理
+                                <i class="bi bi-chevron-down"></i>
+                            </a>
+                            <div class="collapse fs-5" id="SystemSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="System" asp-action="Index">
+                                            <i class="bi bi-book-half"></i>系統日誌
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
                         @* 登入登出鍵 *@
                         <li class="nav-item d-md-none mt-3 border-top pt-2">
                             <a class="nav-link text-danger d-flex align-items-center" href="#">
@@ -281,8 +299,8 @@
             });
         });
     </script>
-
-
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 
 </html>
