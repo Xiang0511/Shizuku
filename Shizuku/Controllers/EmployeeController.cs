@@ -68,17 +68,52 @@ namespace Shizuku.Controllers
         public IActionResult Create(TEmployee p)
         {
             DbShizukuDemoContext db = new DbShizukuDemoContext();
-            p.FStatus = "在職";
 
+
+            p.FStatus = "在職";
+            p.FCreatedAt = DateTime.Now;
+            p.FUpdatedAt = DateTime.Now;
+
+            // --- 自動生成 EMP+流水號 邏輯開始 ---
+            if (string.IsNullOrEmpty(p.FNumber))
+            {
+                // 取得資料庫中目前最後一筆 EMP 開頭的編號
+                var lastEmployee = db.TEmployees
+                    .Where(e => e.FNumber.StartsWith("EMP"))
+                    .OrderByDescending(e => e.FNumber)
+                    .FirstOrDefault();
+
+                int nextNumber = 1;
+                if (lastEmployee != null)
+                {
+                    // 擷取 EMP 之後的數字部分 並轉為數字加 1
+                    string lastNumStr = lastEmployee.FNumber.Replace("EMP", "");
+                    if (int.TryParse(lastNumStr, out int lastId))
+                    {
+                        nextNumber = lastId + 1;
+                    }
+                }
+                // 格式化為 EMP + 三位數字，不足三位補 0
+                p.FNumber = $"EMP{nextNumber:D3}";
+            }
+
+            //移除不需要使用者填寫的驗證
             ModelState.Remove("FStatus");
+            ModelState.Remove(nameof(p.FNumber));
+            ModelState.Remove(nameof(p.FStatus));
+            ModelState.Remove(nameof(p.FPassword));
+            ModelState.Remove(nameof(p.FCreatedAt));
+
             if (ModelState.IsValid)
             {
                 db.TEmployees.Add(p);
                 db.SaveChanges();
                 return RedirectToAction("List");
             }
-            ViewBag.DepartmentList = new SelectList(db.TDepartments.ToList(), "FId", "FDepartmentName", p.FDepartmentId);
-            ViewBag.PositionList = new SelectList(db.TPositions.ToList(), "FId", "FPositionName", p.FPositionId);
+
+            DbShizukuDemoContext dbRetry = new DbShizukuDemoContext();
+            ViewBag.DepartmentList = new SelectList(dbRetry.TDepartments.ToList(), "FId", "FDepartmentName", p.FDepartmentId);
+            ViewBag.PositionList = new SelectList(dbRetry.TPositions.ToList(), "FId", "FPositionName", p.FPositionId);
 
             return View(p);
         }
