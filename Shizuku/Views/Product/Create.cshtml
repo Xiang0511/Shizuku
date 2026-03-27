@@ -1,0 +1,100 @@
+﻿@model Shizuku.Models.CProductwrap
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>新增產品作業</h1>
+
+<h4>輸入產品資訊</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            @* <div class="form-group">
+                <label asp-for="FId" class="control-label"></label>
+                <input asp-for="FId" class="form-control" />
+                <span asp-validation-for="FId" class="text-danger"></span>
+            </div> *@
+            @* readonly placeholder="系統將於儲存時自動產生" *@
+            <div class="form-group">
+                <label asp-for="FProduct" class="control-label"></label>
+                <input asp-for="FProduct" class="form-control" readonly placeholder="系統將於儲存時自動產生" />
+                <span asp-validation-for="FProduct" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FCategoryId" class="control-label"></label>
+                <select asp-for="FCategoryId" class="form-control" asp-items="ViewBag.fCategoryId">
+                <option value="">-- 請選擇分類 --</option>
+                </select>
+                <span asp-validation-for="FCategoryId" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FName" class="control-label"></label>
+                <input asp-for="FName" class="form-control" />
+                <span asp-validation-for="FName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FDescription" class="control-label"></label>
+<textarea asp-for="FDescription" class="form-control" rows="8" placeholder="請輸入商品詳細描述..."></textarea> 
+                <span asp-validation-for="FDescription" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FPrice" class="control-label"></label>
+                <input asp-for="FPrice" class="form-control" />
+                <span asp-validation-for="FPrice" class="text-danger"></span>
+            </div>
+            @* <div class="form-group">
+                <label asp-for="FStatus" class="control-label"></label>
+                <input asp-for="FStatus" class="form-control" />
+                <span asp-validation-for="FStatus" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FCreatedAt" class="control-label"></label>
+                <input asp-for="FCreatedAt" class="form-control" />
+                <span asp-validation-for="FCreatedAt" class="text-danger"></span>
+            </div> *@
+            <hr />
+            <h5 class="text-primary">規格設定</h5>
+
+            @* --- 3. 顏色：下拉選單 --- *@
+            <div class="form-group mb-3">
+                <label asp-for="FColorId" class="control-label"></label>
+                @* ✨ 重點 1：asp-for 要對準 ID 欄位 *@
+                @* ✨ 重點 2：asp-items 要對準 Controller 寫的 FColorId (有 Id) *@
+                <select asp-for="FColorId" class="form-control" asp-items="ViewBag.FColorId">
+                    <option value="">-- 請選擇顏色 --</option>
+                </select>
+                <span asp-validation-for="FColorId" class="text-danger"></span>
+            </div>
+
+            @* --- 4. 尺寸：下拉選單 --- *@
+            <div class="form-group mb-3">
+                <label asp-for="FSizeId" class="control-label"></label>
+                @* ✨ 重點 3：asp-items 要對準 Controller 寫的 FSizeId (有 Id) *@
+                <select asp-for="FSizeId" class="form-control" asp-items="ViewBag.FSizeId">
+                    <option value="">-- 請選擇尺寸 --</option>
+                </select>
+                <span asp-validation-for="FSizeId" class="text-danger"></span>
+            </div>
+            @* 5. 初始庫存：數字輸入 *@
+            <div class="form-group mb-3">
+                <label asp-for="FStock" class="control-label"></label>
+                <input asp-for="FStock" class="form-control" type="number" min="0" />
+                <span asp-validation-for="FStock" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="確認並送出" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="List">取消</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
