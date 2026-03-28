@@ -1,0 +1,45 @@
+name: Safe Upstream Backup
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-and-log:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout B Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync Branches to Prefixed Branches
+        run: |
+          # 1. 設定 A 為 upstream
+          git remote add upstream https://github.com/Xiang511/Git-Practice.git
+          git fetch upstream --prune
+          
+          # 2. 【關鍵修改】將 A 的分支推送到 B，但加上前綴 "upstream/"
+          # 這樣 A 的 main 會變成 B 的 upstream/main，不會覆蓋 B 的 main
+          git push origin "refs/remotes/upstream/*:refs/heads/upstream/*" --force
+
+      - name: Update Backup Log on B's Main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          export TZ="Asia/Taipei"
+          NOW=$(date +"%Y-%m-%d %H:%M:%S")
+          
+          # 確保我們在 B 的紀錄分支上
+          git checkout main
+          
+          # 紀錄更新
+          echo "最後同步時間：$NOW (已同步 A 的所有分支至 upstream/* 前綴)" > backup-log.txt
+          
+          git add backup-log.txt
+          git commit -m "chore: update backup log $NOW" || echo "No changes"
+          git push origin main
