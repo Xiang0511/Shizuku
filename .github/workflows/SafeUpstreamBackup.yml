@@ -19,7 +19,7 @@ jobs:
       - name: Sync Branches to Prefixed Branches
         run: |
           # 1. 設定 A 為 upstream
-          git remote add upstream https://github.com/Xiang511/Git-Practice.git
+          git remote add upstream https://github.com/SinSean/Shizuku.git
           git fetch upstream --prune
           
           # 2. 【關鍵修改】將 A 的分支推送到 B，但加上前綴 "upstream/"
