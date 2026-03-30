@@ -1,0 +1,155 @@
+﻿@model Shizuku.Wrap.CMemberWrap
+
+@{
+    ViewData["Title"] = "新增會員";
+}
+
+@* 標頭區塊 *@
+<div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark">新增會員作業</h2>
+        <small class="text-muted">請填寫下方表單以建立新的會員帳號</small>
+    </div>
+    <div>
+        <a asp-action="List" class="btn btn-outline-secondary shadow-sm rounded-pill px-4">
+            ← 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        @* 表單卡片 *@
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <form asp-action="Create">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 rounded-3 small"></div>
+
+                    <div class="row g-4">
+                        @* 姓名 *@
+                        <div class="col-12">
+                            <label asp-for="FName" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FName" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請輸入真實姓名" />
+                            <span asp-validation-for="FName" class="text-danger small"></span>
+                        </div>
+
+                        @* 電子郵件 *@
+                        <div class="col-12">
+                            <label asp-for="FEmail" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FEmail" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="example@mail.com" />
+                            <span asp-validation-for="FEmail" class="text-danger small"></span>
+                        </div>
+
+                        @* 密碼 *@
+                        <div class="col-12">
+                            <label asp-for="FPassword" class="form-label fw-bold text-secondary custom-required">設定密碼</label>
+                            <div class="position-relative">
+                                <input asp-for="FPassword" type="password" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="請設定 8 位以上包含大小寫英數密碼" />
+                            </div>
+    
+                            @* 強度提示視覺區 *@
+                            <div class="mt-2 px-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small id="pwd-strength-msg" class="fw-bold" style="font-size: 0.75rem; min-height: 18px;"></small>
+                                    <small class="text-muted" style="font-size: 0.7rem;">密碼強度</small>
+                                </div>
+                                <div id="pwd-strength-bar" class="progress" style="height: 6px; background-color: #e9ecef; border-radius: 10px; display: none;">
+                                    <div id="pwd-progress" class="progress-bar" role="progressbar" style="width: 0%; transition: all 0.4s ease; border-radius: 10px;"></div>
+                                </div>
+                            </div>
+
+                            <span asp-validation-for="FPassword" class="text-danger small mt-1 d-block"></span>
+                        </div>
+
+                        @* 電話 *@
+                        <div class="col-12">
+                            <label asp-for="FPhone" class="form-label fw-bold text-secondary custom-required"></label>
+                            <input asp-for="FPhone" class="form-control form-control-lg border-0 bg-light rounded-3" placeholder="09xx-xxx-xxx" />
+                            <span asp-validation-for="FPhone" class="text-danger small"></span>
+                        </div>
+
+                        @* 按鈕區 *@
+                        <div class="col-12 mt-5">
+                            <button type="submit" class="btn btn-primary w-100 py-3 shadow-sm rounded-3 fw-bold">
+                                確認建立會員
+                            </button>
+                            <div class="text-center mt-3">
+                                <a asp-action="List" class="text-decoration-none text-muted small">取消並返回列表</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* 專屬 CSS 修飾 *@
+<style>
+    /* 必填星號樣式 */
+    .custom-required::after {
+        content: " *";
+        color: #dc3545;
+    }
+
+    /* 輸入框 Focus 效果 */
+    .form-control:focus {
+        background-color: #fff !important;
+        box-shadow: 0 0 0 0.25 margin-top: rgba(13, 110, 253, 0.1) !important;
+        border: 1px solid #0d6efd !important;
+    }
+
+    /* 調整 Label 字級 */
+    .form-label {
+        font-size: 0.9rem;
+        margin-left: 4px;
+    }
+</style>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        $(document).ready(function () {
+                $('input[name="FPassword"]').on('input', function () {
+            const pwd = $(this).val();
+            const $msg = $('#pwd-strength-msg');
+            const $bar = $('#pwd-strength-bar');
+            const $progress = $('#pwd-progress');
+        
+            if (pwd.length === 0) {
+                $msg.text('');
+                $bar.hide();
+                return;
+            }
+
+            $bar.show();
+            let strength = 0;
+            if (pwd.length >= 8) strength++;
+            if (/[A-Z]/.test(pwd)) strength++;
+            if (/[a-z]/.test(pwd)) strength++;
+            if (/[0-9]/.test(pwd)) strength++;
+
+            // 根據強度調整顏色與長度
+            let color = "#dc3545"; // 預設紅色 (弱)
+            let width = "25%";
+            let text = "❌ 強度：太弱";
+
+            if (strength >= 2 && pwd.length >= 8) {
+                color = "#ffc107"; // 黃色 (中)
+                width = "60%";
+                text = "⚠️ 強度：一般";
+            }
+            if (strength >= 4) {
+                color = "#198754"; // 綠色 (強)
+                width = "100%";
+                text = "✅ 強度：安全";
+            }
+
+            $msg.text(text).css('color', color);
+            $progress.css({ 'width': width, 'background-color': color });
+        });
+        });
+    </script>
+}
