@@ -32,7 +32,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         @* 搜尋列 *@
-        <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">
+        @* <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search"> *@
         @* 登入登出鍵 *@
         <div class="navbar-nav d-none d-md-block">
             <div class="nav-item text-nowrap">
@@ -85,12 +85,13 @@
                             <div class="collapse fs-5" id="ProductSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        @* 修改這裡：加入 asp-controller 和 asp-action *@
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Product" asp-action="List">
                                             <i class="bi bi-list"></i> 商品列表
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Product" asp-action="Create">
                                             <i class="bi bi-bag-plus"></i> 商品新增
                                         </a>
                                     </li>
@@ -113,7 +114,7 @@
                             <div class="collapse fs-5" id="OrderSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Order" asp-action="Order">
                                             <span data-feather="list"></span>訂單列表
                                         </a>
                                     </li>
@@ -146,25 +147,25 @@
                             <div class="collapse fs-5" id="CustomerSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                       <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="List">
                                             <span class="bi bi-collection"></span> 所有案件
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
-                                            <span class="bi bi-envelope-exclamation"></span>代處理案件
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="Pending">
+                                            <span class="bi bi-envelope-exclamation"></span>待處理案件
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-controller="Customer" asp-action="Categories">
                                             <span class="bi bi-tags"></span>問題分類管理
                                         </a>
                                     </li>
-                                    <li class="nav-item">
+                                    @* <li class="nav-item">
                                         <a class="nav-link d-flex align-items-center" href="#">
                                             <span class="bi bi-person-badge"></span>我的經辦案件
                                         </a>
-                                    </li>
+                                    </li> *@
                                 </ul>
                             </div>
                         </li>
@@ -179,18 +180,46 @@
                             <div class="collapse fs-5" id="EmployeeSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Employee" asp-action="List">
                                             <span data-feather="users"></span>員工列表
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Attendance" asp-action="CheckIn">
                                             <span data-feather="clock"></span>出勤打卡
                                         </a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link d-flex align-items-center" href="#">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Attendance" asp-action="History">
+                                            <span data-feather="clock"></span>出勤紀錄
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Leave" asp-action="Apply">
+                                            <span data-feather="file-text"></span>假單申請
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="Leave" asp-action="Review">
                                             <span data-feather="file-text"></span>假單審核
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+                        @* 系統管理 *@
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="collapse" aria-current="page" href="#SystemSubmenu">
+                                <!-- <span data-feather="home"></span> -->
+                                <i class="bi bi-gear fs-4"></i>
+                                系統管理
+                                <i class="bi bi-chevron-down"></i>
+                            </a>
+                            <div class="collapse fs-5" id="SystemSubmenu">
+                                <ul class="nav flex-column ms-3">
+                                    <li class="nav-item">
+                                        <a class="nav-link d-flex align-items-center" asp-area="" asp-controller="System" asp-action="Index">
+                                            <i class="bi bi-book-half"></i>系統日誌
                                         </a>
                                     </li>
                                 </ul>

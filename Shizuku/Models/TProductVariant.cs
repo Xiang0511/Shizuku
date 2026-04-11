@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Shizuku.Models;
 
@@ -8,6 +9,7 @@ public partial class TProductVariant
     public int FId { get; set; }
 
     public int FProductId { get; set; }
+    public virtual TProduct TProduct { get; set; } = null!;
 
     public int FColorId { get; set; }
 

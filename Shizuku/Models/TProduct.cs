@@ -17,7 +17,13 @@ public partial class TProduct
 
     public decimal FPrice { get; set; }
 
+    /// <summary>
+    /// 0: 刪除 1:上架 2:下架
+    /// </summary>
     public byte FStatus { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
+
+    public virtual ICollection<TProductVariant> TProductVariants { get; set; } = new HashSet<TProductVariant>();
+    public virtual ICollection<TProductImage> TProductImages { get; set; } = new HashSet<TProductImage>();
 }
