@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Shizuku.Models;
+﻿namespace Shizuku.Models;
 
 public partial class TLeaveRecord
 {
@@ -18,4 +15,5 @@ public partial class TLeaveRecord
     public int? FStatus { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
+    public virtual TEmployee FEmployee { get; set; } = null!;
 }

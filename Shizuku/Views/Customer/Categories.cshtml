@@ -1,0 +1,101 @@
+﻿@model IEnumerable<Shizuku.Models.TTicketCategory>
+
+@{
+    ViewData["Title"] = "Category";
+}
+
+<h1>問題分類管理</h1>
+@* --- 1. 這裡開始是新增的搜尋欄區塊 --- *@
+@using (Html.BeginForm())
+{
+    <div class="search-box p-3 bg-light rounded shadow-sm mb-3">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <span class="fw-bold">關鍵字：</span>
+                @* 這裡的名稱一定要叫 txtKeyword，對應你的 ViewModel *@
+                @Html.TextBox("txtKeyword", null, new { @class = "form-control d-inline-block", style = "width:200px;", placeholder = "輸入類型或描述..." })
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-dark">查詢</button>
+            </div>
+        </div>
+    </div>
+}
+@* --- 搜尋欄結束 --- *@
+
+<p>
+    <a asp-action="Create">新增分類</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.FName)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FDescription)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.FCreatedAt)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.FName)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.FDescription)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.FCreatedAt)
+                </td>
+                <td>
+                    <a asp-action="CategoryEdit" asp-route-id="@item.FId">編輯</a> |
+                    <span class="text-muted mx-1">|</span>
+                    <a asp-action="CategoryDelete" asp-route-id="@item.FId"
+                       class="btn-delete"
+                       onclick="return confirm('確定要刪除這個分類嗎？')">刪除</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+<style>
+    /* 1. 基礎按鈕外觀 (統一样式) */
+    .table td a {
+        text-decoration: none !important;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+        display: inline-block; /* 讓 padding 有效 */
+        transition: 0.2s;
+    }
+
+    /* 2. 編輯按鈕 (藍色) */
+    .btn-edit, a[href*="Edit"] {
+        color: #0d6efd !important;
+        border: 1px solid #0d6efd;
+    }
+
+        .btn-edit:hover, a[href*="Edit"]:hover {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+
+    /* 3. 刪除按鈕 (紅色) */
+    .btn-delete, a[onclick*="confirm"] {
+        color: #dc3545 !important;
+        border: 1px solid #dc3545;
+    }
+
+        .btn-delete:hover, a[onclick*="confirm"]:hover {
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+</style>
