@@ -3,9 +3,8 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
+using Shizuku.Services;
 
-using Microsoft.EntityFrameworkCore; // ✨ 新增：需要這個才能用 UseSqlServer
-using Shizuku.Models;                // ✨ 新增：引入你的 Model 命名空間
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -40,6 +39,18 @@ builder.Host.UseSerilog(); // 告訴系統用 Serilog
 builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+//service
+
+builder.Services.AddScoped<MemberService>();
+
+// 註冊 CORS 服務 
+builder.Services.AddCors(options => {
+    options.AddPolicy("AllowVue", policy => {
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    });
+});
+
+////
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -54,6 +65,9 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseAuthorization();
+
+// 套用 CORS 中間件 
+app.UseCors("AllowVue");
 
 app.MapStaticAssets();
 
