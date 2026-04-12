@@ -7,6 +7,13 @@ namespace Shizuku.Controllers
 {
     public class MemberController : Controller
     {
+        private readonly DbShizukuDemoContext _DBcontext;
+
+        public MemberController(DbShizukuDemoContext context)
+        {
+            _DBcontext = context;
+        }
+
         public IActionResult Index()
         {
             return View();
@@ -15,9 +22,9 @@ namespace Shizuku.Controllers
         public IActionResult List(CKeywordViewModel vm)
         {
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
 
-            IQueryable<TMember> query = db.TMembers.Where(p => p.FIsActive == true);
+            IQueryable<TMember> query = _DBcontext.TMembers.Where(p => p.FIsActive == true);
 
             if (!string.IsNullOrEmpty(vm.txtKeyword))
             {
@@ -39,8 +46,8 @@ namespace Shizuku.Controllers
         }
         public IActionResult Block_List(CKeywordViewModel vm)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            IQueryable<TMember> query = db.TMembers.Where(p => p.FIsActive == false);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            IQueryable<TMember> query = _DBcontext.TMembers.Where(p => p.FIsActive == false);
             if (!string.IsNullOrEmpty(vm.txtKeyword))
             {
                 string k = vm.txtKeyword;
@@ -58,24 +65,24 @@ namespace Shizuku.Controllers
         }
         public IActionResult Delete(int? id)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TMember x = db.TMembers.FirstOrDefault(p => p.FId == id);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            TMember x = _DBcontext.TMembers.FirstOrDefault(p => p.FId == id);
             if (x != null)
             {
                 x.FIsActive = false;
-                db.SaveChanges();
+                _DBcontext.SaveChanges();
             }
             return RedirectToAction("List");
         }
 
         public IActionResult Restore(int? id)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TMember x = db.TMembers.FirstOrDefault(p => p.FId == id);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            TMember x = _DBcontext.TMembers.FirstOrDefault(p => p.FId == id);
             if (x != null)
             {
                 x.FIsActive = true;
-                db.SaveChanges();
+                _DBcontext.SaveChanges();
             }
             return RedirectToAction("Block_List");
         }
@@ -93,15 +100,15 @@ namespace Shizuku.Controllers
                 return View(p); // 驗證失敗，返回原頁面，會帶入剛才填的資料與錯誤訊息
             }
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            db.TMembers.Add(p.member);
-            db.SaveChanges();
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            _DBcontext.TMembers.Add(p.member);
+            _DBcontext.SaveChanges();
 
             int padLength = 3; //長度編號為:M0000 未來長度只改這行 2代表M00 3代表M000
             p.FMemberId = "M" + p.FId.ToString("D" + padLength);    //0001 0010 0100...解決格式化問題
             p.FAccount = p.FEmail;
 
-            db.SaveChanges();
+            _DBcontext.SaveChanges();
             return RedirectToAction("List");
         }
 
@@ -110,8 +117,8 @@ namespace Shizuku.Controllers
             if (id == null)
                 return RedirectToAction("List");
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TMember x = db.TMembers.FirstOrDefault(p => p.FId == id);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            TMember x = _DBcontext.TMembers.FirstOrDefault(p => p.FId == id);
             if (x == null)
                 return RedirectToAction("List");
 
@@ -127,15 +134,15 @@ namespace Shizuku.Controllers
                 return View(uiCustomer); // 驗證失敗，返回編輯頁
             }
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TMember dbCustomer = db.TMembers.FirstOrDefault(p => p.FId == uiCustomer.FId);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            TMember dbCustomer = _DBcontext.TMembers.FirstOrDefault(p => p.FId == uiCustomer.FId);
             if (dbCustomer != null)
             {
                 dbCustomer.FName = uiCustomer.FName;
                 dbCustomer.FEmail = uiCustomer.FEmail;
                 dbCustomer.FPassword = uiCustomer.FPassword;
                 dbCustomer.FPhone = uiCustomer.FPhone;
-                db.SaveChanges();
+                _DBcontext.SaveChanges();
             }
             return RedirectToAction("List");
         }
@@ -143,13 +150,13 @@ namespace Shizuku.Controllers
         [HttpPost]
         public IActionResult UpdateLevelAjax(int id, int newLevel)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            var member = db.TMembers.FirstOrDefault(p => p.FId == id);
+            //DbShizukuDemoContext db = new DbShizukuDemoContext();
+            var member = _DBcontext.TMembers.FirstOrDefault(p => p.FId == id);
 
             if (member != null)
             {
                 member.FLevel = newLevel;
-                db.SaveChanges();
+                _DBcontext.SaveChanges();
                 return Json(new { success = true, message = "等級已更新" });
             }
 
