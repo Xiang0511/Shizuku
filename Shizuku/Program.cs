@@ -7,6 +7,17 @@ using Shizuku.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 設定 CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowVue", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // 你的 Vue 開發網址
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
@@ -50,7 +61,8 @@ builder.Services.AddCors(options => {
     });
 });
 
-////
+builder.Services.AddControllers();
+////////////////////////////////////////
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -79,5 +91,6 @@ app.MapControllerRoute(
 // 2. 啟動自動請求紀錄 (這行也算在那幾行裡)
 app.UseSerilogRequestLogging();
 ///////
+app.MapControllers();
 
 app.Run();
