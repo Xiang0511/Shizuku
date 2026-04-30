@@ -2,6 +2,7 @@
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
+using Shizuku.Infrastructure.Filters.Shizuku.Infrastructure.Filters;
 using Shizuku.Models;
 using Shizuku.Services;
 
@@ -22,7 +23,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllersWithViews();
 
 //
-
+builder.Services.AddControllers(options =>
+{
+    // 自動掛載 Filter 到所有 Controller
+    options.Filters.Add<LogActionFilter>();
+});
 //
 
 // 1. 設定 Serilog (這就是那幾行)
@@ -41,6 +46,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning) // 這裡！過濾掉微軟內建的瑣碎訊息
     .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
     .WriteTo.MSSqlServer(connectionString, sinkOptions)
+    .WriteTo.Debug()    //紀錄到輸出那邊
     .CreateLogger();
 
 builder.Host.UseSerilog(); // 告訴系統用 Serilog

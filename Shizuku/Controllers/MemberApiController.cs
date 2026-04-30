@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.DotNet.Scaffolding.Shared.Messaging;
+using Serilog;
 using Shizuku.Services;
 using Shizuku.ViewModels;
 
@@ -38,6 +39,17 @@ namespace Shizuku.Controllers
                 success = true,
                 message="登入成功",
                 userName=member.FName
+            });
+        }
+
+        [HttpGet("Lo")]
+        public IActionResult Lo()
+        {
+            Log.Information("顯目的東西");
+            return Ok(new
+            {
+                success = true,
+                message = "登入成功",
             });
         }
     }
