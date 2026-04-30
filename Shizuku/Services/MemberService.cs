@@ -13,7 +13,7 @@ namespace Shizuku.Services
 
         public TMember Login(string email, string password)
         {
-            Log.Information("顯目的東西");
+            //Log.Information("顯目的東西");
             
             var member = _context.TMembers.FirstOrDefault(m => m.FEmail == email);
 

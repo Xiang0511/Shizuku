@@ -45,7 +45,7 @@ namespace Shizuku.Controllers
         [HttpGet("Lo")]
         public IActionResult Lo()
         {
-            Log.Information("顯目的東西");
+            //Log.Information("顯目的東西");
             return Ok(new
             {
                 success = true,

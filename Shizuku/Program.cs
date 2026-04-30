@@ -47,6 +47,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
     .WriteTo.MSSqlServer(connectionString, sinkOptions)
     .WriteTo.Debug()    //紀錄到輸出那邊
+    .WriteTo.Console()  //輸出到consolo介面
     .CreateLogger();
 
 builder.Host.UseSerilog(); // 告訴系統用 Serilog
