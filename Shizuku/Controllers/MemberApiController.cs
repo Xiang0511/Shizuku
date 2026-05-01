@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using Shizuku.DTOs;
 using Shizuku.Services;
 using Shizuku.ViewModels;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Shizuku.Controllers
 {
@@ -17,29 +19,33 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public virtual IActionResult Login([FromBody] MemberLoginViewModel vm)
+        public virtual ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginViewModel vm)
         {
-            //Log.Information("Login Log紀錄");
             if (vm == null || string.IsNullOrEmpty(vm.FEmail) || string.IsNullOrEmpty(vm.FPassword))
             {
-                //Log.Warning("登入失敗：前端傳入資料不完整或欄位名稱錯誤");
-                return BadRequest(new { success = false, message = "請輸入帳號密碼" });
+                return BadRequest(new ApiResponse<MemberLoginResponseDTO>
+                {
+                    Success = false,
+                    Message = "請輸入帳號密碼"
+                });
             }
 
-            var member = _memberService.Login(vm.FEmail, vm.FPassword);
+            var loginDto = _memberService.Login(vm.FEmail, vm.FPassword);
 
-            if (member == null)
+            if (loginDto == null)
             {
-                //Log.Warning("登入失敗：帳號密碼錯誤");
-                return Unauthorized(new { suceess = false, message = "帳號密碼錯誤" });
-            ;
+                return Unauthorized(new ApiResponse<MemberLoginResponseDTO>
+                {
+                    Success = false,
+                    Message = "帳號密碼錯誤"
+                });
             }
 
-            return Ok(new
+            return Ok(new ApiResponse<MemberLoginResponseDTO>
             {
-                success = true,
-                message="登入成功",
-                userName=member.FName
+                Success = true,
+                Message = "登入成功",
+                Data = loginDto
             });
         }
 

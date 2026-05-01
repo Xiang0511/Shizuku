@@ -1,4 +1,7 @@
-﻿using Shizuku.Models;
+﻿using Shizuku.DTOs; // 引入 DTOs 命名空間 [cite: 87]
+using Shizuku.Models;
+using System.Linq;
+
 namespace Shizuku.Services
 {
     public class MemberService
@@ -10,16 +13,17 @@ namespace Shizuku.Services
             _context = context;
         }
 
-        public virtual TMember Login(string email, string password)
-        {   
-            var member = _context.TMembers.FirstOrDefault(m => m.FEmail == email);
+        public virtual MemberLoginResponseDTO Login(string email, string password)
+        {
+            var loginResult = _context.TMembers
+                .Where(m => m.FEmail == email && m.FPassword == password)
+                .Select(m => new MemberLoginResponseDTO
+                {
+                    UserName = m.FName
+                })
+                .FirstOrDefault();
 
-            if (member != null && member.FPassword == password)
-            {
-                return member;
-            }
-
-            return null;
+            return loginResult; // 若找不到符合的帳密，loginResult 會是 null [cite: 87]
         }
     }
 }
