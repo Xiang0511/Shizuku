@@ -1,5 +1,4 @@
 ﻿using Shizuku.Models;
-using Serilog;
 namespace Shizuku.Services
 {
     public class MemberService

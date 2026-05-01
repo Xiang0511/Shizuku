@@ -1,8 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.DotNet.Scaffolding.Shared.Messaging;
+﻿using Microsoft.AspNetCore.Mvc;
 using Serilog;
-using Shizuku.Infrastructure.Attributes;
 using Shizuku.Services;
 using Shizuku.ViewModels;
 
