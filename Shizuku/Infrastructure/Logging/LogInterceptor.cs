@@ -7,24 +7,29 @@ namespace Shizuku.Infrastructure.Logging
     {
         public void Intercept(IInvocation invocation)
         {
-            // 1. 執行前：紀錄進入資訊 (DEBUG)
             var methodName = invocation.Method.Name;
             var arguments = string.Join(", ", invocation.Arguments);
-            Log.Debug("開始執行方法: {MethodName}, 參數: {Args}", methodName, arguments);
+            Log.Debug("開始執行: {MethodName}, 參數: {Args}", methodName, arguments);
 
             try
             {
-                // 2. 執行原有的方法內容
                 invocation.Proceed();
 
-                // 3. 執行後：紀錄成功 (DEBUG/INFO)
-                Log.Debug("方法 {MethodName} 執行完成，回傳值: {Result}", methodName, invocation.ReturnValue);
+                // --- 進階自動化：檢查回傳值 ---
+                if (invocation.ReturnValue == null)
+                {
+                    // 如果 Service 回傳 null，自動記一筆警告，你就不用在 Controller 寫了！
+                    Log.Warning("方法 {MethodName} 執行結果為空 (可能帳密錯誤或查無資料)", methodName);
+                }
+                else
+                {
+                    Log.Debug("方法 {MethodName} 成功執行", methodName);
+                }
             }
             catch (Exception ex)
             {
-                // 4. 噴錯時：自動紀錄 ERROR！(這就是你要的自動化)
-                Log.Error(ex, "執行方法 {MethodName} 時發生異常！訊息: {Msg}", methodName, ex.Message);
-                throw; // 拋出讓全域攔截器處理
+                Log.Error(ex, "方法 {MethodName} 崩潰！", methodName);
+                throw;
             }
         }
     }
