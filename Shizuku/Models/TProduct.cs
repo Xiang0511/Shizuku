@@ -23,7 +23,4 @@ public partial class TProduct
     public byte FStatus { get; set; }
 
     public DateTime? FCreatedAt { get; set; }
-
-    public virtual ICollection<TProductVariant> TProductVariants { get; set; } = new HashSet<TProductVariant>();
-    public virtual ICollection<TProductImage> TProductImages { get; set; } = new HashSet<TProductImage>();
 }

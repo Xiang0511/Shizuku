@@ -13,7 +13,8 @@ public partial class SystemLog
 
     public string? Level { get; set; }
 
-    public DateTime Timestamp { get; internal set; }
+    public DateTime? TimeStamp { get; set; }
+
     public string? Exception { get; set; }
 
     public string? Properties { get; set; }
