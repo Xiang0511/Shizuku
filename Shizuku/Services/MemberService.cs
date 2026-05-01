@@ -11,10 +11,8 @@ namespace Shizuku.Services
             _context = context;
         }
 
-        public TMember Login(string email, string password)
-        {
-            //Log.Information("顯目的東西");
-            
+        public virtual TMember Login(string email, string password)
+        {   
             var member = _context.TMembers.FirstOrDefault(m => m.FEmail == email);
 
             if (member != null && member.FPassword == password)

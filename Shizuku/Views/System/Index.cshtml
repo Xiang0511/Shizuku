@@ -26,6 +26,8 @@
                     <label class="form-label small fw-bold">顯示等級</label>
                     <select class="form-select form-select-sm" id="levelFilter">
                         <option value="">-- 全部顯示 --</option>
+                        <option value="Trace" selected="@(currentLevel == "Trace")">Trace</option>
+                        <option value="Debug" selected="@(currentLevel == "Debug")">Debug</option>
                         <option value="Information" selected="@(currentLevel == "Information")">Information</option>
                         <option value="Warning" selected="@(currentLevel == "Warning")">Warning</option>
                         <option value="Error" selected="@(currentLevel == "Error")">Error</option>
@@ -61,7 +63,11 @@
                         <tr>
                             <td class="ps-4">@item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td>
-                                @if (item.Level == "Error" || item.Level == "Fatal")
+                                @if (item.Level == "Trace" || item.Level == "Debug")
+                                {
+                                    <span class="badge rounded-pill bg-secondary">@item.Level</span>
+                                }
+                                else if (item.Level == "Error" || item.Level == "Fatal")
                                 {
                                     <span class="badge rounded-pill bg-danger">@item.Level</span>
                                 }

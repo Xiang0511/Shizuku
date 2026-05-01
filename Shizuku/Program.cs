@@ -1,103 +1,93 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Autofac;
+using Autofac.Extensions.DependencyInjection;
+using Autofac.Extras.DynamicProxy;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Infrastructure.Filters.Shizuku.Infrastructure.Filters;
+using Shizuku.Infrastructure.Logging;
 using Shizuku.Models;
 using Shizuku.Services;
+using Shizuku.Infrastructure.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 設定 CORS
+// 1. Serilog 設定 (放在最前面，確保啟動過程也被紀錄)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var sinkOptions = new MSSqlServerSinkOptions { TableName = "SystemLogs", AutoCreateSqlTable = true };
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
+    .WriteTo.MSSqlServer(connectionString, sinkOptions)
+    .WriteTo.Debug()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// 2. 基礎服務註冊 (DbContext 只留這一個)
+builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// 3. CORS 設定 (只留這一個)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVue", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // 你的 Vue 開發網址
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
-
-// Add services to the container.
-builder.Services.AddControllersWithViews();
-
-//
-builder.Services.AddControllers(options =>
-{
-    // 自動掛載 Filter 到所有 Controller
-    options.Filters.Add<LogActionFilter>();
-});
-//
-
-// 1. 設定 Serilog (這就是那幾行)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
-    options.UseSqlServer(connectionString));
-
-var sinkOptions = new MSSqlServerSinkOptions { TableName = "SystemLogs", AutoCreateSqlTable = true };
-
-//Log.Logger = new LoggerConfiguration()
-//    .MinimumLevel.Information()
-//    .WriteTo.MSSqlServer(connectionString, sinkOptions)
-//.CreateLogger();
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning) // 這裡！過濾掉微軟內建的瑣碎訊息
-    .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
-    .WriteTo.MSSqlServer(connectionString, sinkOptions)
-    .WriteTo.Debug()    //紀錄到輸出那邊
-    .WriteTo.Console()  //輸出到consolo介面
-    .CreateLogger();
-
-builder.Host.UseSerilog(); // 告訴系統用 Serilog
-///////
-
-// ✨✨ 關鍵新增：在這裡註冊資料庫服務 ✨✨
-builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-//service
-
-builder.Services.AddScoped<MemberService>();
-
-// 註冊 CORS 服務 
-builder.Services.AddCors(options => {
-    options.AddPolicy("AllowVue", policy => {
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
     });
 });
 
-builder.Services.AddControllers();
-////////////////////////////////////////
+builder.Services.AddControllersWithViews(); // 包含 API 和 Razor View 支援
+
+// 4. Autofac 設定
+builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
+{
+    containerBuilder.RegisterType<LogInterceptor>();
+
+    // 批次註冊 Service
+    containerBuilder.RegisterAssemblyTypes(typeof(Program).Assembly)
+        .Where(t => t.Name.EndsWith("Service"))
+        .PublicOnly()
+        .EnableClassInterceptors()
+        .InterceptedBy(typeof(LogInterceptor));
+
+    // 批次註冊 Controller
+    containerBuilder.RegisterAssemblyTypes(typeof(Program).Assembly)
+        .Where(t => t.Name.EndsWith("Controller"))
+        .EnableClassInterceptors()
+        .InterceptedBy(typeof(LogInterceptor));
+});
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// --- 中間件順序 (這很重要) ---
+
+// 第一名：全域錯誤捕捉，要包住所有人
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+// 第二名：紀錄 HTTP 請求 (放在 Routing 之前或之後皆可，通常放這裡)
+app.UseSerilogRequestLogging();
+
 app.UseRouting();
-
-app.UseAuthorization();
-
-// 套用 CORS 中間件 
 app.UseCors("AllowVue");
-
-app.MapStaticAssets();
+app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
-
-// 2. 啟動自動請求紀錄 (這行也算在那幾行裡)
-app.UseSerilogRequestLogging();
-///////
-app.MapControllers();
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();

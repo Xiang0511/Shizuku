@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.DotNet.Scaffolding.Shared.Messaging;
 using Serilog;
+using Shizuku.Infrastructure.Attributes;
 using Shizuku.Services;
 using Shizuku.ViewModels;
 
@@ -19,10 +20,12 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] MemberLoginViewModel vm)
+        public virtual IActionResult Login([FromBody] MemberLoginViewModel vm)
         {
+            //Log.Information("Login Log紀錄");
             if (vm == null || string.IsNullOrEmpty(vm.FEmail) || string.IsNullOrEmpty(vm.FPassword))
             {
+                
                 return BadRequest(new { success = false, message = "請輸入帳號密碼" });
             }
 
@@ -45,7 +48,7 @@ namespace Shizuku.Controllers
         [HttpGet("Lo")]
         public IActionResult Lo()
         {
-            //Log.Information("顯目的東西");
+            Log.Information("顯目的東西測試");
             return Ok(new
             {
                 success = true,
