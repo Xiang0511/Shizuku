@@ -3,9 +3,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
-
-using Microsoft.EntityFrameworkCore; // ✨ 新增：需要這個才能用 UseSqlServer
-using Shizuku.Models;                // ✨ 新增：引入你的 Model 命名空間
+using Shizuku.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -39,6 +37,8 @@ builder.Host.UseSerilog(); // 告訴系統用 Serilog
 // ✨✨ 關鍵新增：在這裡註冊資料庫服務 ✨✨
 builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<OrderService>();
 
 var app = builder.Build();
 
