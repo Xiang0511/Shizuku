@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Shizuku.Services; // 記得 using 你的 Service
+using Shizuku.Models.DTOs;
 
 namespace Shizuku.Controllers
 {
@@ -28,5 +29,13 @@ namespace Shizuku.Controllers
             // 包裝成 HTTP 200 (OK) 並轉成 JSON 回傳
             return Ok(new { Message = msg });
         }
+
+        [HttpPost("create")]
+        public IActionResult CreateOrder([FromBody] CreateOrderRequestDto request)
+        {
+            CreateOrderResponseDto result = _orderService.CreateOrder(request);
+            return Ok(result);
+        }
+
     }
 }
