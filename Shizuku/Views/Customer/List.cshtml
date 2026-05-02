@@ -127,7 +127,7 @@
                     <td>
                         @* 使用三元運算式，根據等級自動換 class *@
                         <span class="@(item.FPriority == "高" ? "text-danger fw-bold" :
-                                                                                                                   item.FPriority == "中" ? "text-warning" : "text-secondary")">
+                            item.FPriority == "中" ? "text-warning" : "text-secondary")">
                             @Html.DisplayFor(modelItem => item.FPriority)
                         </span>
                     </td>
@@ -135,7 +135,18 @@
                         @Html.DisplayFor(modelItem => item.FAssignedAgentId)
                     </td>
                     <td>
-                        @Html.DisplayFor(modelItem => item.FCreatedAt)
+                        @* 1. 顯示原始建立時間 *@
+                        <div class="fw-bold">
+                            @Html.DisplayFor(modelItem => item.FCreatedAt)
+                        </div>
+
+                        @* 2. 如果有更新過，就在下面用小字顯示最後更新 (不動 <td> 結構) *@
+                        @if (item.FUpdatedAt != null)
+                        {
+                            <div class="text-muted" style="font-size: 0.75em; border-top: 1px dashed #ccc; margin-top: 4px; padding-top: 2px;">
+                                更新：@item.FUpdatedAt
+                            </div>
+                        }
                     </td>
                     <td>
                         @Html.ActionLink("編輯", "Edit", "Customer", new { id = @item.FId }, null) |

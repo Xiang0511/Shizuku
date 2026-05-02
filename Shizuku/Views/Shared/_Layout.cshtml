@@ -305,7 +305,8 @@
             });
         });
     </script>
-    <script src="~/js/site.js"></script>
+
+    @* 加上這行，Layout 才知道要把 Edit 頁面的 Script 塞在哪 *@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 
