@@ -113,7 +113,7 @@ namespace Shizuku.Services
 
                     // 步驟 6：最後存檔，並按下「確認送出 (Commit)」按鈕
                     _db.SaveChanges();
-                    transaction.Commit(); // 🌟 極度重要：這行執行完，資料才會真的寫入資料庫！
+                    transaction.Commit(); // 極度重要：這行執行完，資料才會真的寫入資料庫！
 
                     // 回傳大成功！
                     return new CreateOrderResponseDto

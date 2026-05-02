@@ -8,10 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-
-//
-
-//
+// 加入 Swagger 產生器服務
+builder.Services.AddSwaggerGen();
 
 // 1. 設定 Serilog (這就是那幾行)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -32,11 +30,6 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 builder.Host.UseSerilog(); // 告訴系統用 Serilog
-///////
-
-// ✨✨ 關鍵新增：在這裡註冊資料庫服務 ✨✨
-builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<OrderService>();
 
@@ -48,6 +41,12 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
