@@ -11,6 +11,19 @@ builder.Services.AddControllersWithViews();
 // 加入 Swagger 產生器服務
 builder.Services.AddSwaggerGen();
 
+// ============== 關鍵新增：設定 CORS 允許跨域請求 ==============
+builder.Services.AddCors(options =>
+{
+    // 我們取名叫 AllowAll (允許所有)
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()  // 允許任何前端網址來串接 (開發階段最方便)
+              .AllowAnyHeader()  // 允許任何 Request 標頭
+              .AllowAnyMethod(); // 允許 POST, GET 等所有方法
+    });
+});
+
+
 // 1. 設定 Serilog (這就是那幾行)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
@@ -51,6 +64,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
