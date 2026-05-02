@@ -1,6 +1,7 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using Shizuku.Models.System;
+using System;
 using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
 
 namespace Shizuku.Models;
 
@@ -14,9 +15,7 @@ public partial class DbShizukuDemoContext : DbContext
         : base(options)
     {
     }
-
-    public virtual DbSet<SystemLog> SystemLogs { get; set; }
-
+    public DbSet<SystemLog> SystemLogs { get; set; }
     public virtual DbSet<TAttendanceRecord> TAttendanceRecords { get; set; }
 
     public virtual DbSet<TDepartment> TDepartments { get; set; }
@@ -28,10 +27,6 @@ public partial class DbShizukuDemoContext : DbContext
     public virtual DbSet<TMember> TMembers { get; set; }
 
     public virtual DbSet<TMemberVerification> TMemberVerifications { get; set; }
-
-    public virtual DbSet<TOrder> TOrders { get; set; }
-
-    public virtual DbSet<TOrderDetail> TOrderDetails { get; set; }
 
     public virtual DbSet<TPaymentLog> TPaymentLogs { get; set; }
 
@@ -70,7 +65,7 @@ public partial class DbShizukuDemoContext : DbContext
         modelBuilder.Entity<SystemLog>(entity =>
         {
             entity.Property(e => e.Level).HasMaxLength(16);
-            entity.Property(e => e.TimeStamp).HasColumnType("datetime");
+            entity.Property(e => e.Timestamp).HasColumnType("datetime");
         });
 
         modelBuilder.Entity<TAttendanceRecord>(entity =>
@@ -79,7 +74,9 @@ public partial class DbShizukuDemoContext : DbContext
 
             entity.ToTable("tAttendanceRecords");
 
-            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FId)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("fId");
             entity.Property(e => e.FClockInTime)
                 .HasColumnType("datetime")
                 .HasColumnName("fClock_in_time");
@@ -170,7 +167,7 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FEndDate)
                 .HasColumnType("datetime")
                 .HasColumnName("fEnd_date");
-            entity.Property(e => e.FLeaveType).HasColumnName("fLeave_type");
+            entity.Property(e => e.FLeaveType).HasDefaultValue(1).HasColumnName("fLeave_type");
             entity.Property(e => e.FStartDate)
                 .HasColumnType("datetime")
                 .HasColumnName("fStart_date");
@@ -179,13 +176,13 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TMember>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tMember__D9F8227CCFCD71B0");
+            entity.HasKey(e => e.FId).HasName("PK__tMember__D9F8227C49D3B076");
 
             entity.ToTable("tMember");
 
-            entity.HasIndex(e => e.FAccount, "UQ__tMember__E12994630FECC7CF").IsUnique();
+            entity.HasIndex(e => e.FAccount, "UQ__tMember__E1299463029448AA").IsUnique();
 
-            entity.HasIndex(e => e.FAccount, "UQ__tMember__E1299463979DE694").IsUnique();
+            entity.HasIndex(e => e.FAccount, "UQ__tMember__E12994638CC4844E").IsUnique();
 
             entity.Property(e => e.FId).HasColumnName("fId");
             entity.Property(e => e.FAccount)
@@ -254,7 +251,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TMemberVerification>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tMemberV__D9F8227C05772D15");
+            entity.HasKey(e => e.FId).HasName("PK__tMemberV__D9F8227C9F10AE3B");
 
             entity.ToTable("tMemberVerification");
 
@@ -278,72 +275,6 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasColumnName("fIs_used");
             entity.Property(e => e.FMemberId).HasColumnName("fMember_id");
             entity.Property(e => e.FType).HasColumnName("fType");
-        });
-
-        modelBuilder.Entity<TOrder>(entity =>
-        {
-            entity.HasKey(e => e.FId).HasName("PK_Orders");
-
-            entity.ToTable("tOrders");
-
-            entity.HasIndex(e => e.FOrderNo, "UQ_Orders_OrderNo").IsUnique();
-
-            entity.Property(e => e.FId).HasColumnName("fId");
-            entity.Property(e => e.FCreatedAt)
-                .HasDefaultValueSql("(getdate())", "DF_Orders_fCreated_at")
-                .HasColumnType("datetime")
-                .HasColumnName("fCreated_at");
-            entity.Property(e => e.FMemberId).HasColumnName("fMember_id");
-            entity.Property(e => e.FNote).HasColumnName("fNote");
-            entity.Property(e => e.FOrderNo)
-                .HasMaxLength(50)
-                .IsUnicode(false)
-                .HasColumnName("fOrder_no");
-            entity.Property(e => e.FReceiverAddress)
-                .HasMaxLength(255)
-                .HasColumnName("fReceiver_address");
-            entity.Property(e => e.FReceiverName)
-                .HasMaxLength(50)
-                .HasColumnName("fReceiver_name");
-            entity.Property(e => e.FReceiverPhone)
-                .HasMaxLength(20)
-                .IsUnicode(false)
-                .HasColumnName("fReceiver_phone");
-            entity.Property(e => e.FStatus)
-                .HasDefaultValue(1, "DF_Orders_fStatus")
-                .HasColumnName("fStatus");
-            entity.Property(e => e.FTotalAmount)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("fTotal_amount");
-            entity.Property(e => e.FUpdatedAt)
-                .HasDefaultValueSql("(getdate())", "DF_Orders_fUpdated_at")
-                .HasColumnType("datetime")
-                .HasColumnName("fUpdated_at");
-        });
-
-        modelBuilder.Entity<TOrderDetail>(entity =>
-        {
-            entity.HasKey(e => e.FId).HasName("PK_OrderDetails");
-
-            entity.ToTable("tOrderDetails");
-
-            entity.Property(e => e.FId).HasColumnName("fId");
-            entity.Property(e => e.FOrderId).HasColumnName("fOrder_id");
-            entity.Property(e => e.FPriceSnap)
-                .HasColumnType("decimal(10, 2)")
-                .HasColumnName("fPrice_snap");
-            entity.Property(e => e.FProductNameSnap)
-                .HasMaxLength(255)
-                .HasColumnName("fProduct_name_snap");
-            entity.Property(e => e.FQuantity).HasColumnName("fQuantity");
-            entity.Property(e => e.FSubtotal)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("fSubtotal");
-            entity.Property(e => e.FVariantId).HasColumnName("fVariant_id");
-
-            entity.HasOne(d => d.FOrder).WithMany(p => p.TOrderDetails)
-                .HasForeignKey(d => d.FOrderId)
-                .HasConstraintName("FK_tOrderDetails_tOrders");
         });
 
         modelBuilder.Entity<TPaymentLog>(entity =>
@@ -393,8 +324,9 @@ public partial class DbShizukuDemoContext : DbContext
             entity.HasKey(e => e.FId).HasName("PK_Payment_transactions");
 
             entity.ToTable("tPaymentTransactions");
-
-            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FId)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("fId");
             entity.Property(e => e.FAmount)
                 .HasColumnType("decimal(18, 2)")
                 .HasColumnName("fAmount");
@@ -434,7 +366,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProduct>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C1C8A3B43");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CA9D0A366");
 
             entity.ToTable("tProduct");
 
@@ -463,7 +395,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductCategory>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C7FBB90B2");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C43D194BC");
 
             entity.ToTable("tProductCategories");
 
@@ -486,7 +418,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductColor>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CC44DC3C9");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C322208B3");
 
             entity.ToTable("tProductColors");
 
@@ -501,7 +433,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductImage>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227CE87CE16B");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C1A32E26B");
 
             entity.ToTable("tProductImages");
 
@@ -516,7 +448,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductSize>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C1C0439FD");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C333036AA");
 
             entity.ToTable("tProductSizes");
 
@@ -529,7 +461,7 @@ public partial class DbShizukuDemoContext : DbContext
 
         modelBuilder.Entity<TProductVariant>(entity =>
         {
-            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C8979F7D4");
+            entity.HasKey(e => e.FId).HasName("PK__tProduct__D9F8227C49146C6E");
 
             entity.ToTable("tProductVariants");
 
@@ -544,6 +476,13 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("fSkuCode");
             entity.Property(e => e.FStock).HasColumnName("fStock");
+            // ✨ 加上這段：強制指定外鍵關聯，解決 TProductFId 報錯
+            entity.HasOne(d => d.TProduct)
+                .WithMany(p => p.TProductVariants)
+                .HasForeignKey(d => d.FProductId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_tProductVariants_tProduct");
+
         });
 
         modelBuilder.Entity<TRefund>(entity =>

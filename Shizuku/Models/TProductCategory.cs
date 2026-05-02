@@ -14,4 +14,5 @@ public partial class TProductCategory
     public DateTime? FCreatedAt { get; set; }
 
     public string? FCodePrefix { get; set; }
+
 }
