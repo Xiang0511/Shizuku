@@ -19,7 +19,11 @@ namespace Shizuku.Services
                 .Where(m => m.FEmail == email && m.FPassword == password)
                 .Select(m => new MemberLoginResponseDTO
                 {
-                    FName = m.FName
+                    FName = m.FName,
+                    FEmail = m.FEmail,
+                    FGender=m.FGender,
+                    FBirthday=m.FBirthday,
+                    FPhone=m.FPhone
                 })
                 .FirstOrDefault();
 
