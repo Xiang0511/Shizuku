@@ -19,9 +19,9 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public virtual ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginViewModel vm)
+        public virtual ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginRequestDTO dto)
         {
-            if (vm == null || string.IsNullOrEmpty(vm.FEmail) || string.IsNullOrEmpty(vm.FPassword))
+            if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
             {
                 return BadRequest(new ApiResponse<MemberLoginResponseDTO>
                 {
@@ -30,7 +30,7 @@ namespace Shizuku.Controllers
                 });
             }
 
-            var loginDto = _memberService.Login(vm.FEmail, vm.FPassword);
+            var loginDto = _memberService.Login(dto.FEmail, dto.FPassword);
 
             if (loginDto == null)
             {
