@@ -42,26 +42,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllersWithViews(); // 包含 API 和 Razor View 支援
-
-// 4. Autofac 設定
-builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
-builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
-{
-    containerBuilder.RegisterType<LogInterceptor>();
-
-    // 批次註冊 Service
-    containerBuilder.RegisterAssemblyTypes(typeof(Program).Assembly)
-        .Where(t => t.Name.EndsWith("Service"))
-        .PublicOnly()
-        .EnableClassInterceptors()
-        .InterceptedBy(typeof(LogInterceptor));
-
-    // 批次註冊 Controller
-    containerBuilder.RegisterAssemblyTypes(typeof(Program).Assembly)
-        .Where(t => t.Name.EndsWith("Controller"))
-        .EnableClassInterceptors()
-        .InterceptedBy(typeof(LogInterceptor));
-});
+builder.Services.AddScoped<MemberService>();
 
 var app = builder.Build();
 
