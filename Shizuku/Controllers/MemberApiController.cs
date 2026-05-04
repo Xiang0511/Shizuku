@@ -17,7 +17,7 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginRequestDTO dto)
+        public IActionResult Login([FromBody] MemberLoginRequestDTO dto)
         {
             Log.Information("MemberApiController Login API");
             if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
@@ -42,15 +42,11 @@ namespace Shizuku.Controllers
                 });
             }
 
-            List<MemberLoginResponseDTO> vars = new List<MemberLoginResponseDTO>();
-            vars.Add(loginDto);
-            vars.Add(loginDto);
-
-            return Ok(new ApiResponse<List<MemberLoginResponseDTO>>
+            return Ok(new ApiResponse<MemberLoginResponseDTO>
             {
                 Success = true,
                 Message = "登入成功",
-                Data = vars
+                Data = loginDto
             });
         }
 
