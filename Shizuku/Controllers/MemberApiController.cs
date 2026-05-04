@@ -42,11 +42,15 @@ namespace Shizuku.Controllers
                 });
             }
 
-            return Ok(new ApiResponse<MemberLoginResponseDTO>
+            List<MemberLoginResponseDTO> vars = new List<MemberLoginResponseDTO>();
+            vars.Add(loginDto);
+            vars.Add(loginDto);
+
+            return Ok(new ApiResponse<List<MemberLoginResponseDTO>>
             {
                 Success = true,
                 Message = "登入成功",
-                Data = loginDto
+                Data = vars
             });
         }
 
