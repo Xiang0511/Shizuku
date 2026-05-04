@@ -13,7 +13,7 @@ namespace Shizuku.Services
             _context = context;
         }
 
-        public virtual MemberLoginResponseDTO Login(string email, string password)
+        public MemberLoginResponseDTO Login(string email, string password)
         {
             var loginResult = _context.TMembers
                 .Where(m => m.FEmail == email && m.FPassword == password)

@@ -5,11 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
-using Shizuku.Infrastructure.Filters.Shizuku.Infrastructure.Filters;
-using Shizuku.Infrastructure.Logging;
 using Shizuku.Models;
 using Shizuku.Services;
-using Shizuku.Infrastructure.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +46,7 @@ var app = builder.Build();
 // --- 中間件順序 (這很重要) ---
 
 // 第一名：全域錯誤捕捉，要包住所有人
-app.UseMiddleware<GlobalExceptionMiddleware>();
+//app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (!app.Environment.IsDevelopment())
 {

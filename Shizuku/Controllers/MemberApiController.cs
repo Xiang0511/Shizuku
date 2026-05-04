@@ -19,8 +19,9 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public virtual ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginRequestDTO dto)
+        public ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginRequestDTO dto)
         {
+            Log.Information("顯目的Login測試");
             if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
             {
                 return BadRequest(new ApiResponse<MemberLoginResponseDTO>
