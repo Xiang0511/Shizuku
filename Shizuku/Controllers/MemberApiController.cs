@@ -2,8 +2,6 @@
 using Serilog;
 using Shizuku.DTOs;
 using Shizuku.Services;
-using Shizuku.ViewModels;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Shizuku.Controllers
 {
@@ -21,9 +19,10 @@ namespace Shizuku.Controllers
         [HttpPost("login")]
         public ActionResult<ApiResponse<MemberLoginResponseDTO>> Login([FromBody] MemberLoginRequestDTO dto)
         {
-            Log.Information("顯目的Login測試");
+            Log.Information("MemberApiController Login API");
             if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
             {
+                Log.Warning("帳號或密碼為空");
                 return BadRequest(new ApiResponse<MemberLoginResponseDTO>
                 {
                     Success = false,
@@ -35,6 +34,7 @@ namespace Shizuku.Controllers
 
             if (loginDto == null)
             {
+                Log.Warning("帳號或密碼錯誤");
                 return Unauthorized(new ApiResponse<MemberLoginResponseDTO>
                 {
                     Success = false,

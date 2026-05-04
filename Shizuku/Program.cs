@@ -1,7 +1,4 @@
-﻿using Autofac;
-using Autofac.Extensions.DependencyInjection;
-using Autofac.Extras.DynamicProxy;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
@@ -45,9 +42,6 @@ var app = builder.Build();
 
 // --- 中間件順序 (這很重要) ---
 
-// 第一名：全域錯誤捕捉，要包住所有人
-//app.UseMiddleware<GlobalExceptionMiddleware>();
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -57,7 +51,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// 第二名：紀錄 HTTP 請求 (放在 Routing 之前或之後皆可，通常放這裡)
+// 紀錄 HTTP 請求
 app.UseSerilogRequestLogging();
 
 app.UseRouting();
