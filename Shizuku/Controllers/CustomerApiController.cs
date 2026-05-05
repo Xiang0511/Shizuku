@@ -37,5 +37,17 @@ namespace Shizuku.Controllers
             // 成功則回傳 JSON
             return Ok(new { success = true, message = "客服單已成功送出！" });
         }
+        // -----------------------------------------------------------
+        // 2. ✨ 新增的：讓 Vue 來這裡拿「問題分類」的清單 (GET)
+        // -----------------------------------------------------------
+        [HttpGet("Categories")]
+        public IActionResult GetCategories()
+        {
+            // 呼叫 Service 去拿資料 (我們在第一步寫好的那個方法)
+            var categories = _customerService.GetTicketCategories();
+
+            // 成功拿回資料後，直接包裝成 JSON 吐給前端
+            return Ok(categories);
+        }
     }
 }
