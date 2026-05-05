@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Shizuku.Services; 
 using Shizuku.Models.DTOs;
 using System.Text.Json;
@@ -55,7 +55,27 @@ namespace Shizuku.Controllers
             }
             return BadRequest(new { IsSuccess = false, Message = "LINE Pay 扣款失敗！" });
         }
+
+        //讀取會員訂單列表API: /api/order/member/{memberId}  
+        [HttpGet("member/{memberId}")]
+        public async Task<IActionResult> GetMemberOrders(int memberId)
+        {
+            try
+            {
+                // 呼叫我們剛剛在 Service 寫好的方法，去撈這個 memberId 的訂單
+                var orders = await _orderService.GetMemberOrdersAsync(memberId);
+                
+                // 把轉換好的 DTO 資料，用 Http 200 (OK) 回傳給前端
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                // 如果發生錯誤，回傳 Http 400 以及錯誤訊息給前端
+                return BadRequest(new { IsSuccess = false, Message = "獲取訂單失敗：" + ex.Message });
+            }
+        }
     }
+
     // 放在 Controller 最下面，用來接前端的資料
     public class ConfirmPaymentRequestDto
     {

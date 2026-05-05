@@ -1,6 +1,7 @@
 using Shizuku.Models;
 using Shizuku.Models.DTOs;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace Shizuku.Services
 {
@@ -18,6 +19,7 @@ namespace Shizuku.Services
             _linePayService = linePayService;
         }
 
+        //建立訂單
         public async Task<CreateOrderResponseDto> CreateOrder(CreateOrderRequestDto request)
         {
             // 1. 先檢查購物車是不是空的
@@ -174,6 +176,28 @@ namespace Shizuku.Services
                     return new CreateOrderResponseDto { IsSuccess = false, Message = "訂單建立失敗：" + ex.Message };
                 }
             }
+        }
+
+        //根據memberId 取的訂單列表
+         public async Task<List<OrderListDto>> GetMemberOrdersAsync(int memberId)
+        {
+            // 使用 LINQ 語法，寫 SQL 查詢
+            var orders = await _db.TOrders
+                .Where(o => o.FMemberId == memberId) // 條件：只抓這個會員的訂單
+                .OrderByDescending(o => o.FCreatedAt) // 排序：依照建立時間，由新到舊排
+                .Select(o => new OrderListDto        // 轉換：把資料庫的 TOrder 變成我們的 DTO
+                {
+                    OrderNo = o.FOrderNo,
+                    TotalAmount = o.FTotalAmount,
+                    CreatedAt = o.FCreatedAt,
+                    StatusText = o.FStatus == 1 ? "待付款" :
+                                 o.FStatus == 2 ? "已付款" :
+                                 o.FStatus == 3 ? "已出貨" :
+                                 o.FStatus == 4 ? "已完成" :
+                                 o.FStatus == 5 ? "已取消" : "未知狀態"
+                })
+                .ToListAsync(); // 執行查詢並轉成 List 集合
+            return orders;
         }
     }
 }
