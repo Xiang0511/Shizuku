@@ -50,8 +50,11 @@ namespace Shizuku.Services
                 FUpdatedTime = DateTime.Now,
                 FIsActive = true,
                 FLevel = 1,
-                FGender = 2, // 補上預設性別 女裝 所以是女性
+                FGender = dto.FGender, // 補上預設性別 女裝 所以是女性
                 //FImage = "default.jpg" // 補上預設圖片 先不要好了
+                FReceiverName = dto.FName,
+                FPhone = dto.FPhone,
+                FReceiverPhone=dto.FPhone,
             };
 
             _context.TMembers.Add(newMember);
@@ -73,6 +76,8 @@ namespace Shizuku.Services
                     FMemberId = newMember.FMemberId,
                     FName = newMember.FName,
                     FEmail = newMember.FEmail,
+                    FPhone = newMember.FPhone,
+                    FBirthday = newMember.FBirthday,
                     FCreatedTime = newMember.FCreatedTime
                 };
             }
