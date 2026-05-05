@@ -1,66 +1,129 @@
-﻿@model Shizuku.Models.CProductwrap
+﻿@model Shizuku.ViewModels.ProductEditDto
+@using Shizuku.ViewModels
 
 @{
     ViewData["Title"] = "Edit";
+    var variants = ViewBag.Variants as List<VariantEditDto> ?? new();
 }
 
 <h1>編輯商品</h1>
-
-<h4>輸入商品資訊</h4>
 <hr />
+
 <div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
+    <div class="col-md-6">
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" name="fId" value="@Model.FId" />
-            <div class="form-group">
-                <label asp-for="FProduct" class="control-label"></label>
-                <input asp-for="FProduct" class="form-control" />
-                <span asp-validation-for="FProduct" class="text-danger"></span>
+            <input type="hidden" asp-for="fId" />
+
+            @* ── 基本資料 ── *@
+            <div class="form-group mb-3">
+                <label asp-for="fProduct" class="control-label"></label>
+                <input asp-for="fProduct" class="form-control" readonly />
             </div>
-            <div class="form-group">
-                <label asp-for="FCategoryId" class="control-label"></label>
-                <input asp-for="FCategoryId" class="form-control" />
-                <span asp-validation-for="FCategoryId" class="text-danger"></span>
+
+            <div class="form-group mb-3">
+                <label asp-for="fCategoryId" class="control-label"></label>
+                <input asp-for="fCategoryId" class="form-control" />
             </div>
-            <div class="form-group">
-                <label asp-for="FName" class="control-label"></label>
-                <input asp-for="FName" class="form-control" />
-                <span asp-validation-for="FName" class="text-danger"></span>
+
+            <div class="form-group mb-3">
+                <label asp-for="fName" class="control-label"></label>
+                <input asp-for="fName" class="form-control" />
+                <span asp-validation-for="fName" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FDescription" class="control-label"></label>
-                <input asp-for="FDescription" class="form-control" />
-                <span asp-validation-for="FDescription" class="text-danger"></span>
+
+            <div class="form-group mb-3">
+                <label asp-for="fDescription" class="control-label"></label>
+                <textarea asp-for="fDescription" class="form-control" rows="5"></textarea>
             </div>
-            <div class="form-group">
-                <label asp-for="FPrice" class="control-label"></label>
-                <input asp-for="FPrice" class="form-control" />
-                <span asp-validation-for="FPrice" class="text-danger"></span>
+
+            <div class="form-group mb-3">
+                <label asp-for="fPrice" class="control-label"></label>
+                <input asp-for="fPrice" class="form-control" />
+                <span asp-validation-for="fPrice" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FStatus" class="control-label">商品狀態</label>
-                <select asp-for="FStatus" class="form-control">
+
+            <div class="form-group mb-3">
+                <label asp-for="fStatus" class="control-label">商品狀態</label>
+                <select asp-for="fStatus" class="form-control">
                     <option value="1">上架中</option>
-                    <option value="0">刪除</option>
                     <option value="2">下架</option>
+                    <option value="0">刪除</option>
                 </select>
-                <span asp-validation-for="FStatus" class="text-danger"></span>
             </div>
-            @* <div class="form-group">
-                <label asp-for="FCreatedAt" class="control-label"></label>
-                <input asp-for="FCreatedAt" class="form-control" />
-                <span asp-validation-for="FCreatedAt" class="text-danger"></span>
-            </div> *@
-            <div class="form-group">
+
+            @* ── 圖片 ── *@
+            <hr />
+            <h5 class="text-primary">商品圖片</h5>
+
+            @if (!string.IsNullOrEmpty(Model.fImage))
+            {
+                <div class="mb-2">
+                    <img src="@Model.fImage" width="100" class="img-thumbnail" />
+                    <small class="text-muted d-block">目前主圖</small>
+                </div>
+            }
+
+            <div class="form-group mb-3">
+                <label asp-for="fPhoto" class="control-label">上傳新圖片（留空則不變更）</label>
+                <input asp-for="fPhoto" type="file" class="form-control" accept="image/*" />
+            </div>
+
+            @* ── 規格庫存 ── *@
+            <hr />
+            <h5 class="text-primary">規格庫存管理</h5>
+
+            @if (!variants.Any())
+            {
+                <p class="text-muted">此商品目前無規格資料</p>
+            }
+            else
+            {
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>顏色</th>
+                            <th>尺寸</th>
+                            <th style="width:120px">庫存數量</th>
+                            <th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < variants.Count; i++)
+                        {
+                            var v = variants[i];
+                            <tr>
+                                <td>@v.fColor</td>
+                                <td>@v.fSize</td>
+                                <td>
+                                    @* 傳遞 variantIds[] 與 variantStocks[] 給 Controller *@
+                                    <input type="hidden" name="variantIds" value="@v.fId" />
+                                    <input type="number" name="variantStocks"
+                                           value="@v.fStock" min="0"
+                                           class="form-control form-control-sm text-center" />
+                                </td>
+                                <td>
+                                    @if (v.fStock > 0)
+                                    {
+                                        <span class="badge bg-success">有庫存</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">售完</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <div class="form-group mt-3">
                 <input type="submit" value="送出並修改" class="btn btn-primary" />
+                <a asp-action="List" class="btn btn-outline-secondary ms-2">取消</a>
             </div>
         </form>
     </div>
-</div>
-
-<div>
-    <a asp-action="List">取消新增</a>
 </div>
 
 @section Scripts {

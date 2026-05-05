@@ -1,113 +1,77 @@
-﻿@model IEnumerable<Shizuku.Models.CProductwrap>
+﻿@model IEnumerable<Shizuku.ViewModels.ProductListDto>
 
-@{
-    ViewData["Title"] = "List";
-}
+<style>
+    .product-main-row { background-color: #f8f9fa; font-weight: bold; }
+    .variant-row { background-color: #ffffff; border-left: 3px solid #dee2e6; }
+    .product-img { object-fit: cover; border-radius: 4px; }
+    .expand-btn { cursor: pointer; color: #0d6efd; text-decoration: none; }
+</style>
 
-<h1>產品列表</h1>
-@using (Html.BeginForm())
-{
-    @:關鍵字 @Html.TextBox("txtKeyword")
-    <input type="submit" value="查詢" />
-}
-
-<p>
-    <a asp-action="Create">新增產品</a>
-</p>
-<table class="table">
-    <thead>
+<table class="table table-hover mt-3">
+    <thead class="table-light">
         <tr>
-            <th>序號</th>
-            <th>
-                @* 這裡直接對準 Wrap 裡的 FImage *@
-                @Html.DisplayNameFor(model => model.FImage)
-            </th>
-            <th>
-                @* 這裡補上 FProduct 的包裝屬性 (記得看下方 CProductwrap 的修改) *@
-                @Html.DisplayNameFor(model => model.FProduct)
-            </th>
-            <th>
-                @* 這裡直接對準 Wrap 裡的 FName，就會顯示 "商品名稱" *@
-                @Html.DisplayNameFor(model => model.FName)
-            </th>
-            <th>
-                規格 (顏色/尺寸)
-            </th>
-            <th>
-                @* 這裡直接對準 Wrap 裡的 FPrice，就會顯示 "價格" *@
-                @Html.DisplayNameFor(model => model.FPrice)
-            </th>
-            <th>
-                @* 這裡建議在 Wrap 也補一個 FStatus *@
-                @Html.DisplayNameFor(model => model.FStatus)
-            </th>
-            <th></th>
+            <th>商品細節</th>
+            <th>價格</th>
+            <th>總庫存</th>
+            <th>狀態</th>
+            <th>操作</th>
         </tr>
     </thead>
     <tbody>
-        @{
-            int count = 0;
-            foreach (var item in Model)
+        @foreach (var item in Model)
+        {
+            var collapseId = "variants_" + item.fId;
+            
+            <!-- 主商品行 -->
+            <tr class="product-main-row">
+                @* <td>
+                    <button class="btn btn-sm btn-link expand-btn" type="button" 
+                            data-bs-toggle="collapse" data-bs-target=".@collapseId">
+                        ▶
+                    </button>
+                </td> *@
+                <td>
+                    <div class="d-flex align-items-center">
+                        <img src="@(string.IsNullOrEmpty(item.fImage) ? "/images/no-image.png" : item.fImage)" 
+                             width="60" height="60" class="product-img me-3" />
+                        <div>
+                            <div>@item.fName</div>
+                            <small class="text-muted">貨號: @item.fProduct</small>
+                        </div>
+                    </div>
+                </td>
+                <td>NT$@item.fPrice.ToString("N0")</td>
+                <td>@item.Variants.Sum(v => v.fStock)</td> @* 計算該商品總庫存 *@
+                <td>
+                    @if (item.fStatus == 1) { <span class="badge bg-success">上架中</span> }
+                    else { <span class="badge bg-secondary">下架</span> }
+                </td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.fId" class="btn btn-sm btn-outline-primary">編輯</a>
+                </td>
+            </tr>
+
+            <!-- 規格明細行 (預設展開或隱藏) -->
+            @foreach (var v in item.Variants)
             {
-                count++;
-                <tr>
-                    <td>@count</td>
-                    <td>
-                        @* ✨ 顯示圖片 *@
-                        @if (!string.IsNullOrEmpty(item.FImage))
-                        {
-                            <img src="@item.FImage" width="80" class="img-thumbnail" />
-                        }
+                <tr class="collapse show @collapseId variant-row">
+                    <td></td>
+                    <td class="ps-5">
+                        <div class="d-flex align-items-center">
+                            @* 如果規格有獨立圖可以在這裡顯示，沒有就縮排 *@
+                            <span class="text-muted">規格：@v.fColor / @v.fSize</span>
+                        </div>
                     </td>
+                    <td class="text-muted">NT$@item.fPrice.ToString("N0")</td>
                     <td>
-                        @* ✨ 存取要加 .product *@
-                        @Html.DisplayFor(modelItem => item.product.FProduct)
+                        @if (v.fStock <= 0) { <span class="text-danger">已售完</span> }
+                        else { <span>@v.fStock</span> }
                     </td>
-                    <td>
-                        @Html.DisplayFor(modelItem => item.product.FName)
-                    </td>
-                    <td>
-                        @* ✨ 顯示手動 Join 的規格列表 *@
-                        @foreach (var v in item.Variants)
-                        {
-                            <small class="badge bg-secondary">@v.Color / @v.Size (@v.Stock)</small>
-
-                            <bAr />
-                        }
-                    </td>
-                    <td>
-                        @Html.DisplayFor(modelItem => item.product.FPrice)
-                    </td>
-                    <td>
-                        @{
-                            // 取得狀態值並轉為 int 方便判斷
-                            int status = Convert.ToInt32(item.FStatus);
-
-                            if (status == 1)
-                            {
-                                <span>上架中</span>
-                            }
-                            else if (status == 2)
-                            {
-                                <span>下架</span>
-                            }
-                            else if (status == 0)
-                            {
-                                <span class="text-danger">刪除</span>
-                            }
-                            else
-                            {
-                                <span>未知狀態 (@status)</span>
-                            }
-                        }
-                    </td>
-                    <td>
-                        @* ✨ 修改與刪除的 ID 通常是 item.product.FId *@
-                        @Html.ActionLink("修改", "Edit", "Product", new { id = item.product.FId }, new { @class = "btn btn-sm btn-outline-primary" })
-                        @Html.ActionLink("刪除", "Delete", "Product", new { id = item.product.FId }, new { onclick = "return confirm('確定要下架嗎？');", @class = "btn btn-sm btn-outline-danger" })
-                    </td>
+                    <td></td>
+                    <td></td>
                 </tr>
             }
+
         }
     </tbody>
 </table>

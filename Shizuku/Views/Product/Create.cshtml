@@ -1,100 +1,110 @@
-﻿@model Shizuku.Models.CProductwrap
+﻿@model Shizuku.ViewModels.ProductCreateDto
 
 @{
-    ViewData["Title"] = "Create";
+    ViewData["Title"] = "新增產品";
 }
 
-<h1>新增產品作業</h1>
+<div class="container py-4">
+    @* <!-- 頂部偽導航 -->
+    <ul class="nav nav-tabs nav-tabs-shopee">
+        <li class="nav-item"><a class="nav-link active" href="#">基本資訊</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">商品描述</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">銷售資訊</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">運費</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">其他</a></li>
+    </ul> *@
 
-<h4>輸入產品資訊</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Create">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            @* <div class="form-group">
-                <label asp-for="FId" class="control-label"></label>
-                <input asp-for="FId" class="form-control" />
-                <span asp-validation-for="FId" class="text-danger"></span>
-            </div> *@
-            @* readonly placeholder="系統將於儲存時自動產生" *@
-            <div class="form-group">
-                <label asp-for="FProduct" class="control-label"></label>
-                <input asp-for="FProduct" class="form-control" readonly placeholder="系統將於儲存時自動產生" />
-                <span asp-validation-for="FProduct" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FCategoryId" class="control-label"></label>
-                <select asp-for="FCategoryId" class="form-control" asp-items="ViewBag.fCategoryId">
-                <option value="">-- 請選擇分類 --</option>
-                </select>
-                <span asp-validation-for="FCategoryId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FName" class="control-label"></label>
-                <input asp-for="FName" class="form-control" />
-                <span asp-validation-for="FName" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FDescription" class="control-label"></label>
-<textarea asp-for="FDescription" class="form-control" rows="8" placeholder="請輸入商品詳細描述..."></textarea> 
-                <span asp-validation-for="FDescription" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FPrice" class="control-label"></label>
-                <input asp-for="FPrice" class="form-control" />
-                <span asp-validation-for="FPrice" class="text-danger"></span>
-            </div>
-            @* <div class="form-group">
-                <label asp-for="FStatus" class="control-label"></label>
-                <input asp-for="FStatus" class="form-control" />
-                <span asp-validation-for="FStatus" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FCreatedAt" class="control-label"></label>
-                <input asp-for="FCreatedAt" class="form-control" />
-                <span asp-validation-for="FCreatedAt" class="text-danger"></span>
-            </div> *@
-            <hr />
-            <h5 class="text-primary">規格設定</h5>
+    <form asp-action="Create" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            @* --- 3. 顏色：下拉選單 --- *@
-            <div class="form-group mb-3">
-                <label asp-for="FColorId" class="control-label"></label>
-                @* ✨ 重點 1：asp-for 要對準 ID 欄位 *@
-                @* ✨ 重點 2：asp-items 要對準 Controller 寫的 FColorId (有 Id) *@
-                <select asp-for="FColorId" class="form-control" asp-items="ViewBag.FColorId">
-                    <option value="">-- 請選擇顏色 --</option>
-                </select>
-                <span asp-validation-for="FColorId" class="text-danger"></span>
+        <!-- 區塊一：基本資訊 -->
+        <div class="shizuku-card">
+            <h5 class="shizuku-section-title">基本資訊</h5>
+
+            <div class="mb-4">
+                <label class="form-label">商品圖片</label>
+                <div class="d-flex align-items-start">
+                    <div class="img-upload-box" onclick="document.getElementById('fPhotoInput').click()">
+                        <i class="bi bi-image" style="font-size: 2rem; color: #ee4d2d;"></i>
+                        <span style="font-size: 12px; color: #ee4d2d;">新增圖片</span>
+                        <input asp-for="fPhoto" id="fPhotoInput" type="file" class="d-none" accept="image/*" onchange="previewImage(this)" />
+                    </div>
+                    <div id="imagePreviewContainer" class="ms-3 d-none">
+                        <img id="imgPreview" src="#" style="width: 100px; height: 100px; object-fit: cover; border: 1px solid #ddd;" />
+                    </div>
+                </div>
+                <div class="text-muted mt-2" style="font-size: 12px;">支援 jpg / png，建議比例 1:1</div>
             </div>
 
-            @* --- 4. 尺寸：下拉選單 --- *@
-            <div class="form-group mb-3">
-                <label asp-for="FSizeId" class="control-label"></label>
-                @* ✨ 重點 3：asp-items 要對準 Controller 寫的 FSizeId (有 Id) *@
-                <select asp-for="FSizeId" class="form-control" asp-items="ViewBag.FSizeId">
-                    <option value="">-- 請選擇尺寸 --</option>
-                </select>
-                <span asp-validation-for="FSizeId" class="text-danger"></span>
+            <div class="row mb-3">
+                <div class="col-md-8">
+                    <label asp-for="fName" class="form-label">商品名稱</label>
+                    <input asp-for="fName" class="form-control" placeholder="請輸入商品名稱" />
+                    <span asp-validation-for="fName" class="text-danger"></span>
+                </div>
             </div>
-            @* 5. 初始庫存：數字輸入 *@
-            <div class="form-group mb-3">
-                <label asp-for="FStock" class="control-label"></label>
-                <input asp-for="FStock" class="form-control" type="number" min="0" />
-                <span asp-validation-for="FStock" class="text-danger"></span>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label asp-for="fCategoryId" class="form-label">類別</label>
+                    <select asp-for="fCategoryId" class="form-select" asp-items="ViewBag.fCategoryId">
+                        <option value="">請選擇商品分類</option>
+                    </select>
+                    <span asp-validation-for="fCategoryId" class="text-danger"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <input type="submit" value="確認並送出" class="btn btn-primary" />
+        </div>
+
+        <!-- 區塊二：商品描述 -->
+        <div class="shizuku-card">
+            <h5 class="shizuku-section-title">商品描述</h5>
+            <div class="mb-3">
+                <label asp-for="fDescription" class="form-label">商品描述</label>
+                <textarea asp-for="fDescription" class="form-control" rows="10" placeholder="請輸入詳細的商品說明..."></textarea>
+                <span asp-validation-for="fDescription" class="text-danger"></span>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <!-- 區塊三：銷售資訊 (規格與價格) -->
+        <div class="shizuku-card">
+            <h5 class="shizuku-section-title">銷售資訊</h5>
+            <div class="row mt-3">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="fColorId" class="form-label">顏色規格</label>
+                    <select asp-for="fColorId" class="form-select" asp-items="ViewBag.fColorId">
+                        <option value="">請選擇顏色</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="fSizeId" class="form-label">尺寸規格</label>
+                    <select asp-for="fSizeId" class="form-select" asp-items="ViewBag.fSizeId">
+                        <option value="">請選擇尺寸</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label asp-for="fPrice" class="form-label">價格</label>
+                    <div class="input-group">
+                        <span class="input-group-text">NT$</span>
+                        <input asp-for="fPrice" class="form-control" placeholder="0" />
+                    </div>
+                    <span asp-validation-for="fPrice" class="text-danger"></span>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label asp-for="fStock" class="form-label">庫存</label>
+                    <input asp-for="fStock" class="form-control" type="number" placeholder="0" />
+                    <span asp-validation-for="fStock" class="text-danger"></span>
+                </div>
+            </div>
+
+          
+        </div>
+
+        <!-- 底部按鈕列 -->
+        <div class="d-flex justify-content-end mb-5">
+            <a asp-action="List" class="btn btn-outline-secondary me-3 px-5">取消</a>
+            <button type="submit" class="btn btn-primary px-5" style="background-color:burlywood; border: none;">儲存並上架</button>
+        </div>
+    </form>
 </div>
-
-<div>
-    <a asp-action="List">取消</a>
-</div>
-
-@section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-}
