@@ -11,6 +11,9 @@ builder.Services.AddControllersWithViews();
 // 加入 Swagger 產生器服務
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddHttpClient<LinePayService>();
+
 // ============== 關鍵新增：設定 CORS 允許跨域請求 ==============
 builder.Services.AddCors(options =>
 {
@@ -44,7 +47,6 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog(); // 告訴系統用 Serilog
 
-builder.Services.AddScoped<OrderService>();
 
 var app = builder.Build();
 

@@ -1,6 +1,6 @@
 using Shizuku.Models;
 using Shizuku.Models.DTOs;
-using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Shizuku.Services
 {
@@ -8,29 +8,21 @@ namespace Shizuku.Services
     {
         // 宣告一個唯讀的私有變數，用來存放資料庫連線
         private readonly DbShizukuDemoContext _db;
+        private readonly LinePayService _linePayService;
 
         // 這是建構子 (Constructor)
-        // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext，就會自動塞進來
-        public OrderService(DbShizukuDemoContext db)
+        // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext 和 LinePayService，就會自動塞進來
+        public OrderService(DbShizukuDemoContext db, LinePayService linePayService)
         {
-            _db = db; // 把 DI 塞進來的東西，存到私有變數裡給後面的方法用
+            _db = db;
+            _linePayService = linePayService;
         }
 
-        // 隨便先寫一個測試用的方法，等等給 Controller 呼叫
-        public string GetTestMessage()
-        {
-            return "OrderService 已經成功啟動了！";
-        }
-
-
-
-        public CreateOrderResponseDto CreateOrder(CreateOrderRequestDto request)
+        public async Task<CreateOrderResponseDto> CreateOrder(CreateOrderRequestDto request)
         {
             // 1. 先檢查購物車是不是空的
             if (request.CartItems == null || request.CartItems.Count == 0)
-            {
                 return new CreateOrderResponseDto { IsSuccess = false, Message = "購物車是空的喔！" };
-            }
 
             // 2. 產生一個唯一的訂單編號 (例如: ORD20260502123456)
             string newOrderNo = "ORD" + DateTime.Now.ToString("yyyyMMddHHmmss");
@@ -111,17 +103,67 @@ namespace Shizuku.Services
                         _db.TOrderDetails.Add(detail);
                     }
 
-                    // 步驟 6：最後存檔，並按下「確認送出 (Commit)」按鈕
                     _db.SaveChanges();
-                    transaction.Commit(); // 極度重要：這行執行完，資料才會真的寫入資料庫！
+                    
 
-                    // 回傳大成功！
-                    return new CreateOrderResponseDto
+                    int payAmount = Convert.ToInt32(totalAmount);
+
+                    var linePayPayload = new
                     {
-                        IsSuccess = true,
-                        Message = "訂單建立成功！",
-                        OrderNo = newOrderNo
+                        amount = payAmount,
+                        currency = "TWD",
+                        orderId = newOrderNo,
+                        packages = new[]
+                        {
+                            new
+                            {
+                                id = "pkg_1",
+                                amount = payAmount,
+                                name = "Shizuku 訂單",
+                                products = new[]
+                                {
+                                    new
+                                    {
+                                        name = "購物車商品", quantity = 1, price = payAmount
+                                    }
+                                }
+                            }
+                        },
+                        redirectUrls = new
+                        {
+                            // 付款完成後 LINE Pay 要導向的前端網址
+                            confirmUrl = "http://localhost:5173/payment/success",
+                            cancelUrl = "http://localhost:5173/cart"
+                        }
                     };
+                    //呼叫 LinepayService
+                    string linePayResponseJson = await _linePayService.SendLinePayRequestAsync("/v3/payments/request", linePayPayload);
+                    //  把 LINE Pay 的回應印出來，我們才知道為什麼失敗
+                    Console.WriteLine("============= LINE Pay 回傳結果 =============");
+                    Console.WriteLine(linePayResponseJson);
+                    Console.WriteLine("=============================================");
+
+                    using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+                    {
+                        var root = doc.RootElement;
+                        if (root.GetProperty("returnCode").GetString() == "0000")
+                        {
+                            transaction.Commit(); 
+                            string paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
+                            return new CreateOrderResponseDto
+                            {
+                                IsSuccess = true,
+                                Message = "訂單建立成功！",
+                                OrderNo = newOrderNo,
+                                PaymentUrl = paymentUrl // 將網址回傳給前端
+                            };
+                        }
+                        else
+                        {
+                            string returnMessage = root.GetProperty("returnMessage").GetString();
+                            throw new Exception("LINE Pay 拒絕請求：" + returnMessage);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -129,11 +171,7 @@ namespace Shizuku.Services
                     // 就會跳到這裡，執行 Rollback (時光倒流)，什麼都不會存進去資料庫
                     transaction.Rollback();
 
-                    return new CreateOrderResponseDto
-                    {
-                        IsSuccess = false,
-                        Message = "訂單建立失敗：" + ex.Message
-                    };
+                    return new CreateOrderResponseDto { IsSuccess = false, Message = "訂單建立失敗：" + ex.Message };
                 }
             }
         }

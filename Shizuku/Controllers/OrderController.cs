@@ -1,41 +1,65 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shizuku.Services; // 記得 using 你的 Service
+using Shizuku.Services; 
 using Shizuku.Models.DTOs;
+using System.Text.Json;
 
 namespace Shizuku.Controllers
 {
-    // 1. 加上這些屬性，告訴系統這是一個給 Vue 用的 API Controller
+    //  加上這些屬性，告訴系統這是一個給 Vue 用的 API Controller
     [ApiController]
     [Route("api/[controller]")]
-    public class OrderController : ControllerBase // 2. 從 Controller 改繼承 ControllerBase (不要 View 了)
+    public class OrderController : ControllerBase 
     {
-        // 3. 宣告變數來裝 Service
+        // 宣告變數來裝 Service
         private readonly OrderService _orderService;
+        private readonly LinePayService _linePayService;
+        private readonly Models.DbShizukuDemoContext _db;
 
-        // 4. 建構子注入 (Constructor Injection)
+        // 建構子注入 (Constructor Injection)
         // 系統管家 (DI 容器) 看到你需要 OrderService，就會自動把你剛剛在 Program.cs 註冊好的實體派過來
-        public OrderController(OrderService orderService)
+        public OrderController(OrderService orderService, LinePayService linePayService, Models.DbShizukuDemoContext db)
         {
             _orderService = orderService;
-        }
-
-        // 5. 寫一個簡單的 API 測試一下
-        [HttpGet("test")]
-        public IActionResult Test()
-        {
-            // 叫大廚做事！
-            string msg = _orderService.GetTestMessage();
-
-            // 包裝成 HTTP 200 (OK) 並轉成 JSON 回傳
-            return Ok(new { Message = msg });
+            _linePayService = linePayService;
+            _db = db;
         }
 
         [HttpPost("create")]
-        public IActionResult CreateOrder([FromBody] CreateOrderRequestDto request)
+        public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
-            CreateOrderResponseDto result = _orderService.CreateOrder(request);
+            CreateOrderResponseDto result = await _orderService.CreateOrder(request);
             return Ok(result);
         }
 
+        [HttpPost("confirm")]
+        public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequestDto request)
+        {
+            // 找出這筆訂單確認金額
+            var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == request.OrderId);
+            if (order == null) return BadRequest(new { IsSuccess = false, Message = "找不到訂單" });
+            var confirmPayload = new { amount = order.FTotalAmount, currency = "TWD" };
+            string uri = $"/v3/payments/{request.TransactionId}/confirm";
+            
+            // 向 LINE Pay 確認扣款
+            string linePayResponseJson = await _linePayService.SendLinePayRequestAsync(uri, confirmPayload);
+            using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+            {
+                if (doc.RootElement.GetProperty("returnCode").GetString() == "0000")
+                {
+                    // 🌟 扣款成功！更改訂單狀態為「已付款」(假設狀態 2)
+                    order.FStatus = 2; 
+                    order.FUpdatedAt = DateTime.Now;
+                    _db.SaveChanges();
+                    return Ok(new { IsSuccess = true, Message = "付款大成功！" });
+                }
+            }
+            return BadRequest(new { IsSuccess = false, Message = "LINE Pay 扣款失敗！" });
+        }
+    }
+    // 放在 Controller 最下面，用來接前端的資料
+    public class ConfirmPaymentRequestDto
+    {
+        public string TransactionId { get; set; }
+        public string OrderId { get; set; }
     }
 }
