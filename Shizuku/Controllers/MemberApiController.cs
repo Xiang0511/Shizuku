@@ -51,23 +51,46 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromBody] MemberRegisterDTO dto)
+        public async Task<ActionResult<ApiResponse<MemberRegisterResponseDTO>>> Register([FromBody] MemberRegisterDTO dto)
         {
             // 1. 驗證密碼一致性
             if (dto.FPassword != dto.ConfirmPassword)
-                return BadRequest(new { message = "兩次密碼輸入不一致" });
+            {
+                return BadRequest(new ApiResponse<MemberRegisterResponseDTO>
+                {
+                    Success = false,
+                    Message = "兩次密碼輸入不一致"
+                });
+            }
 
             // 2. 驗證 Email 是否重複
             if (await _memberService.IsEmailTakenAsync(dto.FEmail))
-                return Conflict(new { message = "此電子信箱已被註冊" });
+            {
+                return Conflict(new ApiResponse<MemberRegisterResponseDTO>
+                {
+                    Success = false,
+                    Message = "此電子信箱已被註冊"
+                });
+            }
 
             // 3. 執行註冊
-            var success = await _memberService.RegisterAsync(dto);
+            var responseData = await _memberService.RegisterAsync(dto);
 
-            if (success)
-                return Ok(new { message = "註冊成功" });
+            if (responseData != null)
+            {
+                return Ok(new ApiResponse<MemberRegisterResponseDTO>
+                {
+                    Success = true,
+                    Message = "註冊成功",
+                    Data = responseData
+                });
+            }
 
-            return StatusCode(500, new { message = "註冊過程中發生錯誤" });
+            return StatusCode(500, new ApiResponse<MemberRegisterResponseDTO>
+            {
+                Success = false,
+                Message = "註冊過程中發生伺服器錯誤"
+            });
         }
 
         [HttpGet("Lo")]

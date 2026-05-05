@@ -37,7 +37,7 @@ namespace Shizuku.Services
             return await _context.TMembers.AnyAsync(m => m.FEmail == email);
         }
 
-        public async Task<bool> RegisterAsync(MemberRegisterDTO dto)
+        public async Task<MemberRegisterResponseDTO?> RegisterAsync(MemberRegisterDTO dto)
         {
             // 1. 建立實體並填入初始資料
             var newMember = new TMember
@@ -45,13 +45,13 @@ namespace Shizuku.Services
                 FName = dto.FName,
                 FEmail = dto.FEmail,
                 FAccount = dto.FEmail, // 帳號同 Email
-                FPassword = dto.FPassword, // 建議此處加入雜湊加密邏輯
+                FPassword = dto.FPassword,
                 FCreatedTime = DateTime.Now,
                 FUpdatedTime = DateTime.Now,
                 FIsActive = true,
                 FLevel = 1,
-                FWishlist = "[]",
-                FReceiverAddress = "[]"
+                FGender = 2, // 補上預設性別 女裝 所以是女性
+                //FImage = "default.jpg" // 補上預設圖片 先不要好了
             };
 
             _context.TMembers.Add(newMember);
@@ -63,7 +63,21 @@ namespace Shizuku.Services
             newMember.FMemberId = $"M0{newMember.FId}";
 
             // 4. 第二次 SaveChanges 更新代主鍵
-            return await _context.SaveChangesAsync() > 0;
+            var result = await _context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                // 5. 轉換成 Response DTO 回傳
+                return new MemberRegisterResponseDTO
+                {
+                    FMemberId = newMember.FMemberId,
+                    FName = newMember.FName,
+                    FEmail = newMember.FEmail,
+                    FCreatedTime = newMember.FCreatedTime
+                };
+            }
+
+            return null;
         }
     }
 }
