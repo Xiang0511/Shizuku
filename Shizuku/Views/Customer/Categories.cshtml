@@ -1,18 +1,18 @@
-﻿@model IEnumerable<Shizuku.Models.TTicketCategory>
+﻿@model IEnumerable<Shizuku.Wraps.CTicketCategoryWrap>
 
 @{
-    ViewData["Title"] = "Category";
+    ViewData["Title"] = "問題分類管理";
 }
 
 <h1>問題分類管理</h1>
-@* --- 1. 這裡開始是新增的搜尋欄區塊 --- *@
+
 @using (Html.BeginForm())
 {
     <div class="search-box p-3 bg-light rounded shadow-sm mb-3">
         <div class="row align-items-center">
             <div class="col-auto">
                 <span class="fw-bold">關鍵字：</span>
-                @* 這裡的名稱一定要叫 txtKeyword，對應你的 ViewModel *@
+                @* 對應你的 ViewModel *@
                 @Html.TextBox("txtKeyword", null, new { @class = "form-control d-inline-block", style = "width:200px;", placeholder = "輸入類型或描述..." })
             </div>
             <div class="col-auto">
@@ -21,81 +21,39 @@
         </div>
     </div>
 }
-@* --- 搜尋欄結束 --- *@
 
 <p>
-    <a asp-action="Create">新增分類</a>
+    @* 如果你之前有做新增功能，這個連結就會生效 *@
+    <a asp-action="CategoryCreate" class="btn btn-outline-primary mb-2">新增分類</a>
 </p>
-<table class="table">
-    <thead>
+
+<table class="table table-hover align-middle border-bottom">
+    <thead class="table-light">
         <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.FName)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FDescription)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.FCreatedAt)
-            </th>
-            <th></th>
+            <th>@Html.DisplayNameFor(model => model.fName)</th>
+            <th>@Html.DisplayNameFor(model => model.fDescription)</th>
+            <th>建立時間</th>
+            <th>管理操作</th>
         </tr>
     </thead>
     <tbody>
         @foreach (var item in Model)
         {
             <tr>
-                <td>
-                    @Html.DisplayFor(modelItem => item.FName)
+                <td class="fw-bold">
+                    @Html.DisplayFor(modelItem => item.fName)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.FDescription)
+                    @Html.DisplayFor(modelItem => item.fDescription)
+                </td>
+                <td class="text-muted">
+                    @Html.DisplayFor(modelItem => item.Entity.FCreatedAt)
                 </td>
                 <td>
-                    @Html.DisplayFor(modelItem => item.FCreatedAt)
-                </td>
-                <td>
-                    <a asp-action="CategoryEdit" asp-route-id="@item.FId">編輯</a> |
-                    <span class="text-muted mx-1">|</span>
-                    <a asp-action="CategoryDelete" asp-route-id="@item.FId"
-                       class="btn-delete"
-                       onclick="return confirm('確定要刪除這個分類嗎？')">刪除</a>
+                    @Html.ActionLink("編輯", "CategoryEdit", "Customer", new { id = item.fId }, new { @class = "btn btn-sm btn-outline-primary" }) |
+                    @Html.ActionLink("刪除", "CategoryDelete", "Customer", new { id = item.fId }, new { @class = "btn btn-sm btn-outline-danger", onclick = "return confirm('確定要刪除這筆分類嗎?')" })
                 </td>
             </tr>
         }
     </tbody>
 </table>
-<style>
-    /* 1. 基礎按鈕外觀 (統一样式) */
-    .table td a {
-        text-decoration: none !important;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 0.85em;
-        font-weight: bold;
-        display: inline-block; /* 讓 padding 有效 */
-        transition: 0.2s;
-    }
-
-    /* 2. 編輯按鈕 (藍色) */
-    .btn-edit, a[href*="Edit"] {
-        color: #0d6efd !important;
-        border: 1px solid #0d6efd;
-    }
-
-        .btn-edit:hover, a[href*="Edit"]:hover {
-            background-color: #0d6efd !important;
-            color: white !important;
-        }
-
-    /* 3. 刪除按鈕 (紅色) */
-    .btn-delete, a[onclick*="confirm"] {
-        color: #dc3545 !important;
-        border: 1px solid #dc3545;
-    }
-
-        .btn-delete:hover, a[onclick*="confirm"]:hover {
-            background-color: #dc3545 !important;
-            color: white !important;
-        }
-</style>
