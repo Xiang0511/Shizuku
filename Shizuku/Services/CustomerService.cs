@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
@@ -187,5 +188,37 @@ namespace Shizuku.Services
             x.FIsDeleted = true;
             _db.SaveChanges();
         }
+        /// <summary>
+		/// 接收 Vue 前台表單並存入資料庫
+		/// </summary>
+		public bool CreateTicketFromVue(VueTicketDto dto)
+        {
+            // 早失敗原則
+            if (dto == null)
+            {
+                return false;
+            }
+
+            // 將前端沒有對應的欄位，組合進主旨裡讓客服人員看
+            string combinedSubject = $"[訪客: {dto.LastName}{dto.FirstName} | {dto.Email}] {dto.Subject} - 內容: {dto.Description}";
+
+            var newTicket = new TTicketsCustomer
+            {
+                FMemberId = 0, // 假設 0 代表未登入的訪客
+                FCategoryId = dto.CategoryId == 0 ? 1 : dto.CategoryId, // 若沒選分類則預設 1
+                FSubject = combinedSubject,
+                FStatus = "待處理",
+                FPriority = "中",
+                FCreatedAt = DateTime.Now,
+                FIsDeleted = false
+            };
+
+            _db.TTicketsCustomers.Add(newTicket);
+            _db.SaveChanges();
+
+            return true;
+        }
+       
+		
     }
 }
