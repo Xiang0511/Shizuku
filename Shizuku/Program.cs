@@ -3,17 +3,26 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
-
-using Microsoft.EntityFrameworkCore; // ✨ 新增：需要這個才能用 UseSqlServer
-using Shizuku.Models;                // ✨ 新增：引入你的 Model 命名空間
+using Shizuku.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+// 加入 Swagger 產生器服務
+builder.Services.AddSwaggerGen();
 
-//
+// ============== 關鍵新增：設定 CORS 允許跨域請求 ==============
+builder.Services.AddCors(options =>
+{
+    // 我們取名叫 AllowAll (允許所有)
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()  // 允許任何前端網址來串接 (開發階段最方便)
+              .AllowAnyHeader()  // 允許任何 Request 標頭
+              .AllowAnyMethod(); // 允許 POST, GET 等所有方法
+    });
+});
 
-//
 
 // 1. 設定 Serilog (這就是那幾行)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -34,11 +43,8 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 builder.Host.UseSerilog(); // 告訴系統用 Serilog
-///////
 
-// ✨✨ 關鍵新增：在這裡註冊資料庫服務 ✨✨
-builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<OrderService>();
 
 var app = builder.Build();
 
@@ -50,8 +56,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
