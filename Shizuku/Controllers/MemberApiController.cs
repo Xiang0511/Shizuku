@@ -51,11 +51,20 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("Register")]
-        public async Task<ActionResult<ApiResponse<MemberRegisterResponseDTO>>> Register([FromBody] MemberRegisterDTO dto)
+        public async Task<IActionResult> Register([FromBody] MemberRegisterDTO dto)
         {
+            Log.Information("MemberApiController Register API Invoked");
+
+            if (dto == null)
+            {
+                Log.Warning("註冊資料為空");
+                return BadRequest(new ApiResponse<MemberRegisterResponseDTO> { Success = false, Message = "請提供註冊資料" });
+            }
+
             // 1. 驗證密碼一致性
             if (dto.FPassword != dto.ConfirmPassword)
             {
+                Log.Warning("註冊失敗：兩次密碼輸入不一致, Email: {Email}", dto.FEmail);
                 return BadRequest(new ApiResponse<MemberRegisterResponseDTO>
                 {
                     Success = false,
@@ -66,6 +75,7 @@ namespace Shizuku.Controllers
             // 2. 驗證 Email 是否重複
             if (await _memberService.IsEmailTakenAsync(dto.FEmail))
             {
+                Log.Warning("註冊失敗：電子信箱已被註冊, Email: {Email}", dto.FEmail);
                 return Conflict(new ApiResponse<MemberRegisterResponseDTO>
                 {
                     Success = false,
@@ -74,16 +84,26 @@ namespace Shizuku.Controllers
             }
 
             // 3. 執行註冊
-            var responseData = await _memberService.RegisterAsync(dto);
-
-            if (responseData != null)
+            try
             {
-                return Ok(new ApiResponse<MemberRegisterResponseDTO>
+                var responseData = await _memberService.RegisterAsync(dto);
+
+                if (responseData != null)
                 {
-                    Success = true,
-                    Message = "註冊成功",
-                    Data = responseData
-                });
+                    Log.Information("註冊成功, MemberId: {MemberId}, Email: {Email}", responseData.FMemberId, dto.FEmail);
+                    return Ok(new ApiResponse<MemberRegisterResponseDTO>
+                    {
+                        Success = true,
+                        Message = "註冊成功",
+                        Data = responseData
+                    });
+                }
+
+                Log.Error("註冊失敗：Service 回傳 null, Email: {Email}", dto.FEmail);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "註冊過程中發生未預期的例外, Email: {Email}", dto.FEmail);
             }
 
             return StatusCode(500, new ApiResponse<MemberRegisterResponseDTO>
