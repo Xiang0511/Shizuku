@@ -7,7 +7,7 @@ using Shizuku.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Serilog 設定 (放在最前面，確保啟動過程也被紀錄)
+// --- 1. 設定 Serilog ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var sinkOptions = new MSSqlServerSinkOptions { TableName = "SystemLogs", AutoCreateSqlTable = true };
 
@@ -22,27 +22,37 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// 2. 基礎服務註冊 (DbContext 只留這一個)
+// --- 2. 註冊基礎服務 ---
+builder.Services.AddControllersWithViews();
+builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 3. CORS 設定 (只留這一個)
+// --- 3. 設定 CORS (僅保留一個) ---
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowVue", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
-builder.Services.AddControllersWithViews(); // 包含 API 和 Razor View 支援
+// --- 4. 註冊自定義服務 (DI) ---
+builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<MemberService>();
+builder.Services.AddHttpClient<LinePayService>();
 
 var app = builder.Build();
 
-// --- 中間件順序 (這很重要) ---
-
-if (!app.Environment.IsDevelopment())
+// --- 5. 中間件順序 (Middleware) ---
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
@@ -51,11 +61,14 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// 紀錄 HTTP 請求
+// 紀錄 HTTP 請求 (建議放在 Routing 之前)
 app.UseSerilogRequestLogging();
 
 app.UseRouting();
-app.UseCors("AllowVue");
+
+// 注意：UseCors 必須在 UseRouting 之後，UseAuthorization 之前
+app.UseCors("AllowAll");
+
 app.UseAuthorization();
 
 app.MapControllerRoute(

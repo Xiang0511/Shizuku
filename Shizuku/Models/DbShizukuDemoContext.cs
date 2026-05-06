@@ -55,9 +55,12 @@ public partial class DbShizukuDemoContext : DbContext
     public virtual DbSet<TTicketMessage> TTicketMessages { get; set; }
 
     public virtual DbSet<TTicketsCustomer> TTicketsCustomers { get; set; }
+    public virtual DbSet<TOrder> TOrders { get; set; }
+    public virtual DbSet<TOrderDetail> TOrderDetails { get; set; }
+
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+#warning OTo protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseSqlServer("Data Source=.;Initial Catalog=dbShizukuDemo;Integrated Security=True;Encrypt=False");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
