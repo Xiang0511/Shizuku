@@ -7,7 +7,7 @@ using Shizuku.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. 設定 Serilog ---
+// --- 1. Serilog 配置 ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var sinkOptions = new MSSqlServerSinkOptions { TableName = "SystemLogs", AutoCreateSqlTable = true };
 
@@ -20,15 +20,17 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateLogger();
 
-builder.Host.UseSerilog();
+builder.Host.UseSerilog(); // 告知系統使用 Serilog
 
 // --- 2. 註冊基礎服務 ---
 builder.Services.AddControllersWithViews();
 builder.Services.AddSwaggerGen();
+
+// 資料庫服務 (EF Core)
 builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
     options.UseSqlServer(connectionString));
 
-// --- 3. 設定 CORS (僅保留一個) ---
+// --- 3. 設定 CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -46,7 +48,7 @@ builder.Services.AddHttpClient<LinePayService>();
 
 var app = builder.Build();
 
-// --- 5. 中間件順序 (Middleware) ---
+// --- 5. 中間件順序 (Middleware Pipeline) ---
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -58,15 +60,15 @@ else
     app.UseHsts();
 }
 
+// 啟動 Serilog 自動請求紀錄 (建議放在 UseStaticFiles 之前)
+app.UseSerilogRequestLogging();
+
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// 紀錄 HTTP 請求 (建議放在 Routing 之前)
-app.UseSerilogRequestLogging();
-
 app.UseRouting();
 
-// 注意：UseCors 必須在 UseRouting 之後，UseAuthorization 之前
+// UseCors 必須在 UseRouting 之後，UseAuthorization 之前
 app.UseCors("AllowAll");
 
 app.UseAuthorization();

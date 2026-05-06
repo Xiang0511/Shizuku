@@ -1,86 +1,93 @@
-﻿@model Shizuku.Models.TTicketsCustomer
+﻿@model Shizuku.Wraps.CTicketCustomerWrap
 
 @{
-    ViewData["Title"] = "Edit";
+    ViewData["Title"] = "編輯案件";
 }
 
-<h1>編輯</h1>
-
-
+<h1>編輯案件</h1>
 <hr />
 <div class="row">
     <div class="col-md-4">
         <form asp-action="Edit">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" asp-for="FId" />
-            <div class="form-group">
-                <label asp-for="FMemberId" class="control-label"></label>
-                <input asp-for="FMemberId" class="form-control" />
-                <span asp-validation-for="FMemberId" class="text-danger"></span>
+            
+            @* 隱藏的主鍵 (給程式看的) *@
+            <input type="hidden" asp-for="Entity.FId" />
+
+            @* 1. 會員 ID (唯讀防呆) *@
+            <div class="form-group mb-3">
+                <label asp-for="fMemberId" class="control-label"></label>
+                <input asp-for="fMemberId" class="form-control" readonly />
+                <span asp-validation-for="fMemberId" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FOrderId" class="control-label"></label>
-                <input asp-for="FOrderId" class="form-control" />
-                <span asp-validation-for="FOrderId" class="text-danger"></span>
+
+            @* 2. 訂單 ID (唯讀防呆) *@
+            <div class="form-group mb-3">
+                <label asp-for="fOrderId" class="control-label"></label>
+                <input asp-for="fOrderId" class="form-control" readonly />
+                <span asp-validation-for="fOrderId" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FCategoryId" class="control-label"></label>
-                <select asp-for="FCategoryId" class="form-control"
+
+            @* 3. 問題分類 (連動下拉選單，因爲是關聯欄位，所以用 Entity.FCategoryId) *@
+            <div class="form-group mb-3">
+                <label asp-for="Entity.FCategoryId" class="control-label">問題分類</label>
+                <select asp-for="Entity.FCategoryId" class="form-control"
                         asp-items="@(IEnumerable<SelectListItem>)ViewBag.CategoryOptions">
                     <option value="">-- 請選擇問題分類 --</option>
                 </select>
-                <span asp-validation-for="FCategoryId" class="text-danger"></span>
+                <span asp-validation-for="Entity.FCategoryId" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FSubject" class="control-label"></label>
-                <input asp-for="FSubject" class="form-control" />
-                <span asp-validation-for="FSubject" class="text-danger"></span>
+
+            @* 4. 案件主旨 (唯讀防呆) *@
+            <div class="form-group mb-3">
+                <label asp-for="fSubject" class="control-label"></label>
+                <input asp-for="fSubject" class="form-control" readonly />
+                <span asp-validation-for="fSubject" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FStatus" class="control-label"></label>
-                <select asp-for="FStatus" class="form-control">
+
+            @* 5. 處理狀態 *@
+            <div class="form-group mb-3">
+                <label asp-for="fStatus" class="control-label"></label>
+                <select asp-for="fStatus" class="form-control">
                     <option value="待處理">待處理</option>
                     <option value="處理中">處理中</option>
                     <option value="已結案">已結案</option>
                     <option value="不予處理">不予處理</option>
                 </select>
-                <span asp-validation-for="FStatus" class="text-danger"></span>
+                <span asp-validation-for="fStatus" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FPriority" class="control-label"></label>
-                <input asp-for="FPriority" class="form-control" />
-                <span asp-validation-for="FPriority" class="text-danger"></span>
+
+            @* 優先等級已經依照之前的需求拿掉了，畫面更乾淨 *@
+
+            @* 6. 經辦客服 *@
+            <div class="form-group mb-3">
+                <label asp-for="Entity.FAssignedAgentId" class="control-label">經辦客服</label>
+                <input asp-for="Entity.FAssignedAgentId" class="form-control" />
+                <span asp-validation-for="Entity.FAssignedAgentId" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FAssignedAgentId" class="control-label"></label>
-                <input asp-for="FAssignedAgentId" class="form-control" />
-                <span asp-validation-for="FAssignedAgentId" class="text-danger"></span>
+
+            @* 7. 建立時間 (唯讀防呆) *@
+            <div class="form-group mb-3">
+                <label asp-for="Entity.FCreatedAt" class="control-label">建立時間</label>
+                <input asp-for="Entity.FCreatedAt" class="form-control" readonly />
+                <span asp-validation-for="Entity.FCreatedAt" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="FCreatedAt" class="control-label"></label>
-                <input asp-for="FCreatedAt" class="form-control" />
-                <span asp-validation-for="FCreatedAt" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FUpdatedAt" class="control-label"></label>
-                <input asp-for="FUpdatedAt" class="form-control" />
-                <span asp-validation-for="FUpdatedAt" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="FClosedAt" class="control-label"></label>
-                <input asp-for="FClosedAt" class="form-control" />
-                <span asp-validation-for="FClosedAt" class="text-danger"></span>
-            </div>
-            <div class="form-group">
+
+            <div class="form-group mt-4">
                 <input type="submit" value="存檔" class="btn btn-primary" />
+                <a asp-action="List" class="btn btn-secondary ms-2">返回列表</a>
             </div>
         </form>
     </div>
 </div>
 
-<div>
-    <a asp-action="List">返回列表</a>
-</div>
+<style>
+    /* 讓 readonly 的格子變灰色，視覺上比較直覺 */
+    input[readonly] {
+        background-color: #e9ecef !important;
+        cursor: not-allowed;
+    }
+</style>
 
 @section Scripts {
     @{
