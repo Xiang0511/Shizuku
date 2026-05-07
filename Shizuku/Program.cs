@@ -23,6 +23,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog(); // 告知系統使用 Serilog
 
 // --- 2. 註冊基礎服務 ---
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllersWithViews();
 builder.Services.AddSwaggerGen();
 
@@ -45,6 +46,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddHttpClient<LinePayService>();
+builder.Services.AddScoped<ProductService>();
+
 
 var app = builder.Build();
 

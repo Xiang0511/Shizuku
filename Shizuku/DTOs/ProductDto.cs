@@ -77,9 +77,7 @@ namespace Shizuku.ViewModels
         [DisplayName("商品主圖")]
         public string? fImage { get; set; }
 
-        [DisplayName("上傳新圖片")]
-        public IFormFile? fPhoto { get; set; }
-    }
+         }
 
     // =============================================
     // 新增頁 DTO（含規格下拉選單欄位）
@@ -139,9 +137,9 @@ namespace Shizuku.ViewModels
     public class VariantEditDto
     {
         public int fId { get; set; }          // tProductVariants.fId
-        public string fColor { get; set; }    // 顏色名稱（顯示用）
-        public string fSize { get; set; }     // 尺寸名稱（顯示用）
+        public string? fColor { get; set; }    // 顏色名稱（顯示用）
+        public string? fSize { get; set; }     // 尺寸名稱（顯示用）
         public int fStock { get; set; }       // 可編輯
-        public string fSkuCode { get; set; }  // 唯讀顯示
+        public string? fSkuCode { get; set; }  // 唯讀顯示
     }
 }
