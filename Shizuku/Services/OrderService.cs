@@ -185,24 +185,80 @@ namespace Shizuku.Services
         //根據memberId 取的訂單列表
         public async Task<List<OrderListDto>> GetMemberOrdersAsync(int memberId)
         {
-            // 使用 LINQ 語法，寫 SQL 查詢
-            var orders = await _db.TOrders
-                .Where(o => o.FMemberId == memberId) // 條件：只抓這個會員的訂單
-                .OrderByDescending(o => o.FCreatedAt) // 排序：依照建立時間，由新到舊排
-                .Select(o => new OrderListDto        // 轉換：把資料庫的 TOrder 變成我們的 DTO
-                {
-                    OrderNo = o.FOrderNo,
-                    TotalAmount = o.FTotalAmount,
-                    CreatedAt = o.FCreatedAt,
-                    StatusText = o.FStatus == 1 ? "待付款" :
-                                 o.FStatus == 2 ? "已付款" :
-                                 o.FStatus == 3 ? "已出貨" :
-                                 o.FStatus == 4 ? "已完成" :
-                                 o.FStatus == 5 ? "已取消" : "未知狀態"
-                })
-                .ToListAsync(); // 執行查詢並轉成 List 集合
+            //先從資料庫撈出原始資料 (不要在 Select 裡轉狀態)
+            var orderEntities = await _db.TOrders
+            .Where(o => o.FMemberId == memberId)
+            .OrderByDescending(o => o.FCreatedAt)
+            .ToListAsync();
+
+            var orders = orderEntities.Select(o => new OrderListDto
+            {
+                OrderNo = o.FOrderNo,
+                TotalAmount = o.FTotalAmount,
+                CreatedAt = o.FCreatedAt,
+                StatusText = GetStatusText(o.FStatus)
+            }).ToList();
             return orders;
         }
+
+        public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo)
+        {
+            // 1. 撈取訂單主表，並包含明細 (Include) 與商品資訊 (ThenInclude)
+            var order = await _db.TOrders
+                .Include(o => o.TOrderDetails)
+                .ThenInclude(od => od.FVariant)
+                .ThenInclude(v => v.FProduct)
+                .FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+
+            if (order == null)
+            {
+                return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
+            }
+
+            // 2. 轉換為 DTO
+            var dto = new OrderDetailDto
+            {
+                OrderNo = order.FOrderNo,
+                CreatedAt = order.FCreatedAt,
+                StatusText = GetStatusText(order.FStatus),
+                TotalAmount = order.FTotalAmount,
+                ReceiverName = order.FReceiverName,
+                ReceiverPhone = order.FReceiverPhone,
+                ReceiverAddress = order.FReceiverAddress,
+                Note = order.FNote,
+                // 因為還沒有資料庫欄位，先寫死 LINE Pay
+                PaymentMethod = "LINE Pay",
+                Subtotal = order.TOrderDetails.Sum(od => od.FSubtotal),
+                // 運費與折扣暫時固定寫死 0
+                Discount = 0,
+                ShippingFee = 0,
+                TotalAmount = order.FTotalAmount,
+                Items = order.TOrderDetails.Select(od => new OrderItemDto
+                {
+                    ProductName = od.FVariant.FProduct.FProductName,
+                    VariantName = od.FVariant.FVariantName,
+                    UnitPrice = od.FUnitPrice,
+                    Quantity = od.FQuantity,
+                    ProductImage = od.FVariant.FProduct.FImageUrl // 假設圖片路徑在產品表
+                }).ToList()
+            };
+            return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
+        }
+
+        // 統一管理訂單狀態的文字轉換
+        private string GetStatusText(int? status)
+        {
+            return status switch
+            {
+                1 => "待付款",
+                2 => "已付款",
+                3 => "已出貨",
+                4 => "已完成",
+                5 => "已取消",
+                _ => "未知狀態"
+            };
+        }
     }
+
 }
 

@@ -90,6 +90,19 @@ namespace Shizuku.Controllers
                 });
             }
         }
+
+        //讀取訂單明細API /api/order/{orderNo}
+        [HttpGet("{orderNo}")]
+        public async Task<IActionResult> GetOrderDetail(string orderNo)
+        {
+            var result = await _orderService.GetOrderDetailAsync(orderNo);
+            
+            if (!result.Success)
+            {
+                return NotFound(result); // 找不到訂單回傳 404
+            }
+            return Ok(result);
+        }
     }
 
     // 放在 Controller 最下面，用來接前端的資料
