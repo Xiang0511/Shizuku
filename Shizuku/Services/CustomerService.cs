@@ -191,64 +191,64 @@ namespace Shizuku.Services
         /// <summary>
         /// 將 Vue 傳來的表單資料寫入資料庫
         /// </summary>
-        public bool CreateTicketFromVue(VueTicketDto dto)
+        // 注意：非同步的 ToListAsync() 需要用到 EntityFrameworkCore
+        // 請確定你的檔案最上方有這行： using Microsoft.EntityFrameworkCore;
+
+        /// <summary>
+        /// 將 Vue 傳來的表單資料寫入資料庫 (非同步版本)
+        /// </summary>
+        // 改變 1：回傳型別變成 Task<bool>，名稱加上 Async 尾綴
+        public async Task<bool> CreateTicketFromVueAsync(VueTicketDto dto)
         {
-            // 1. 防呆檢查 (早失敗原則)
-            if (dto == null)
-            {
-                return false;
-            }
+            if (dto == null) return false;
 
             try
             {
-                // 2. 建立新的實體物件，將 DTO 的資料精準對應到資料庫的新欄位
                 var newTicket = new TTicketsCustomer
                 {
-                    // 預設值設定
-                    FMemberId = 0, // 訪客沒登入，預設給 0
-                    FCategoryId = dto.CategoryId == 0 ? 1 : dto.CategoryId, // 如果沒選分類，預設給 1
-
-                    // ✨ 這裡就是我們剛剛辛苦建的新欄位，完美對應！
-                    FGuestName = dto.LastName + dto.FirstName, // 姓與名合併
+                    FMemberId = 0,
+                    FCategoryId = dto.CategoryId == 0 ? 1 : dto.CategoryId,
+                    FGuestName = dto.LastName + dto.FirstName,
                     FGuestEmail = dto.Email,
                     FSubject = dto.Subject,
                     FDescription = dto.Description,
-
-                    // 系統自動填寫的欄位
                     FStatus = "待處理",
                     FPriority = "中",
                     FCreatedAt = DateTime.Now,
                     FIsDeleted = false
                 };
 
-                // 3. 存入資料庫
                 _db.TTicketsCustomers.Add(newTicket);
-                _db.SaveChanges();
+
+                // 改變 2：把 SaveChanges 改成 await SaveChangesAsync()
+                await _db.SaveChangesAsync();
 
                 return true;
             }
             catch (Exception ex)
             {
-                // 實務上這裡可以把 ex.Message 寫進 log 裡
-                Console.WriteLine($"存檔失敗: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("========================================");
+                System.Diagnostics.Debug.WriteLine($"🚨 存檔失敗啦老哥: {ex.ToString()}");
+                System.Diagnostics.Debug.WriteLine("========================================");
                 return false;
             }
         }
+
         /// <summary>
-        /// 取得所有未刪除的客服問題分類 (給 Vue 下拉選單用)
+        /// 取得所有未刪除的客服問題分類 (非同步版本)
         /// </summary>
-        public object GetTicketCategories()
+        // 改變 3：回傳型別變成 Task<object>
+        public async Task<object> GetTicketCategoriesAsync()
         {
-            // 去資料庫的 TTicketCategories 表抓資料
-            // 從你的截圖看到有 fIsDeleted 欄位，我們只抓 False (沒被刪除) 的分類
-            var categories = _db.TTicketCategories
+            // 改變 4：前面加 await，最後面改成 ToListAsync()
+            var categories = await _db.TTicketCategories
                 .Where(c => c.FIsDeleted == false || c.FIsDeleted == null)
                 .Select(c => new
                 {
-                    id = c.FId,       // 對應前端需要的 id
-                    name = c.FName    // 對應前端需要的 name
+                    id = c.FId,
+                    name = c.FName
                 })
-                .ToList();
+                .ToListAsync();
 
             return categories;
         }
