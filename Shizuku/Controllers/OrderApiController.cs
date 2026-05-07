@@ -27,7 +27,14 @@ namespace Shizuku.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
-            CreateOrderResponseDto result = await _orderService.CreateOrder(request);
+            // 先建立訂單
+            var result = await _orderService.CreateOrder(request);
+            
+            if (!result.Success)
+            {   
+                return BadRequest(result);
+            }
+        
             return Ok(result);
         }
 
@@ -36,7 +43,7 @@ namespace Shizuku.Controllers
         {
             // 找出這筆訂單確認金額
             var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == request.OrderId);
-            if (order == null) return BadRequest(new { IsSuccess = false, Message = "找不到訂單" });
+            if (order == null) return BadRequest(new { Success  = false, Message = "找不到訂單" });
             var confirmPayload = new { amount = order.FTotalAmount, currency = "TWD" };
             string uri = $"/v3/payments/{request.TransactionId}/confirm";
             
@@ -46,14 +53,14 @@ namespace Shizuku.Controllers
             {
                 if (doc.RootElement.GetProperty("returnCode").GetString() == "0000")
                 {
-                    // 🌟 扣款成功！更改訂單狀態為「已付款」(假設狀態 2)
+                    //  扣款成功！更改訂單狀態為「已付款」(假設狀態 2)
                     order.FStatus = 2; 
                     order.FUpdatedAt = DateTime.Now;
                     _db.SaveChanges();
-                    return Ok(new { IsSuccess = true, Message = "付款大成功！" });
+                    return Ok(new { Success  = true, Message = "付款成功！" });
                 }
             }
-            return BadRequest(new { IsSuccess = false, Message = "LINE Pay 扣款失敗！" });
+            return BadRequest(new { Success  = false, Message = "LINE Pay 扣款失敗！" });
         }
 
         //讀取會員訂單列表API: /api/order/member/{memberId}  
@@ -66,12 +73,19 @@ namespace Shizuku.Controllers
                 var orders = await _orderService.GetMemberOrdersAsync(memberId);
                 
                 // 把轉換好的 DTO 資料，用 Http 200 (OK) 回傳給前端
-                return Ok(orders);
+                return Ok(new ApiResponse<List<OrderListDto>> { 
+                    Success = true, 
+                    Message = "查詢訂單成功", 
+                    Data = orders 
+                });
             }
             catch (Exception ex)
             {
                 // 如果發生錯誤，回傳 Http 400 以及錯誤訊息給前端
-                return BadRequest(new { IsSuccess = false, Message = "獲取訂單失敗：" + ex.Message });
+                return BadRequest(new ApiResponse<object> { 
+                    Success = false, 
+                    Message = "獲取訂單失敗：" + ex.Message 
+                });
             }
         }
     }

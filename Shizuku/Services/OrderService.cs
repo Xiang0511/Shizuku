@@ -20,11 +20,11 @@ namespace Shizuku.Services
         }
 
         //建立訂單
-        public async Task<CreateOrderResponseDto> CreateOrder(CreateOrderRequestDto request)
+        public async Task<ApiResponse<CreateOrderResponseDto>> CreateOrder(CreateOrderRequestDto request)
         {
             // 1. 先檢查購物車是不是空的
             if (request.CartItems == null || request.CartItems.Count == 0)
-                return new CreateOrderResponseDto { IsSuccess = false, Message = "購物車是空的喔！" };
+                 return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車是空的喔！" };
 
             // 2. 產生一個唯一的訂單編號 (例如: ORD20260502123456)
             string newOrderNo = "ORD" + DateTime.Now.ToString("yyyyMMddHHmmss");
@@ -152,12 +152,15 @@ namespace Shizuku.Services
                         {
                             transaction.Commit(); 
                             string paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
-                            return new CreateOrderResponseDto
+                            return new ApiResponse<CreateOrderResponseDto>
                             {
-                                IsSuccess = true,
+                                Success = true,
                                 Message = "訂單建立成功！",
-                                OrderNo = newOrderNo,
-                                PaymentUrl = paymentUrl // 將網址回傳給前端
+                                Data = new CreateOrderResponseDto
+                                {
+                                    OrderNo = newOrderNo,
+                                    PaymentUrl = paymentUrl
+        }
                             };
                         }
                         else
@@ -173,7 +176,7 @@ namespace Shizuku.Services
                     // 就會跳到這裡，執行 Rollback (時光倒流)，什麼都不會存進去資料庫
                     transaction.Rollback();
 
-                    return new CreateOrderResponseDto { IsSuccess = false, Message = "訂單建立失敗：" + ex.Message };
+                    return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "訂單建立失敗：" + ex.Message };
                 }
             }
         }
