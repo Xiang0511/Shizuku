@@ -21,23 +21,39 @@ namespace Shizuku.Controllers
         // 1. 接收 Vue 前台發送過來的表單資料 (非同步版本)
         // -----------------------------------------------------------
         [HttpPost("Submit")]
-        //  改變 1：加上 async，回傳值變成 Task<IActionResult>
         public async Task<IActionResult> SubmitTicket([FromBody] VueTicketDto dto)
         {
             if (dto == null)
             {
-                return BadRequest(new { success = false, message = "沒有接收到資料。" });
+                //  套用組長規範：失敗、提示訊息、沒有資料 (null)
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "沒有接收到資料。",
+                    Data = null
+                });
             }
 
-            // 改變 2：呼叫 Service 的新方法，前面加上 await！
             bool isSuccess = await _customerService.CreateTicketFromVueAsync(dto);
 
             if (!isSuccess)
             {
-                return BadRequest(new { success = false, message = "送出失敗，請檢查資料格式。" });
+                //  套用組長規範
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "送出失敗，請檢查資料格式。",
+                    Data = null
+                });
             }
 
-            return Ok(new { success = true, message = "客服單已成功送出！" });
+            //  套用組長規範：成功、提示訊息、沒有資料 (null)
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "客服單已成功送出！",
+                Data = null
+            });
         }
 
 
@@ -45,13 +61,18 @@ namespace Shizuku.Controllers
         // 2. 讓 Vue 來這裡拿「問題分類」的清單 (非同步版本)
         // -----------------------------------------------------------
         [HttpGet("Categories")]
-        // 改變 3：一樣加上 async Task<>
         public async Task<IActionResult> GetCategories()
         {
-            // 改變 4：呼叫 Service 的新方法，前面加上 await！
+            // 去 Service 拿分類資料 (這段你昨天已經改成 Async 了)
             var categories = await _customerService.GetTicketCategoriesAsync();
 
-            return Ok(categories);
+            //  套用組長規範：成功、提示訊息、把撈出來的陣列塞進 Data 百寶箱裡！
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "取得分類成功",
+                Data = categories
+            });
         }
     }
 }
