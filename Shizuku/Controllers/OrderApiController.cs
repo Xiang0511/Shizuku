@@ -8,7 +8,7 @@ namespace Shizuku.Controllers
     //  加上這些屬性，告訴系統這是一個給 Vue 用的 API Controller
     [ApiController]
     [Route("api/[controller]")]
-    public class OrderController : ControllerBase 
+    public class OrderApiController : ControllerBase 
     {
         // 宣告變數來裝 Service
         private readonly OrderService _orderService;
@@ -17,7 +17,7 @@ namespace Shizuku.Controllers
 
         // 建構子注入 (Constructor Injection)
         // 系統管家 (DI 容器) 看到你需要 OrderService，就會自動把你剛剛在 Program.cs 註冊好的實體派過來
-        public OrderController(OrderService orderService, LinePayService linePayService, Models.DbShizukuDemoContext db)
+        public OrderApiController(OrderService orderService, LinePayService linePayService, Models.DbShizukuDemoContext db)
         {
             _orderService = orderService;
             _linePayService = linePayService;
