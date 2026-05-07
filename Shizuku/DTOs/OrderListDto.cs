@@ -1,6 +1,6 @@
 using System;
 
-namespace Shizuku.Models.DTOs
+namespace Shizuku.DTOs
 {
     public class OrderListDto
     {

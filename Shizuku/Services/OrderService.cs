@@ -1,7 +1,8 @@
-using Shizuku.Models;
-using Shizuku.Models.DTOs;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Shizuku.DTOs;
+using Shizuku.Models;
+using System.Text.Json;
+
 
 namespace Shizuku.Services
 {
@@ -24,7 +25,7 @@ namespace Shizuku.Services
         {
             // 1. 先檢查購物車是不是空的
             if (request.CartItems == null || request.CartItems.Count == 0)
-                 return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車是空的喔！" };
+                return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車是空的喔！" };
 
             // 2. 產生一個唯一的訂單編號 (例如: ORD20260502123456)
             string newOrderNo = "ORD" + DateTime.Now.ToString("yyyyMMddHHmmss");
@@ -106,7 +107,7 @@ namespace Shizuku.Services
                     }
 
                     _db.SaveChanges();
-                    
+
 
                     int payAmount = Convert.ToInt32(totalAmount);
 
@@ -150,7 +151,7 @@ namespace Shizuku.Services
                         var root = doc.RootElement;
                         if (root.GetProperty("returnCode").GetString() == "0000")
                         {
-                            transaction.Commit(); 
+                            transaction.Commit();
                             string paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
                             return new ApiResponse<CreateOrderResponseDto>
                             {
@@ -160,7 +161,7 @@ namespace Shizuku.Services
                                 {
                                     OrderNo = newOrderNo,
                                     PaymentUrl = paymentUrl
-        }
+                                }
                             };
                         }
                         else
@@ -182,7 +183,7 @@ namespace Shizuku.Services
         }
 
         //根據memberId 取的訂單列表
-         public async Task<List<OrderListDto>> GetMemberOrdersAsync(int memberId)
+        public async Task<List<OrderListDto>> GetMemberOrdersAsync(int memberId)
         {
             // 使用 LINQ 語法，寫 SQL 查詢
             var orders = await _db.TOrders
