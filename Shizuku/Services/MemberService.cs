@@ -16,7 +16,6 @@ namespace Shizuku.Services
 
         public MemberLoginResponseDto Login(string email, string password)
         {
-            Log.Information("MemberService Login");
             var loginResult = _context.TMembers
                 .Where(m => m.FEmail == email && m.FPassword == password)
                 .Select(m => new MemberLoginResponseDto
