@@ -37,7 +37,7 @@ namespace Shizuku.Services
             return await _context.TMembers.AnyAsync(m => m.FEmail == email);
         }
 
-        public async Task<MemberRegisterResponseDto?> RegisterAsync(MemberRegisterDto dto)
+        public async Task<MemberRegisterResponseDto?> RegisterAsync(MemberRegisterRequestDto dto)
         {
             // 1. 建立實體並填入初始資料
             var newMember = new TMember

@@ -51,7 +51,7 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromBody] MemberRegisterDto dto)
+        public async Task<IActionResult> Register([FromBody] MemberRegisterRequestDto dto)
         {
             Log.Information("MemberApiController Register API Invoked");
 
