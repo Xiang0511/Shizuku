@@ -16,7 +16,7 @@ namespace Shizuku.Services
         }
 
         /// <summary>取得商品列表，支援關鍵字搜尋（商品名稱或貨號）</summary>
-        public List<ProductListDto> GetProductList(string keyword)
+        public List<ProductListDto> GetProductList(string keyword, int? categoryId = null)
         {
             var query = _context.TProducts.Where(p => p.FStatus != 0);
 
@@ -25,6 +25,11 @@ namespace Shizuku.Services
                 query = query.Where(p =>
                     p.FName.Contains(keyword) ||
                     p.FProduct.Contains(keyword));
+            }
+            // 加上分類篩選
+            if (categoryId.HasValue)
+            {
+                query = query.Where(p => p.FCategoryId == categoryId.Value);
             }
 
             return query.Select(p => new ProductListDto

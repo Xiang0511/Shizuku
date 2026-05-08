@@ -18,9 +18,9 @@ namespace Shizuku.Controllers
 
         /// <summary>取得商品列表</summary>
         [HttpGet]
-        public IActionResult List([FromQuery] string? keyword)
+        public IActionResult List([FromQuery] string? keyword, [FromQuery] int? categoryId)
         {
-            var datas = _productService.GetProductList(keyword);
+            var datas = _productService.GetProductList(keyword, categoryId);
             return Ok(new ApiResponse<object>
             {
                 Success = true,
