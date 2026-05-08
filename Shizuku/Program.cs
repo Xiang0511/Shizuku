@@ -4,6 +4,7 @@ using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
 using Shizuku.Services;
+using Shizuku.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,13 +32,16 @@ builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
     options.UseSqlServer(connectionString));
 
 // --- 3. 設定 CORS ---
+// --- 3. 設定 CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        // 這裡必須明確寫出你的 Vue 網址，請確認 5173 是你 Vue 目前執行的 Port
+        policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // 加入這行，這是 SignalR 順利連線的關鍵
     });
 });
 
@@ -46,6 +50,9 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddHttpClient<LinePayService>();
 
+
+// 加入這行，讓系統載入 SignalR 的相關功能
+builder.Services.AddSignalR();
 var app = builder.Build();
 
 // --- 5. 中間件順序 (Middleware Pipeline) ---
@@ -77,4 +84,6 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// 加入這行，設定對外開放的 WebSocket 通道網址為 /chatHub
+app.MapHub<ChatHub>("/chatHub");
 app.Run();
