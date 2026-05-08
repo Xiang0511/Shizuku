@@ -1,6 +1,6 @@
 ﻿namespace Shizuku.DTOs
 {
-    public class MemberLoginResponseDTO
+    public class MemberLoginResponseDto
     {
         // 登入成功後回傳給前端顯示的名稱
         public required string FName { get; set; }

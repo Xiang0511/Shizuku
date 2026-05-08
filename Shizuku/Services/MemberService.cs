@@ -14,12 +14,12 @@ namespace Shizuku.Services
             _context = context;
         }
 
-        public MemberLoginResponseDTO Login(string email, string password)
+        public MemberLoginResponseDto Login(string email, string password)
         {
             Log.Information("MemberService Login");
             var loginResult = _context.TMembers
                 .Where(m => m.FEmail == email && m.FPassword == password)
-                .Select(m => new MemberLoginResponseDTO
+                .Select(m => new MemberLoginResponseDto
                 {
                     FName = m.FName,
                     FEmail = m.FEmail,
@@ -37,7 +37,7 @@ namespace Shizuku.Services
             return await _context.TMembers.AnyAsync(m => m.FEmail == email);
         }
 
-        public async Task<MemberRegisterResponseDTO?> RegisterAsync(MemberRegisterDTO dto)
+        public async Task<MemberRegisterResponseDto?> RegisterAsync(MemberRegisterDto dto)
         {
             // 1. 建立實體並填入初始資料
             var newMember = new TMember
@@ -71,7 +71,7 @@ namespace Shizuku.Services
             if (result > 0)
             {
                 // 5. 轉換成 Response DTO 回傳
-                return new MemberRegisterResponseDTO
+                return new MemberRegisterResponseDto
                 {
                     FMemberId = newMember.FMemberId,
                     FName = newMember.FName,

@@ -1,6 +1,6 @@
 ﻿namespace Shizuku.DTOs
 {
-    public class MemberRegisterResponseDTO
+    public class MemberRegisterResponseDto
     {
         public string FMemberId { get; set; } = null!;
         public string FName { get; set; } = null!;

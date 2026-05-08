@@ -17,13 +17,13 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] MemberLoginRequestDTO dto)
+        public IActionResult Login([FromBody] MemberLoginRequestDto dto)
         {
             Log.Information("MemberApiController Login API");
             if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
             {
                 Log.Warning("帳號或密碼為空");
-                return BadRequest(new ApiResponse<MemberLoginResponseDTO>
+                return BadRequest(new ApiResponse<MemberLoginResponseDto>
                 {
                     Success = false,
                     Message = "請輸入帳號密碼"
@@ -35,14 +35,14 @@ namespace Shizuku.Controllers
             if (loginDto == null)
             {
                 Log.Warning("帳號或密碼錯誤");
-                return Unauthorized(new ApiResponse<MemberLoginResponseDTO>
+                return Unauthorized(new ApiResponse<MemberLoginResponseDto>
                 {
                     Success = false,
                     Message = "帳號密碼錯誤"
                 });
             }
 
-            return Ok(new ApiResponse<MemberLoginResponseDTO>
+            return Ok(new ApiResponse<MemberLoginResponseDto>
             {
                 Success = true,
                 Message = "登入成功",
@@ -51,21 +51,21 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromBody] MemberRegisterDTO dto)
+        public async Task<IActionResult> Register([FromBody] MemberRegisterDto dto)
         {
             Log.Information("MemberApiController Register API Invoked");
 
             if (dto == null)
             {
                 Log.Warning("註冊資料為空");
-                return BadRequest(new ApiResponse<MemberRegisterResponseDTO> { Success = false, Message = "請提供註冊資料" });
+                return BadRequest(new ApiResponse<MemberRegisterResponseDto> { Success = false, Message = "請提供註冊資料" });
             }
 
             // 1. 驗證密碼一致性
             if (dto.FPassword != dto.ConfirmPassword)
             {
                 Log.Warning("註冊失敗：兩次密碼輸入不一致, Email: {Email}", dto.FEmail);
-                return BadRequest(new ApiResponse<MemberRegisterResponseDTO>
+                return BadRequest(new ApiResponse<MemberRegisterResponseDto>
                 {
                     Success = false,
                     Message = "兩次密碼輸入不一致"
@@ -76,7 +76,7 @@ namespace Shizuku.Controllers
             if (await _memberService.IsEmailTakenAsync(dto.FEmail))
             {
                 Log.Warning("註冊失敗：電子信箱已被註冊, Email: {Email}", dto.FEmail);
-                return Conflict(new ApiResponse<MemberRegisterResponseDTO>
+                return Conflict(new ApiResponse<MemberRegisterResponseDto>
                 {
                     Success = false,
                     Message = "此電子信箱已被註冊"
@@ -91,7 +91,7 @@ namespace Shizuku.Controllers
                 if (responseData != null)
                 {
                     Log.Information("註冊成功, MemberId: {MemberId}, Email: {Email}", responseData.FMemberId, dto.FEmail);
-                    return Ok(new ApiResponse<MemberRegisterResponseDTO>
+                    return Ok(new ApiResponse<MemberRegisterResponseDto>
                     {
                         Success = true,
                         Message = "註冊成功",
@@ -106,7 +106,7 @@ namespace Shizuku.Controllers
                 Log.Error(ex, "註冊過程中發生未預期的例外, Email: {Email}", dto.FEmail);
             }
 
-            return StatusCode(500, new ApiResponse<MemberRegisterResponseDTO>
+            return StatusCode(500, new ApiResponse<MemberRegisterResponseDto>
             {
                 Success = false,
                 Message = "註冊過程中發生伺服器錯誤"

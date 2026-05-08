@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 namespace Shizuku.DTOs
 {
-    public class MemberRegisterDTO
+    public class MemberRegisterDto
     {
         [Required(ErrorMessage = "姓名不能為空")]
         public string FName { get; set; } = null!;
