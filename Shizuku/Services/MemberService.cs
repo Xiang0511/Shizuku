@@ -14,21 +14,21 @@ namespace Shizuku.Services
             _context = context;
         }
 
-        public MemberLoginResponseDto Login(string email, string password)
+        public async Task<MemberLoginResponseDto> LoginAsync(string email, string password)
         {
-            var loginResult = _context.TMembers
+            var loginResult = await _context.TMembers
                 .Where(m => m.FEmail == email && m.FPassword == password)
                 .Select(m => new MemberLoginResponseDto
                 {
                     FName = m.FName,
                     FEmail = m.FEmail,
-                    FGender=m.FGender,
-                    FBirthday=m.FBirthday,
-                    FPhone=m.FPhone
+                    FGender = m.FGender,
+                    FBirthday = m.FBirthday,
+                    FPhone = m.FPhone
                 })
-                .FirstOrDefault();
+                .FirstOrDefaultAsync(); // 使用非同步方法
 
-            return loginResult; // 若找不到符合的帳密，loginResult 會是 null
+            return loginResult;
         }
 
         public async Task<bool> IsEmailTakenAsync(string email)

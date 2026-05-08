@@ -17,7 +17,7 @@ namespace Shizuku.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] MemberLoginRequestDto dto)
+        public async Task<IActionResult> Login([FromBody] MemberLoginRequestDto dto)
         {
             if (dto == null || string.IsNullOrEmpty(dto.FEmail) || string.IsNullOrEmpty(dto.FPassword))
             {
@@ -28,7 +28,8 @@ namespace Shizuku.Controllers
                 });
             }
 
-            var loginDto = _memberService.Login(dto.FEmail, dto.FPassword);
+            // 呼叫非同步方法並等待結果
+            var loginDto = await _memberService.LoginAsync(dto.FEmail, dto.FPassword);
 
             if (loginDto == null)
             {
