@@ -2,6 +2,7 @@
 using Serilog;
 using Shizuku.DTOs; // 引入 DTOs 命名空間
 using Shizuku.Models;
+using System.Text.Json;
 
 namespace Shizuku.Services
 {
@@ -82,6 +83,38 @@ namespace Shizuku.Services
             }
 
             return null;
+        }
+
+        public async Task<List<MemberAddressDto>> GetAddressesAsync(int memberId)
+        {
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null || string.IsNullOrEmpty(member.FReceiverAddress))
+            {
+                return new List<MemberAddressDto>();
+            }
+
+            // 反序列化：字串 -> 物件清單
+            return JsonSerializer.Deserialize<List<MemberAddressDto>>(member.FReceiverAddress) ?? new List<MemberAddressDto>();
+        }
+
+        public async Task<bool> UpdateAddressesAsync(int memberId, List<MemberAddressDto> addresses)
+        {
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null) return false;
+
+            // 序列化：物件清單 -> 字串
+            member.FReceiverAddress = JsonSerializer.Serialize(addresses);
+
+            // 同步更新外層的預設收件人（可選邏輯）
+            var defaultAddr = addresses.FirstOrDefault(a => a.fIsDefault);
+            if (defaultAddr != null)
+            {
+                member.FReceiverName = defaultAddr.fReceiverName;
+                member.FReceiverPhone = defaultAddr.fReceiverPhone;
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }
