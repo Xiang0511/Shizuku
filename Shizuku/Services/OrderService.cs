@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
 using Shizuku.Models;
 using System.Text.Json;
+using System.Text;
+using System.Security.Cryptography;
+using System.Web;
 
 
 namespace Shizuku.Services
@@ -107,69 +110,21 @@ namespace Shizuku.Services
                     }
 
                     _db.SaveChanges();
+                    
+                    string paymentUrl = await GeneratePaymentUrlAsync(newOrderNo, request.PaymentMethodId, totalAmount);
+                    transaction.Commit();
 
-
-                    int payAmount = Convert.ToInt32(totalAmount);
-
-                    var linePayPayload = new
+                    // 無論是哪種付款方式，成功後統一在這裡回傳給前端
+                    return new ApiResponse<CreateOrderResponseDto>
                     {
-                        amount = payAmount,
-                        currency = "TWD",
-                        orderId = newOrderNo,
-                        packages = new[]
+                        Success = true,
+                        Message = "訂單建立成功！",
+                        Data = new CreateOrderResponseDto
                         {
-                            new
-                            {
-                                id = "pkg_1",
-                                amount = payAmount,
-                                name = "Shizuku 訂單",
-                                products = new[]
-                                {
-                                    new
-                                    {
-                                        name = "購物車商品", quantity = 1, price = payAmount
-                                    }
-                                }
-                            }
-                        },
-                        redirectUrls = new
-                        {
-                            // 付款完成後 LINE Pay 要導向的前端網址
-                            confirmUrl = "http://localhost:5173/payment/success",
-                            cancelUrl = "http://localhost:5173/cart"
+                            OrderNo = newOrderNo,
+                            PaymentUrl = paymentUrl
                         }
                     };
-                    //呼叫 LinepayService
-                    string linePayResponseJson = await _linePayService.SendLinePayRequestAsync("/v3/payments/request", linePayPayload);
-                    //  把 LINE Pay 的回應印出來，我們才知道為什麼失敗
-                    Console.WriteLine("============= LINE Pay 回傳結果 =============");
-                    Console.WriteLine(linePayResponseJson);
-                    Console.WriteLine("=============================================");
-
-                    using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
-                    {
-                        var root = doc.RootElement;
-                        if (root.GetProperty("returnCode").GetString() == "0000")
-                        {
-                            transaction.Commit();
-                            string paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
-                            return new ApiResponse<CreateOrderResponseDto>
-                            {
-                                Success = true,
-                                Message = "訂單建立成功！",
-                                Data = new CreateOrderResponseDto
-                                {
-                                    OrderNo = newOrderNo,
-                                    PaymentUrl = paymentUrl
-                                }
-                            };
-                        }
-                        else
-                        {
-                            string returnMessage = root.GetProperty("returnMessage").GetString();
-                            throw new Exception("LINE Pay 拒絕請求：" + returnMessage);
-                        }
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -201,50 +156,206 @@ namespace Shizuku.Services
             return orders;
         }
 
-        public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo)
-        {
-            // 1. 撈取訂單主表，並包含明細 (Include) 與商品資訊 (ThenInclude)
-            var order = await _db.TOrders
-                .Include(o => o.TOrderDetails)
-                .ThenInclude(od => od.FVariant)
-                .ThenInclude(v => v.FProduct)
-                .FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
 
-            if (order == null)
+        //根據orderNo 取的訂單明細
+public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo)
+{
+    // 1. 先單獨把訂單主表撈出來
+    var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+    
+    if (order == null)
+    {
+        return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
+    }
+    // 2. 透過原生的 LINQ Join 語法，把明細、規格、商品、顏色、尺寸、圖片全部安全地串聯起來！
+    var detailsData = await (from od in _db.TOrderDetails
+                             join v in _db.TProductVariants on od.FVariantId equals v.FId
+                             join p in _db.TProducts on v.FProductId equals p.FId
+                             // 顏色與尺寸可能為空，所以使用 Left Join
+                             join c in _db.TProductColors on v.FColorId equals c.FId into cg
+                             from color in cg.DefaultIfEmpty()
+                             join s in _db.TProductSizes on v.FSizeId equals s.FId into sg
+                             from size in sg.DefaultIfEmpty()
+                             // 圖片獨立一張表，且只要抓「主圖」 (FIsMain == 1)
+                             join img in _db.TProductImages.Where(i => i.FIsMain == 1) on p.FId equals img.FProductId into imgg
+                             from mainImg in imgg.DefaultIfEmpty()
+                             where od.FOrderId == order.FId
+                             select new 
+                             {
+                                 Detail = od,
+                                 ProductName = p.FName,
+                                 ColorName = color != null ? color.FName : "",
+                                 SizeName = size != null ? size.FName : "",
+                                 ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
+                             }).ToListAsync();
+    // 3. 把撈出來的安全資料轉換給前端 (DTO)
+    var dto = new OrderDetailDto
+    {
+        OrderNo = order.FOrderNo,
+        CreatedAt = order.FCreatedAt,
+        StatusText = GetStatusText(order.FStatus),
+        TotalAmount = order.FTotalAmount,
+        ReceiverName = order.FReceiverName,
+        ReceiverPhone = order.FReceiverPhone,
+        ReceiverAddress = order.FReceiverAddress,
+        Note = order.FNote,
+        // 如果未來有建立訂單與付款方式的關聯，這裡再抽換
+        PaymentMethod = "尚未指定", 
+        Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
+        Discount = 0,
+        ShippingFee = 0,
+        Items = detailsData.Select(d => new OrderItemDto
+        {
+            ProductName = d.ProductName,
+            // 將顏色與尺寸組合起來 (例如: "紅色 XL")
+            VariantName = (d.ColorName + " " + d.SizeName).Trim(),
+            UnitPrice = d.Detail.FPriceSnap,
+            Quantity = d.Detail.FQuantity,
+            ProductImage = d.ImageUrl
+        }).ToList()
+    };
+    return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
+}
+
+        // 獨立出產生付款網址的方法，讓重新付款時也能呼叫
+        public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
+        {
+            string paymentUrl = string.Empty;
+
+            switch (paymentMethodId)
             {
-                return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
+                case 1: // 綠界科技 ECPay
+                    string backendUrl = "https://localhost:7197";
+                    paymentUrl = $"{backendUrl}/api/OrderApi/ecpay/{orderNo}";
+                    break;
+
+                case 2: // LINE Pay
+                    int payAmount = Convert.ToInt32(totalAmount);
+                    var linePayPayload = new
+                    {
+                        amount = payAmount,
+                        currency = "TWD",
+                        orderId = orderNo,
+                        packages = new[]
+                        {
+                            new
+                            {
+                                id = "pkg_1",
+                                amount = payAmount,
+                                name = "Shizuku 訂單",
+                                products = new[]
+                                {
+                                    new { name = "訂單商品", quantity = 1, price = payAmount }
+                                }
+                            }
+                        },
+                        redirectUrls = new
+                        {
+                            confirmUrl = "http://localhost:5173/payment/success",
+                            cancelUrl = "http://localhost:5173/orders" // 取消改回傳訂單列表
+                        }
+                    };
+
+                    string linePayResponseJson = await _linePayService.SendLinePayRequestAsync("/v3/payments/request", linePayPayload);
+                    using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+                    {
+                        var root = doc.RootElement;
+                        if (root.GetProperty("returnCode").GetString() == "0000")
+                        {
+                            paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
+                        }
+                        else
+                        {
+                            string returnMessage = root.GetProperty("returnMessage").GetString();
+                            throw new Exception("LINE Pay 拒絕請求：" + returnMessage);
+                        }
+                    }
+                    break;
+
+                case 3: // 貨到付款
+                    paymentUrl = string.Empty;
+                    break;
+
+                default:
+                    throw new Exception("系統不支援此付款方式");
             }
 
-            // 2. 轉換為 DTO
-            var dto = new OrderDetailDto
-            {
-                OrderNo = order.FOrderNo,
-                CreatedAt = order.FCreatedAt,
-                StatusText = GetStatusText(order.FStatus),
-                TotalAmount = order.FTotalAmount,
-                ReceiverName = order.FReceiverName,
-                ReceiverPhone = order.FReceiverPhone,
-                ReceiverAddress = order.FReceiverAddress,
-                Note = order.FNote,
-                // 因為還沒有資料庫欄位，先寫死 LINE Pay
-                PaymentMethod = "LINE Pay",
-                Subtotal = order.TOrderDetails.Sum(od => od.FSubtotal),
-                // 運費與折扣暫時固定寫死 0
-                Discount = 0,
-                ShippingFee = 0,
-                TotalAmount = order.FTotalAmount,
-                Items = order.TOrderDetails.Select(od => new OrderItemDto
-                {
-                    ProductName = od.FVariant.FProduct.FProductName,
-                    VariantName = od.FVariant.FVariantName,
-                    UnitPrice = od.FUnitPrice,
-                    Quantity = od.FQuantity,
-                    ProductImage = od.FVariant.FProduct.FImageUrl // 假設圖片路徑在產品表
-                }).ToList()
-            };
-            return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
+            return paymentUrl;
         }
 
+        //建立產生綠界Html 表單的方法
+        public async Task<string> GenerateECPayHtmlFormAsync(string orderNo)
+{
+    // 1. 去資料庫找這筆訂單
+    var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+    if (order == null) return null; // 找不到訂單就回傳 null
+    string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
+
+    // 2. 準備綠界 API 需要的參數
+    var parameters = new Dictionary<string, string>
+    {
+        { "MerchantID", "3002607" },
+        { "MerchantTradeNo", tradeNoForECPay }, 
+        { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
+        { "PaymentType", "aio" },
+        { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
+        { "TradeDesc", "Shizuku_Order" }, 
+        { "ItemName", "Shizuku_Items" }, 
+        { "ReturnURL", "https://localhost:7197/api/OrderApi/ecpayReturn" }, 
+        { "OrderResultURL", "https://localhost:7197/api/OrderApi/ecpayResult" }, 
+        { "ChoosePayment", "Credit" },
+        { "EncryptType", "1" }
+    };
+    // 3. 計算 CheckMacValue (壓碼)
+    string hashKey = "pwFHCqoQZGmho4w6"; 
+    string hashIV = "EkRm7iFT261dpevs";  
+    parameters["CheckMacValue"] = BuildCheckMacValue(parameters, hashKey, hashIV);
+    // 4. 產生帶有自動送出功能的 HTML 字串
+    StringBuilder htmlForm = new StringBuilder();
+    htmlForm.Append("<html><body>");
+    htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
+    
+    foreach (var p in parameters)
+    {
+        htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
+    }
+    
+    htmlForm.Append("</form>");
+    htmlForm.Append("<script>document.getElementById('ecpayForm').submit();</script>");
+    htmlForm.Append("</body></html>");
+    return htmlForm.ToString();
+}
+// 這個小工具也是放在 OrderService 裡面，設為 private 讓內部呼叫即可
+private string BuildCheckMacValue(Dictionary<string, string> parameters, string hashKey, string hashIV)
+{
+    var sortedKeys = parameters.Keys.OrderBy(k => k).ToList();
+    var queryStrings = sortedKeys.Select(key => $"{key}={parameters[key]}");
+    string rawString = string.Join("&", queryStrings);
+    rawString = $"HashKey={hashKey}&{rawString}&HashIV={hashIV}";
+    string urlEncodedString = HttpUtility.UrlEncode(rawString).ToLower();
+    urlEncodedString = urlEncodedString.Replace("%2d", "-")
+                                       .Replace("%5f", "_")
+                                       .Replace("%2e", ".")
+                                       .Replace("%21", "!")
+                                       .Replace("%2a", "*")
+                                       .Replace("%28", "(")
+                                       .Replace("%29", ")")
+                                       .Replace("%20", "+");
+    using (SHA256 sha256 = SHA256.Create())
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(urlEncodedString);
+        byte[] hash = sha256.ComputeHash(bytes);
+        
+        StringBuilder result = new StringBuilder();
+        foreach (byte b in hash)
+        {
+            result.Append(b.ToString("X2"));
+        }
+        return result.ToString();
+    }
+}
+
+        
         // 統一管理訂單狀態的文字轉換
         private string GetStatusText(int? status)
         {
