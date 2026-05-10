@@ -14,13 +14,15 @@ namespace Shizuku.Services
         // 宣告一個唯讀的私有變數，用來存放資料庫連線
         private readonly DbShizukuDemoContext _db;
         private readonly LinePayService _linePayService;
+        private readonly IConfiguration _config; //讀取 appsettings.json裡的設定
 
         // 這是建構子 (Constructor)
         // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext 和 LinePayService，就會自動塞進來
-        public OrderService(DbShizukuDemoContext db, LinePayService linePayService)
+        public OrderService(DbShizukuDemoContext db, LinePayService linePayService, IConfiguration config)
         {
             _db = db;
             _linePayService = linePayService;
+            _config = config;
         }
 
         //建立訂單
@@ -291,25 +293,25 @@ public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderN
     if (order == null) return null; // 找不到訂單就回傳 null
     string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
 
-    // 2. 準備綠界 API 需要的參數
-    var parameters = new Dictionary<string, string>
+            // 2. 準備綠界 API 需要的參數
+            string hashKey = _config["ECPay:HashKey"];
+            string hashIV = _config["ECPay:HashIV"];
+            var parameters = new Dictionary<string, string>
     {
-        { "MerchantID", "3002607" },
-        { "MerchantTradeNo", tradeNoForECPay }, 
+        { "MerchantID", _config["ECPay:MerchantID"] },
+        { "MerchantTradeNo", tradeNoForECPay },
         { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
         { "PaymentType", "aio" },
         { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
-        { "TradeDesc", "Shizuku_Order" }, 
-        { "ItemName", "Shizuku_Items" }, 
-        { "ReturnURL", "https://localhost:7197/api/OrderApi/ecpayReturn" }, 
-        { "OrderResultURL", "https://localhost:7197/api/OrderApi/ecpayResult" }, 
+        { "TradeDesc", "Shizuku_Order" },
+        { "ItemName", "Shizuku_Items" },
+        { "ReturnURL", _config["ECPay:ReturnURL"] },
+        { "OrderResultURL", _config["ECPay:OrderResultURL"] },
         { "ChoosePayment", "Credit" },
         { "EncryptType", "1" }
     };
-    // 3. 計算 CheckMacValue (壓碼)
-    string hashKey = "pwFHCqoQZGmho4w6"; 
-    string hashIV = "EkRm7iFT261dpevs";  
-    parameters["CheckMacValue"] = BuildCheckMacValue(parameters, hashKey, hashIV);
+    // 3. 計算 CheckMacValue 
+    parameters["CheckMacValue"] = Shizuku.Helpers.ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
     // 4. 產生帶有自動送出功能的 HTML 字串
     StringBuilder htmlForm = new StringBuilder();
     htmlForm.Append("<html><body>");
@@ -325,37 +327,6 @@ public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderN
     htmlForm.Append("</body></html>");
     return htmlForm.ToString();
 }
-// 這個小工具也是放在 OrderService 裡面，設為 private 讓內部呼叫即可
-private string BuildCheckMacValue(Dictionary<string, string> parameters, string hashKey, string hashIV)
-{
-    var sortedKeys = parameters.Keys.OrderBy(k => k).ToList();
-    var queryStrings = sortedKeys.Select(key => $"{key}={parameters[key]}");
-    string rawString = string.Join("&", queryStrings);
-    rawString = $"HashKey={hashKey}&{rawString}&HashIV={hashIV}";
-    string urlEncodedString = HttpUtility.UrlEncode(rawString).ToLower();
-    urlEncodedString = urlEncodedString.Replace("%2d", "-")
-                                       .Replace("%5f", "_")
-                                       .Replace("%2e", ".")
-                                       .Replace("%21", "!")
-                                       .Replace("%2a", "*")
-                                       .Replace("%28", "(")
-                                       .Replace("%29", ")")
-                                       .Replace("%20", "+");
-    using (SHA256 sha256 = SHA256.Create())
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(urlEncodedString);
-        byte[] hash = sha256.ComputeHash(bytes);
-        
-        StringBuilder result = new StringBuilder();
-        foreach (byte b in hash)
-        {
-            result.Append(b.ToString("X2"));
-        }
-        return result.ToString();
-    }
-}
-
-        
         // 統一管理訂單狀態的文字轉換
         private string GetStatusText(int? status)
         {
