@@ -24,6 +24,7 @@ namespace Shizuku.Controllers
             _db = db;
         }
 
+        //建立訂單API /api/orderApi/create
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
@@ -32,6 +33,7 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
+        //確認付款api /api/orderApi/confirm
         [HttpPost("confirm")]
         public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequestDto request)
         {
@@ -98,7 +100,7 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
-        //生成綠界訂單表格API
+        //生成綠界訂單表格API /api/orderApi/ecpay/{orderNo}
         [HttpGet("ecpay/{orderNo}")]
         public async Task<IActionResult> GenerateECPayForm(string orderNo)
         {
@@ -113,6 +115,7 @@ namespace Shizuku.Controllers
             return Content(htmlForm, "text/html");
         }
 
+        //綠界回傳API /api/orderApi/ecpayResult
         [HttpPost("ecpayResult")]
         public IActionResult ECPayResult([FromForm] IFormCollection form)
         {
@@ -161,6 +164,7 @@ namespace Shizuku.Controllers
             return Content(html, "text/html");
         }
 
+        //重新付款 /api/orderApi/pay/{orderNo}
         [HttpPost("pay/{orderNo}")]
         public async Task<IActionResult> RepayOrder(string orderNo, [FromBody] RepayRequestDto request)
         {
@@ -197,6 +201,21 @@ namespace Shizuku.Controllers
                 return BadRequest(new ApiResponse<object> { Success = false, Message = "產生付款連結失敗：" + ex.Message });
             }
         }
+
+        //取消訂單 /api/orderApi/{orderNo}/cancel
+        [HttpPatch("{orderNo}/cancel")]
+public IActionResult CancelOrder(string orderNo)
+{
+    var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == orderNo);
+    if (order == null)
+        return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該訂單" });
+    if (order.FStatus != 1)
+        return BadRequest(new ApiResponse<object> { Success = false, Message = "只有待付款的訂單才能取消" });
+    order.FStatus = 5; // 5 = 已取消
+    order.FUpdatedAt = DateTime.Now;
+    _db.SaveChanges();
+    return Ok(new ApiResponse<object> { Success = true, Message = "訂單已成功取消" });
+}
     }
 
     // 放在 Controller 最下面，用來接前端的資料

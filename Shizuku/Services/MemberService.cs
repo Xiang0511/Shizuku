@@ -21,11 +21,12 @@ namespace Shizuku.Services
                 .Where(m => m.FEmail == email && m.FPassword == password)
                 .Select(m => new MemberLoginResponseDTO
                 {
+                    FId = m.FId,
                     FName = m.FName,
                     FEmail = m.FEmail,
-                    FGender=m.FGender,
-                    FBirthday=m.FBirthday,
-                    FPhone=m.FPhone
+                    FGender = m.FGender,
+                    FBirthday = m.FBirthday,
+                    FPhone = m.FPhone
                 })
                 .FirstOrDefault();
 
@@ -54,7 +55,7 @@ namespace Shizuku.Services
                 //FImage = "default.jpg" // 補上預設圖片 先不要好了
                 FReceiverName = dto.FName,
                 FPhone = dto.FPhone,
-                FReceiverPhone=dto.FPhone,
+                FReceiverPhone = dto.FPhone,
             };
 
             _context.TMembers.Add(newMember);
