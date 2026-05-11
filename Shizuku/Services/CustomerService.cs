@@ -252,5 +252,26 @@ namespace Shizuku.Services
 
             return categories;
         }
+        public async Task<string> GetBotResponseAsync(string userMessage)
+        {
+            // 1. 從資料庫的 tChatbotFaq 資料表取出所有的問答資料
+            // 這邊會對應你剛剛在 DbContext 註冊的 TChatbotFaqs
+            var faqs = await _db.TChatbotFaqs.ToListAsync();
+
+            // 2. 遍歷每一筆資料，比對客人的訊息是否包含關鍵字
+            foreach (var faq in faqs)
+            {
+                // 檢查客人的訊息是否包含資料表中的 FKeyword 欄位內容
+                if (userMessage.Contains(faq.fKeyword))
+                {
+                    // 如果匹配成功，回傳資料庫中 FAnswer 欄位的答案
+                    return faq.fAnswer;
+                }
+            }
+
+            // 3. 如果資料庫中所有的關鍵字都沒匹配到，則回傳預設訊息
+            // 這裡已經移除所有表情符號
+            return "不好意思，我不太明白您的意思。您可以嘗試詢問關於運費、退換貨或門市的問題，或是填寫聯絡表單，我們會盡快由專人為您解答。";
+        }
     }
 }

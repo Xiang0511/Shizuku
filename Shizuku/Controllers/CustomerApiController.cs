@@ -84,30 +84,9 @@ namespace Shizuku.Controllers
             }
 
             string userMessage = dto.Message.Trim();
-            string botReply = "";
 
-            // 加入這行：雖然目前沒有真實的資料庫 I/O 操作
-            // 但這能讓編譯器知道這是一個合法的非同步方法，方便未來擴充資料庫查詢
-            await Task.CompletedTask;
-
-            // --- 機器人的「大腦」關鍵字判斷 ---
-            if (userMessage.Contains("運費"))
-            {
-                botReply = "您好！目前全館滿 1000 元即享免運費優惠喔！未滿 1000 元，超商取貨運費為 60 元，宅配為 100 元。";
-            }
-            else if (userMessage.Contains("退換貨") || userMessage.Contains("退款"))
-            {
-                botReply = "您好！商品享有 7 天鑑賞期，若尺寸不合或有瑕疵，請保持吊牌完整，並至「訂單管理」申請退換貨即可。";
-            }
-            else if (userMessage.Contains("門市") || userMessage.Contains("實體店"))
-            {
-                botReply = "您好！目前我們是以網路電商為主，暫時沒有實體門市喔！所有的商品尺寸表都在商品頁面可以參考。";
-            }
-            else
-            {
-                // 如果都聽不懂，就給個萬用回覆
-                botReply = "不好意思，我不太明白您的意思 😅。您可以嘗試詢問關於「運費」、「退換貨」或「門市」的問題，或是填寫聯絡表單，我們會盡快由專人為您解答！";
-            }
+            // 呼叫 Service 去資料庫比對並撈取答案
+            string botReply = await _customerService.GetBotResponseAsync(userMessage);
 
             // 將答案包裝成 JSON 回傳給 Vue
             return Ok(new { reply = botReply });

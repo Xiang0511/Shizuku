@@ -57,6 +57,7 @@ public partial class DbShizukuDemoContext : DbContext
     public virtual DbSet<TTicketsCustomer> TTicketsCustomers { get; set; }
     public virtual DbSet<TOrder> TOrders { get; set; }
     public virtual DbSet<TOrderDetail> TOrderDetails { get; set; }
+    public virtual DbSet<TChatbotFaq> TChatbotFaqs { get; set; }
 
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -592,6 +593,21 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("fUpdated_at");
+        });
+        modelBuilder.Entity<TChatbotFaq>(entity =>
+        {
+            // 指定 fId 為主鍵
+            entity.HasKey(e => e.fId).HasName("PK_ChatbotFaqs");
+
+            // 指定對應的資料表名稱
+            entity.ToTable("tChatbotFaq");
+
+            // 指定欄位對應與大小寫
+            entity.Property(e => e.fId).HasColumnName("fId");
+            entity.Property(e => e.fKeyword)
+                .HasMaxLength(50)
+                .HasColumnName("fKeyword");
+            entity.Property(e => e.fAnswer).HasColumnName("fAnswer");
         });
 
         OnModelCreatingPartial(modelBuilder);
