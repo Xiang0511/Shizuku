@@ -2,6 +2,8 @@
 {
     public class MemberLoginResponseDto
     {
+
+        public int FId { get; set; }
         // 登入成功後回傳給前端顯示的名稱
         public required string FName { get; set; }
         public string? FEmail { get; set; }
