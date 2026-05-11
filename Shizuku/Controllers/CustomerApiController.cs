@@ -88,8 +88,13 @@ namespace Shizuku.Controllers
             // 呼叫 Service 去資料庫比對並撈取答案
             string botReply = await _customerService.GetBotResponseAsync(userMessage);
 
-            // 將答案包裝成 JSON 回傳給 Vue
-            return Ok(new { reply = botReply });
+            // 將答案包裝成符合組長規範的 ApiResponse 回傳
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "成功取得機器人回覆",
+                Data = new { reply = botReply }
+            });
         }
     }
 }
