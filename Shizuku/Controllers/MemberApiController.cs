@@ -16,6 +16,7 @@ namespace Shizuku.Controllers
             _memberService = memberService;
         }
 
+        //登入
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] MemberLoginRequestDto dto)
         {
@@ -48,6 +49,8 @@ namespace Shizuku.Controllers
             });
         }
 
+
+        //註冊
         [HttpPost("Register")]
         public async Task<IActionResult> Register([FromBody] MemberRegisterRequestDto dto)
         {
@@ -102,6 +105,25 @@ namespace Shizuku.Controllers
                 Success = false,
                 Message = "註冊過程中發生伺服器錯誤"
             });
+        }
+
+        //更新個人資料
+        [HttpPut("UpdateProfile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] MemberEditRequestDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "資料格式錯誤" });
+            }
+
+            var result = await _memberService.UpdateProfileAsync(dto);
+
+            if (result)
+            {
+                return Ok(new ApiResponse<string> { Success = true, Message = "個人資料已更新" });
+            }
+
+            return BadRequest(new ApiResponse<string> { Success = false, Message = "更新失敗，請確認資料是否有變動" });
         }
 
         [HttpGet("Lo")]

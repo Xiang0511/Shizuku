@@ -15,6 +15,7 @@ namespace Shizuku.Services
             _context = context;
         }
 
+        //登入
         public async Task<MemberLoginResponseDto> LoginAsync(string email, string password)
         {
             var loginResult = await _context.TMembers
@@ -33,6 +34,7 @@ namespace Shizuku.Services
             return loginResult;
         }
 
+        //註冊
         public async Task<bool> IsEmailTakenAsync(string email)
         {
             return await _context.TMembers.AnyAsync(m => m.FEmail == email);
@@ -86,6 +88,7 @@ namespace Shizuku.Services
             return null;
         }
 
+        //地址查詢
         public async Task<List<MemberAddressDto>> GetAddressesAsync(int memberId)
         {
             var member = await _context.TMembers.FindAsync(memberId);
@@ -98,6 +101,7 @@ namespace Shizuku.Services
             return JsonSerializer.Deserialize<List<MemberAddressDto>>(member.FReceiverAddress) ?? new List<MemberAddressDto>();
         }
 
+        //更新地址
         public async Task<bool> UpdateAddressesAsync(int memberId, List<MemberAddressDto> addresses)
         {
             var member = await _context.TMembers.FindAsync(memberId);
@@ -116,6 +120,24 @@ namespace Shizuku.Services
 
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        //更新個人資料
+        public async Task<bool> UpdateProfileAsync(MemberEditRequestDto dto)
+        {
+            var member = await _context.TMembers.FirstOrDefaultAsync(m => m.FId == dto.FId);
+
+            if (member == null) return false;
+
+            // 僅更新名稱與性別
+            member.FName = dto.FName;
+            member.FGender = dto.FGender;
+            member.FUpdatedTime = DateTime.Now;
+
+            // 如果你有連動收件人名稱，也可以順便改
+            member.FReceiverName = dto.FName;
+
+            return await _context.SaveChangesAsync() > 0;
         }
     }
 }
