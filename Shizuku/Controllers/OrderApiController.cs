@@ -165,7 +165,7 @@ namespace Shizuku.Controllers
         }
 
         //重新付款 /api/orderApi/pay/{orderNo}
-        [HttpPost("pay/{orderNo}")]
+        [HttpPost("repay/{orderNo}")]
         public async Task<IActionResult> RepayOrder(string orderNo, [FromBody] RepayRequestDto request)
         {
             // 找出這筆訂單
