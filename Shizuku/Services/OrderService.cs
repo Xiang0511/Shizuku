@@ -160,17 +160,17 @@ namespace Shizuku.Services
 
 
         //根據orderNo 取的訂單明細
-public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo)
-{
-    // 1. 先單獨把訂單主表撈出來
-    var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-    
-    if (order == null)
-    {
-        return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
-    }
-    // 2. 透過原生的 LINQ Join 語法，把明細、規格、商品、顏色、尺寸、圖片全部安全地串聯起來！
-    var detailsData = await (from od in _db.TOrderDetails
+        public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo, int memberId)
+        {
+            // 1. 先單獨把訂單主表撈出來
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo && o.FMemberId == memberId);
+            
+            if (order == null)
+            {
+                return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
+            }
+            // 2. 透過原生的 LINQ Join 語法，把明細、規格、商品、顏色、尺寸、圖片全部安全地串聯起來！
+            var detailsData = await (from od in _db.TOrderDetails
                              join v in _db.TProductVariants on od.FVariantId equals v.FId
                              join p in _db.TProducts on v.FProductId equals p.FId
                              // 顏色與尺寸可能為空，所以使用 Left Join

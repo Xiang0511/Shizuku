@@ -89,9 +89,9 @@ namespace Shizuku.Controllers
 
         //讀取訂單明細API /api/order/{orderNo}
         [HttpGet("{orderNo}")]
-        public async Task<IActionResult> GetOrderDetail(string orderNo)
+        public async Task<IActionResult> GetOrderDetail(string orderNo, [FromQuery] int memberId)
         {
-            var result = await _orderService.GetOrderDetailAsync(orderNo);
+            var result = await _orderService.GetOrderDetailAsync(orderNo, memberId);
             
             if (!result.Success)
             {
