@@ -1,0 +1,117 @@
+﻿@{
+    ViewData["Title"] = "客服中心 - 真人即時對談";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-dark text-white">線上訪客列表</div>
+                <ul class="list-group list-group-flush" id="guestList">
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white" id="chatHeader">請從左側選擇訪客開始對談</div>
+                <div class="card-body" style="height: 400px; overflow-y: auto;" id="chatWindow">
+                </div>
+                <div class="card-footer">
+                    <div class="input-group">
+                        <input type="hidden" id="targetGuestId" />
+                        <input type="text" id="messageInput" class="form-control" placeholder="輸入回覆內容..." disabled />
+                        <button class="btn btn-primary" id="sendButton" disabled>傳送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+<script>
+    const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chatHub")
+    .build();
+
+    let activeGuests = {};
+
+    // 監聽來自客人的訊息
+    connection.on("ReceiveFromGuest", function (guestId, message) {
+    if (!activeGuests[guestId]) {
+    activeGuests[guestId] = [];
+    const li = document.createElement("li");
+    li.className = "list-group-item list-group-item-action";
+    li.style.cursor = "pointer";
+    li.innerText = "訪客: " + guestId.substring(0, 5) + "...";
+    li.onclick = function () {
+    selectGuest(guestId, li);
+    };
+    document.getElementById("guestList").appendChild(li);
+    }
+
+    activeGuests[guestId].push({ sender: "Guest", text: message });
+
+    if (document.getElementById("targetGuestId").value === guestId) {
+    appendMessage("訪客", message, "text-start text-secondary");
+    }
+    });
+
+    // 點擊左側列表切換訪客
+    function selectGuest(guestId, element) {
+    document.querySelectorAll("#guestList li").forEach(el => el.classList.remove("active"));
+    element.classList.add("active");
+        
+    document.getElementById("targetGuestId").value = guestId;
+    document.getElementById("chatHeader").innerText = "與 訪客 " + guestId.substring(0, 5) + " 對談中";
+    document.getElementById("messageInput").disabled = false;
+    document.getElementById("sendButton").disabled = false;
+        
+    const chatWindow = document.getElementById("chatWindow");
+    chatWindow.innerHTML = "";
+    activeGuests[guestId].forEach(msg => {
+    if (msg.sender === "Guest") {
+    appendMessage("訪客", msg.text, "text-start text-secondary");
+    } else {
+    appendMessage("客服", msg.text, "text-end text-primary");
+    }
+    });
+    }
+
+    // 將訊息加到畫面上
+    function appendMessage(sender, text, className) {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "mb-2 " + className;
+    msgDiv.innerHTML = "<strong>" + sender + ":</strong> " + text;
+    const chatWindow = document.getElementById("chatWindow");
+    chatWindow.appendChild(msgDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // 啟動連線並加入客服群組
+    connection.start().then(function () {
+    connection.invoke("JoinAsAdmin").catch(function (err) {
+    return console.error(err.toString());
+    });
+    }).catch(function (err) {
+    return console.error(err.toString());
+    });
+
+    // 傳送按鈕事件
+    document.getElementById("sendButton").addEventListener("click", function (event) {
+    const guestId = document.getElementById("targetGuestId").value;
+    const message = document.getElementById("messageInput").value;
+        
+    if (!message || !guestId) return;
+
+    connection.invoke("ReplyToGuest", guestId, message).then(function() {
+    activeGuests[guestId].push({ sender: "Admin", text: message });
+    appendMessage("客服", message, "text-end text-primary");
+    document.getElementById("messageInput").value = "";
+    }).catch(function (err) {
+    return console.error(err.toString());
+    });
+        
+    event.preventDefault();
+    });
+</script>
