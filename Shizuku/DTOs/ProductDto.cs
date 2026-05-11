@@ -142,4 +142,53 @@ namespace Shizuku.ViewModels
         public int fStock { get; set; }       // 可編輯
         public string? fSkuCode { get; set; }  // 唯讀顯示
     }
+    // =============================================
+    // 後台 Dashboard 用
+    // =============================================
+
+    /// <summary>商品銷售分析 DTO</summary>
+    public class ProductSalesDto
+    {
+        public int fProductId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public string fProduct { get; set; } = string.Empty;
+        public int fTotalSold { get; set; }
+        public decimal fTotalRevenue { get; set; }
+        public string fStatus { get; set; } = string.Empty;
+    }
+
+    /// <summary>Dashboard 統計 DTO</summary>
+    public class ProductStatsDto
+    {
+        public int fTotalProducts { get; set; }
+        public int fActiveProducts { get; set; }
+        public int fOfflineProducts { get; set; }
+        public int fTotalStock { get; set; }
+        public int fLowStockCount { get; set; }
+        public int fSoldOutCount { get; set; }
+        public decimal fTotalRevenue { get; set; }
+        public List<ProductSalesDto> fHotProducts { get; set; } = new();
+        public List<ProductSalesDto> fSlowProducts { get; set; } = new();
+        public List<CategoryStatDto> fCategoryStats { get; set; } = new();
+    }
+
+    /// <summary>分類統計 DTO</summary>
+    public class CategoryStatDto
+    {
+        public string fCategoryName { get; set; } = string.Empty;
+        public int fProductCount { get; set; }
+    }
+
+    /// <summary>庫存總覽 DTO</summary>
+    public class InventoryDto
+    {
+        public int fProductId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public int fVariantId { get; set; }
+        public string fSkuCode { get; set; } = string.Empty;
+        public int fStock { get; set; }
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public string fStockStatus { get; set; } = string.Empty;
+    }
 }

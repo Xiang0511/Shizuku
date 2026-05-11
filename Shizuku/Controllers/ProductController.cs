@@ -190,5 +190,30 @@ namespace Shizuku.Controllers
                 Message = "刪除成功"
             });
         }
+        /// <summary>取得 Dashboard 統計數據</summary>
+        [HttpGet("stats")]
+        public IActionResult GetStats()
+        {
+            var stats = _productService.GetStats();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = stats
+            });
+        }
+
+        /// <summary>取得庫存總覽</summary>
+        [HttpGet("inventory")]
+        public IActionResult GetInventory()
+        {
+            var inventory = _productService.GetInventory();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = inventory
+            });
+        }
     }
 }

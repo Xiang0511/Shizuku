@@ -285,5 +285,97 @@ namespace Shizuku.Services
 
             return (categories, colors, sizes);
         }
+        /// <summary>取得 Dashboard 統計數據（含真實銷售分析）</summary>
+        public ProductStatsDto GetStats()
+        {
+            var products = _context.TProducts.ToList();
+            var variants = _context.TProductVariants.ToList();
+
+            // 從訂單明細計算每個商品的銷售數量
+            var salesData = _context.TOrderDetails
+                .GroupBy(od => od.FVariantId)
+                .Select(g => new
+                {
+                    fVariantId = g.Key,
+                    fTotalSold = g.Sum(od => od.FQuantity),
+                    fTotalRevenue = g.Sum(od => od.FSubtotal)
+                }).ToList();
+
+            // 對應到商品
+            var productSales = variants
+                .GroupJoin(salesData,
+                    v => v.FId,
+                    s => s.fVariantId,
+                    (v, s) => new { v, sales = s.FirstOrDefault() })
+                .GroupBy(x => x.v.FProductId)
+                .Select(g => new ProductSalesDto
+                {
+                    fProductId = g.Key,
+                    fProductName = _context.TProducts
+                        .Where(p => p.FId == g.Key)
+                        .Select(p => p.FName)
+                        .FirstOrDefault() ?? "",
+                    fProduct = _context.TProducts
+                        .Where(p => p.FId == g.Key)
+                        .Select(p => p.FProduct)
+                        .FirstOrDefault() ?? "",
+                    fTotalSold = g.Sum(x => x.sales?.fTotalSold ?? 0),
+                    fTotalRevenue = g.Sum(x => x.sales?.fTotalRevenue ?? 0),
+                    fStatus = g.Sum(x => x.sales?.fTotalSold ?? 0) >= 100 ? "熱銷"
+                                  : g.Sum(x => x.sales?.fTotalSold ?? 0) >= 20 ? "普通"
+                                  : "滯銷"
+                })
+                .OrderByDescending(p => p.fTotalSold)
+                .ToList();
+
+            return new ProductStatsDto
+            {
+                fTotalProducts = products.Count(p => p.FStatus != 0),
+                fActiveProducts = products.Count(p => p.FStatus == 1),
+                fOfflineProducts = products.Count(p => p.FStatus == 2),
+                fTotalStock = variants.Sum(v => v.FStock),
+                fLowStockCount = variants.Count(v => v.FStock > 0 && v.FStock <= 5),
+                fSoldOutCount = variants.Count(v => v.FStock == 0),
+                fTotalRevenue = salesData.Sum(s => s.fTotalRevenue),
+                fHotProducts = productSales.Take(5).ToList(),
+                fSlowProducts = productSales
+                    .Where(p => p.fStatus == "滯銷")
+                    .TakeLast(5).ToList(),
+                fCategoryStats = _context.TProductCategories
+                    .Where(c => c.FParentId != null)
+                    .Select(c => new CategoryStatDto
+                    {
+                        fCategoryName = c.FName,
+                        fProductCount = _context.TProducts
+                            .Count(p => p.FCategoryId == c.FId && p.FStatus != 0)
+                    }).ToList()
+            };
+        }
+
+        /// <summary>取得所有商品規格庫存總覽</summary>
+        public List<InventoryDto> GetInventory()
+        {
+            return _context.TProductVariants
+                .Where(v => v.TProduct.FStatus != 0)
+                .Select(v => new InventoryDto
+                {
+                    fProductId = v.FProductId,
+                    fProductName = v.TProduct.FName,
+                    fVariantId = v.FId,
+                    fSkuCode = v.FSkuCode,
+                    fStock = v.FStock,
+                    fColor = _context.TProductColors
+                        .Where(c => c.FId == v.FColorId)
+                        .Select(c => c.FName)
+                        .FirstOrDefault() ?? "無顏色",
+                    fSize = _context.TProductSizes
+                        .Where(s => s.FId == v.FSizeId)
+                        .Select(s => s.FName)
+                        .FirstOrDefault() ?? "無尺寸",
+                    fStockStatus = v.FStock == 0 ? "售完"
+                                 : v.FStock <= 5 ? "低庫存"
+                                 : "正常"
+                }).ToList();
+        }
     }
 }
