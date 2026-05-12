@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Shizuku.Models.DTOs
+namespace Shizuku.DTOs
 {
     public class CreateOrderRequestDto
     {
