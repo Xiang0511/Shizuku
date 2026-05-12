@@ -14,4 +14,5 @@ public partial class TProductImage
     public int FSortOrder { get; set; }
 
     public byte FIsMain { get; set; }
+    public virtual TProduct TProduct { get; set; } = null!;
 }

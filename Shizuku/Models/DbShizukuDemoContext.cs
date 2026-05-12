@@ -448,6 +448,11 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FIsMain).HasColumnName("fIsMain");
             entity.Property(e => e.FProductId).HasColumnName("fProductId");
             entity.Property(e => e.FSortOrder).HasColumnName("fSortOrder");
+            entity.HasOne<TProduct>(e => e.TProduct)
+     .WithMany(p => p.TProductImages)
+     .HasForeignKey(e => e.FProductId)
+     .OnDelete(DeleteBehavior.Cascade)
+     .HasConstraintName("FK_tProductImages_tProduct");
         });
 
         modelBuilder.Entity<TProductSize>(entity =>
@@ -461,6 +466,8 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("fName");
             entity.Property(e => e.FSortOrder).HasColumnName("fSortOrder");
+
+            
         });
 
         modelBuilder.Entity<TProductVariant>(entity =>

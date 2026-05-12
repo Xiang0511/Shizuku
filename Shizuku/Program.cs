@@ -34,9 +34,10 @@ try
 
     builder.Host.UseSerilog();
 
-    // --- 2. 註冊服務 ---
-    builder.Services.AddControllersWithViews();
-    builder.Services.AddSwaggerGen();
+// --- 2. 註冊基礎服務 ---
+//builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddControllersWithViews();
+builder.Services.AddSwaggerGen();
 
     builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
         options.UseSqlServer(connectionString));
@@ -53,10 +54,12 @@ try
         });
     });
 
-    // --- 4. 註冊自定義服務 ---
-    builder.Services.AddScoped<OrderService>();
-    builder.Services.AddScoped<MemberService>();
-    builder.Services.AddHttpClient<LinePayService>();
+// --- 4. 註冊自定義服務 (DI) ---
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<MemberService>();
+builder.Services.AddHttpClient<LinePayService>();
+builder.Services.AddScoped<ProductService>();
+
 
 
 // 加入這行，讓系統載入 SignalR 的相關功能
