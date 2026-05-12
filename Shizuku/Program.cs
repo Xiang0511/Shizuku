@@ -47,15 +47,31 @@ builder.Services.AddSwaggerGen();
     {
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("http://localhost:5173") // 前端的網址 (例如 Vite 預設) 
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
                   .AllowCredentials();
         });
     });
 
-// --- 4. 註冊自定義服務 (DI) ---
-builder.Services.AddScoped<OrderService>();
+    /*
+    builder.Services.AddCors(options =>
+{
+    options.AddPolicy("MyAllowSpecificOrigins",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173", // 改成你前端的網址 (例如 Vite 預設)
+                               "https://your-production-domain.com") 
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // 只有在明確指定 Origin 時，才能使用此設定
+        });
+}); 
+
+     */
+
+    // --- 4. 註冊自定義服務 (DI) ---
+    builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddHttpClient<LinePayService>();
 builder.Services.AddScoped<ProductService>();
