@@ -5,6 +5,7 @@
 
         public int FId { get; set; }
         // 登入成功後回傳給前端顯示的名稱
+        public int FId { get; set; }
         public required string FName { get; set; }
         public string? FEmail { get; set; }
         public int? FGender { get; set; }

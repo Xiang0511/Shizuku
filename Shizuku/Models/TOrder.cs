@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema; // 🌟 為了使用 [Table] 和 [Column]
+using System.ComponentModel.DataAnnotations.Schema; // 為了使用 [Table] 和 [Column]
 
 namespace Shizuku.Models
 {
