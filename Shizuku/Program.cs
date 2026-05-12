@@ -4,6 +4,7 @@ using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
 using Shizuku.Services;
+using Shizuku.Hubs;
 
 // 啟用 Serilog 內部除錯，這行非常重要！
 // 如果資料庫連線失敗，錯誤會顯示在 Output 視窗
@@ -48,6 +49,7 @@ try
             policy.AllowAnyOrigin()
                   .AllowAnyHeader()
                   .AllowAnyMethod();
+                  .AllowCredentials();
         });
     });
 
@@ -56,7 +58,10 @@ try
     builder.Services.AddScoped<MemberService>();
     builder.Services.AddHttpClient<LinePayService>();
 
-    var app = builder.Build();
+
+// 加入這行，讓系統載入 SignalR 的相關功能
+builder.Services.AddSignalR();
+var app = builder.Build();
 
     // --- 5. 中間件順序 ---
     if (app.Environment.IsDevelopment())
@@ -81,6 +86,9 @@ try
     app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}");
+
+    // 加入這行，設定對外開放的 WebSocket 通道網址為 /chatHub
+    app.MapHub<ChatHub>("/chatHub");
 
     Log.Information("應用程式正在啟動...");
     app.Run();
