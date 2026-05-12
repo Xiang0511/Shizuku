@@ -37,13 +37,9 @@ namespace Shizuku.ViewModels
     // =============================================
     public class VariantSummaryDto
     {
-        [DisplayName("顏色")]
-        public string fColor { get; set; }
-
-        [DisplayName("尺寸")]
-        public string fSize { get; set; }
-
-        [DisplayName("庫存")]
+        public int fId { get; set; }  
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
         public int fStock { get; set; }
     }
 
@@ -130,8 +126,8 @@ namespace Shizuku.ViewModels
     /// <summary>分類下拉選單用</summary>
     public class CategoryOptionDto
     {
-        public int ID { get; set; }
-        public string FullName { get; set; }
+        public int fId { get; set; }
+        public string fullName { get; set; } = string.Empty;
     }
     /// <summary>規格庫存編輯用 DTO</summary>
     public class VariantEditDto

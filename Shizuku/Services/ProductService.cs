@@ -50,6 +50,7 @@ namespace Shizuku.Services
                     .Where(v => v.FProductId == p.FId)
                     .Select(v => new VariantSummaryDto
                     {
+                        fId = v.FId,
                         fColor = _context.TProductColors
                             .Where(c => c.FId == v.FColorId)
                             .Select(c => c.FName)
@@ -273,8 +274,8 @@ namespace Shizuku.Services
                 .ToList()
                 .Select(c => new
                 {
-                    ID = c.FId,
-                    FullName = _context.TProductCategories
+                    fId = c.FId,
+                    fFullName = _context.TProductCategories
                         .FirstOrDefault(p => p.FId.ToString() == c.FParentId)?.FName
                         + "-" + c.FName
                 })
