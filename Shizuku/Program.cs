@@ -72,11 +72,10 @@ builder.Services.AddSwaggerGen();
 
     // --- 4. 註冊自定義服務 (DI) ---
     builder.Services.AddScoped<OrderService>();
-builder.Services.AddScoped<MemberService>();
-builder.Services.AddHttpClient<LinePayService>();
-builder.Services.AddScoped<ProductService>();
-
-
+    builder.Services.AddScoped<MemberService>();
+    builder.Services.AddHttpClient<LinePayService>();
+    builder.Services.AddScoped<ProductService>();
+    builder.Services.AddHostedService<OrderTimeoutService>();
 
 // 加入這行，讓系統載入 SignalR 的相關功能
 builder.Services.AddSignalR();

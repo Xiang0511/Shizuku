@@ -14,15 +14,17 @@ namespace Shizuku.Services
         // 宣告一個唯讀的私有變數，用來存放資料庫連線
         private readonly DbShizukuDemoContext _db;
         private readonly LinePayService _linePayService;
+        private readonly ProductService _productService;
         private readonly IConfiguration _config; //讀取 appsettings.json裡的設定
 
-        // 這是建構子 (Constructor)
+        // 建構子 (Constructor)
         // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext 和 LinePayService，就會自動塞進來
-        public OrderService(DbShizukuDemoContext db, LinePayService linePayService, IConfiguration config)
+        public OrderService(DbShizukuDemoContext db, LinePayService linePayService, IConfiguration config, ProductService productService)
         {
             _db = db;
             _linePayService = linePayService;
             _config = config;
+            _productService = productService;
         }
 
         //建立訂單
@@ -53,15 +55,12 @@ namespace Shizuku.Services
                         {
                             throw new Exception($"找不到商品規格代碼 {item.VariantId}");
                         }
-
-                        // 4-2: 檢查庫存 (FStock) 夠不夠？
-                        if (variant.FStock < item.Quantity)
+                        //減去庫存
+                        bool stockDeducted = await _productService.DeductStockAsync(item.VariantId, item.Quantity);
+                        if (!stockDeducted)
                         {
-                            throw new Exception("很抱歉，部分商品庫存不足，被搶走啦！");
+                            throw new Exception($"商品規格 {item.VariantId} 庫存不足，下單失敗！");
                         }
-
-                        // TODO: 等商品組員實作 ProductService.DeductStock 後，改為呼叫 API，並移除這行
-                        variant.FStock -= item.Quantity;
 
                         // 4-4: 為了拿到商品的名字，我們去 TProduct 找一下主商品資料
                         var product = _db.TProducts.FirstOrDefault(p => p.FId == variant.FProductId);
@@ -381,11 +380,10 @@ namespace Shizuku.Services
                     // C. 迴圈回補庫存
                     foreach (var item in details)
                     {
-                        var variant = await _db.TProductVariants.FirstOrDefaultAsync(v => v.FId == item.FVariantId);
-                        if (variant != null)
+                        bool isRestored = await _productService.RestoreStockAsync(item.FVariantId, item.FQuantity);
+                        if (!isRestored)
                         {
-                            // TODO: 等商品組員實作後，改為呼叫 _productService.RestoreStock(variant.FId, item.FQuantity)
-                            variant.FStock += item.FQuantity; 
+                            throw new Exception($"回補庫存失敗，找不到規格 ID: {item.FVariantId}");
                         }
                     }
 

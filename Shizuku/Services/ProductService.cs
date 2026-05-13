@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.ViewModels;
+using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
@@ -410,7 +411,7 @@ namespace Shizuku.Services
             {
             VariantId = v.FId,
             // 優先取規格價格，若無則取商品主表價格
-            LatestPrice = v.FPrice ?? (v.TProduct.FPrice ?? 0),
+            LatestPrice = v.FPrice ?? v.TProduct.FPrice, 
             CurrentStock = v.FStock,
             ProductName = v.TProduct.FName
             }).ToListAsync();
