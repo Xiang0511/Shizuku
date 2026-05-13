@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using Shizuku.DTOs;
+using Shizuku.Helpers;
 using Shizuku.Services;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Shizuku.Controllers
 {
@@ -10,10 +12,12 @@ namespace Shizuku.Controllers
     public class MemberApiController : ControllerBase
     {
         private readonly MemberService _memberService;
+        private readonly JwtHelper _jwtHelper;
 
-        public MemberApiController(MemberService memberService)
+        public MemberApiController(MemberService memberService, JwtHelper jwtHelper)
         {
             _memberService = memberService;
+            _jwtHelper = jwtHelper;
         }
 
         //登入
@@ -40,6 +44,8 @@ namespace Shizuku.Controllers
                     Message = "帳號密碼錯誤"
                 });
             }
+
+            loginDto.Token = _jwtHelper.GenerateToken(loginDto.FId, loginDto.FName ?? "", loginDto.FEmail ?? "");
 
             return Ok(new ApiResponse<MemberLoginResponseDto>
             {
