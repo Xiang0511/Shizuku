@@ -40,6 +40,11 @@ namespace Shizuku.Services
                 fPrice = p.FPrice,
                 fStatus = (byte)p.FStatus,
 
+                fMinPrice = _context.TProductVariants
+                .Where(v => v.FProductId == p.FId && v.FPrice != null)
+                .Select(v => v.FPrice)
+                .OrderBy(v => v)
+                .FirstOrDefault() ?? p.FPrice,
                 fImage = _context.TProductImages
                     .Where(img => img.FProductId == p.FId)
                     .OrderByDescending(img => img.FIsMain)
@@ -61,7 +66,8 @@ namespace Shizuku.Services
                             .Select(s => s.FName)
                             .FirstOrDefault() ?? "無尺寸",
 
-                        fStock = v.FStock
+                        fStock = v.FStock,
+                        fPrice = v.FPrice
                     }).ToList()
 
             }).ToList();
@@ -205,6 +211,7 @@ namespace Shizuku.Services
                     fId = v.FId,
                     fStock = v.FStock,
                     fSkuCode = v.FSkuCode,
+                    fPrice = v.FPrice,
                     fColor = _context.TProductColors
                         .Where(c => c.FId == v.FColorId)
                         .Select(c => c.FName)
@@ -226,6 +233,10 @@ namespace Shizuku.Services
                 if (variant == null) continue;
 
                 variant.FStock = dto.fStock;
+
+                // 
+                if (dto.fPrice.HasValue)
+                    variant.FPrice = dto.fPrice.Value;
             }
             _context.SaveChanges();
         }

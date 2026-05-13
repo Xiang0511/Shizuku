@@ -21,6 +21,7 @@ namespace Shizuku.ViewModels
         [DisplayName("價格")]
         [DisplayFormat(DataFormatString = "{0:C0}")]
         public decimal fPrice { get; set; }
+        public decimal? fMinPrice { get; set; }
 
         [DisplayName("上架狀態")]
         public byte fStatus { get; set; }
@@ -41,6 +42,7 @@ namespace Shizuku.ViewModels
         public string fColor { get; set; } = string.Empty;
         public string fSize { get; set; } = string.Empty;
         public int fStock { get; set; }
+        public decimal? fPrice { get; set; }
     }
 
     // =============================================
@@ -137,6 +139,7 @@ namespace Shizuku.ViewModels
         public string? fSize { get; set; }     // 尺寸名稱（顯示用）
         public int fStock { get; set; }       // 可編輯
         public string? fSkuCode { get; set; }  // 唯讀顯示
+        public decimal? fPrice { get; set; }
     }
     // =============================================
     // 後台 Dashboard 用
