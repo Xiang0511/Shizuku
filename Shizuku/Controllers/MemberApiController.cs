@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using Shizuku.DTOs;
 using Shizuku.Helpers;
@@ -114,6 +115,7 @@ namespace Shizuku.Controllers
         }
 
         //更新個人資料
+        [Authorize]
         [HttpPut("UpdateProfile")]
         public async Task<IActionResult> UpdateProfile([FromBody] MemberEditRequestDto dto)
         {
@@ -141,6 +143,14 @@ namespace Shizuku.Controllers
                 success = true,
                 message = "登入成功",
             });
+        }
+
+        [Authorize]
+        [HttpGet("test-header")]
+        public IActionResult TestHeader()
+        {
+            var authHeader = Request.Headers["Authorization"].ToString();
+            return Ok(new { header = authHeader });
         }
     }
 

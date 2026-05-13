@@ -6,15 +6,21 @@ using Shizuku.Models;
 using Shizuku.Services;
 using Shizuku.Hubs;
 using Shizuku.Helpers;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
-// 啟用 Serilog 內部除錯，這行非常重要！
-// 如果資料庫連線失敗，錯誤會顯示在 Output 視窗
+// 啟用 Serilog 內部除錯
 Serilog.Debugging.SelfLog.Enable(msg => System.Diagnostics.Debug.WriteLine(msg));
 
 try
 {
     var builder = WebApplication.CreateBuilder(args);
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+    // JWT: 取得設定檔中的 JWT 資訊
+    var jwtSettings = builder.Configuration.GetSection("Jwt");
+    var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
     // --- 1. Serilog 配置 ---
     var sinkOptions = new MSSqlServerSinkOptions
@@ -27,7 +33,6 @@ try
         .MinimumLevel.Information()
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning)
-        // 建議加上 .Async()，避免資料庫連線不穩時卡住後端啟動
         .WriteTo.Async(a => a.MSSqlServer(connectionString, sinkOptions))
         .WriteTo.Debug()
         .WriteTo.Console()
@@ -35,10 +40,10 @@ try
 
     builder.Host.UseSerilog();
 
-// --- 2. 註冊基礎服務 ---
-//builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddControllersWithViews();
-builder.Services.AddSwaggerGen();
+    // --- 2. 註冊基礎服務 ---
+    builder.Services.AddControllersWithViews();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 
     builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
         options.UseSqlServer(connectionString));
@@ -48,43 +53,45 @@ builder.Services.AddSwaggerGen();
     {
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // 前端的網址 (例如 Vite 預設) 
+            policy.WithOrigins("http://localhost:5173")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
         });
     });
 
-    /*
-    builder.Services.AddCors(options =>
-{
-    options.AddPolicy("MyAllowSpecificOrigins",
-        policy =>
+    // --- 4. JWT 驗證服務設定 ---
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            policy.WithOrigins("http://localhost:5173", // 改成你前端的網址 (例如 Vite 預設)
-                               "https://your-production-domain.com") 
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials(); // 只有在明確指定 Origin 時，才能使用此設定
-        });
-}); 
+            ValidateIssuer = true, // 恢復驗證發行者
+            ValidateAudience = true, // 恢復驗證接收者
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+    });
 
-     */
-
-    // --- 4. 註冊自定義服務 (DI) ---
+    // --- 5. 註冊自定義服務 (DI) ---
     builder.Services.AddScoped<OrderService>();
-builder.Services.AddScoped<MemberService>();
-builder.Services.AddHttpClient<LinePayService>();
-builder.Services.AddScoped<ProductService>();
+    builder.Services.AddScoped<MemberService>();
+    builder.Services.AddHttpClient<LinePayService>();
+    builder.Services.AddScoped<ProductService>();
     builder.Services.AddScoped<JwtHelper>();
 
-
-
-    // 加入這行，讓系統載入 SignalR 的相關功能
     builder.Services.AddSignalR();
-var app = builder.Build();
 
-    // --- 5. 中間件順序 ---
+    var app = builder.Build();
+
+    // --- 6. 中間件順序 (Pipeline) ---
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -96,19 +103,21 @@ var app = builder.Build();
         app.UseHsts();
     }
 
-    app.UseSerilogRequestLogging(); // 紀錄 API 請求日誌
+    app.UseSerilogRequestLogging();
     app.UseHttpsRedirection();
     app.UseStaticFiles();
+
+    app.UseCors("AllowAll"); // CORS 必須在 Routing 之前
+
     app.UseRouting();
 
-    app.UseCors("AllowAll");
-    app.UseAuthorization();
+    app.UseAuthentication(); // 認證：你是誰
+    app.UseAuthorization();  // 授權：你能做什麼
 
     app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}");
 
-    // 加入這行，設定對外開放的 WebSocket 通道網址為 /chatHub
     app.MapHub<ChatHub>("/chatHub");
 
     Log.Information("應用程式正在啟動...");
@@ -120,5 +129,5 @@ catch (Exception ex)
 }
 finally
 {
-    Log.CloseAndFlush(); // 確保日誌完整寫入
+    Log.CloseAndFlush();
 }
