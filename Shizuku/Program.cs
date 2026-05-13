@@ -5,6 +5,7 @@ using Serilog.Sinks.MSSqlServer;
 using Shizuku.Models;
 using Shizuku.Services;
 using Shizuku.Hubs;
+using Shizuku.Helpers;
 
 // 啟用 Serilog 內部除錯，這行非常重要！
 // 如果資料庫連線失敗，錯誤會顯示在 Output 視窗
@@ -75,11 +76,12 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddHttpClient<LinePayService>();
 builder.Services.AddScoped<ProductService>();
+    builder.Services.AddScoped<JwtHelper>();
 
 
 
-// 加入這行，讓系統載入 SignalR 的相關功能
-builder.Services.AddSignalR();
+    // 加入這行，讓系統載入 SignalR 的相關功能
+    builder.Services.AddSignalR();
 var app = builder.Build();
 
     // --- 5. 中間件順序 ---
