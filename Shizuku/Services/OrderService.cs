@@ -60,7 +60,7 @@ namespace Shizuku.Services
                             throw new Exception("很抱歉，部分商品庫存不足，被搶走啦！");
                         }
 
-                        // 4-3: 庫存夠的話，馬上扣除庫存！
+                        // TODO: 等商品組員實作 ProductService.DeductStock 後，改為呼叫 API，並移除這行
                         variant.FStock -= item.Quantity;
 
                         // 4-4: 為了拿到商品的名字，我們去 TProduct 找一下主商品資料
@@ -190,34 +190,35 @@ namespace Shizuku.Services
                                  SizeName = size != null ? size.FName : "",
                                  ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
                              }).ToListAsync();
-    // 3. 把撈出來的安全資料轉換給前端 (DTO)
-    var dto = new OrderDetailDto
-    {
-        OrderNo = order.FOrderNo,
-        CreatedAt = order.FCreatedAt,
-        StatusText = GetStatusText(order.FStatus),
-        TotalAmount = order.FTotalAmount,
-        ReceiverName = order.FReceiverName,
-        ReceiverPhone = order.FReceiverPhone,
-        ReceiverAddress = order.FReceiverAddress,
-        Note = order.FNote,
-        // 如果未來有建立訂單與付款方式的關聯，這裡再抽換
-        PaymentMethod = "尚未指定", 
-        Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
-        Discount = 0,
-        ShippingFee = 0,
-        Items = detailsData.Select(d => new OrderItemDto
-        {
-            ProductName = d.ProductName,
-            // 將顏色與尺寸組合起來 (例如: "紅色 XL")
-            VariantName = (d.ColorName + " " + d.SizeName).Trim(),
-            UnitPrice = d.Detail.FPriceSnap,
-            Quantity = d.Detail.FQuantity,
-            ProductImage = d.ImageUrl
-        }).ToList()
-    };
-    return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
-}
+
+            // 3. 把撈出來的安全資料轉換給前端 (DTO)
+            var dto = new OrderDetailDto
+            {
+                OrderNo = order.FOrderNo,
+                CreatedAt = order.FCreatedAt,
+                StatusText = GetStatusText(order.FStatus),
+                TotalAmount = order.FTotalAmount,
+                ReceiverName = order.FReceiverName,
+                ReceiverPhone = order.FReceiverPhone,
+                ReceiverAddress = order.FReceiverAddress,
+                Note = order.FNote,
+                // 如果未來有建立訂單與付款方式的關聯，這裡再抽換
+                PaymentMethod = "尚未指定", 
+                Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
+                Discount = 0,
+                ShippingFee = 0,
+                Items = detailsData.Select(d => new OrderItemDto
+                {
+                    ProductName = d.ProductName,
+                    // 將顏色與尺寸組合起來 (例如: "紅色 XL")
+                    VariantName = (d.ColorName + " " + d.SizeName).Trim(),
+                    UnitPrice = d.Detail.FPriceSnap,
+                    Quantity = d.Detail.FQuantity,
+                    ProductImage = d.ImageUrl
+                }).ToList()
+            };
+                return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
+        }
 
         // 獨立出產生付款網址的方法，讓重新付款時也能呼叫
         public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
@@ -287,48 +288,47 @@ namespace Shizuku.Services
 
         //建立產生綠界Html 表單的方法
         public async Task<string> GenerateECPayHtmlFormAsync(string orderNo)
-{
-    // 1. 去資料庫找這筆訂單
-    var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-    if (order == null) return null; // 找不到訂單就回傳 null
-    string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
+        {
+            // 1. 去資料庫找這筆訂單
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null) return null; // 找不到訂單就回傳 null
+            string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
 
             // 2. 準備綠界 API 需要的參數
             string hashKey = _config["ECPay:HashKey"];
             string hashIV = _config["ECPay:HashIV"];
             var parameters = new Dictionary<string, string>
-    {
-        { "MerchantID", _config["ECPay:MerchantID"] },
-        { "MerchantTradeNo", tradeNoForECPay },
-        { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
-        { "PaymentType", "aio" },
-        { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
-        { "TradeDesc", "Shizuku_Order" },
-        { "ItemName", "Shizuku_Items" },
-        { "ReturnURL", _config["ECPay:ReturnURL"] },
-        { "OrderResultURL", _config["ECPay:OrderResultURL"] },
-        { "ChoosePayment", "Credit" },
-        { "EncryptType", "1" }
-    };
-    // 3. 計算 CheckMacValue 
-    parameters["CheckMacValue"] = Shizuku.Helpers.ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
-    // 4. 產生帶有自動送出功能的 HTML 字串
-    StringBuilder htmlForm = new StringBuilder();
-    htmlForm.Append("<html><body>");
-    htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
+            {
+                { "MerchantID", _config["ECPay:MerchantID"] },
+                { "MerchantTradeNo", tradeNoForECPay },
+                { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
+                { "PaymentType", "aio" },
+                { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
+                { "TradeDesc", "Shizuku_Order" },
+                { "ItemName", "Shizuku_Items" },
+                { "ReturnURL", _config["ECPay:ReturnURL"] },
+                { "OrderResultURL", _config["ECPay:OrderResultURL"] },
+                { "ChoosePayment", "Credit" },
+                { "EncryptType", "1" }
+            };
+            // 3. 計算 CheckMacValue 
+            parameters["CheckMacValue"] = Shizuku.Helpers.ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
+            // 4. 產生帶有自動送出功能的 HTML 字串
+            StringBuilder htmlForm = new StringBuilder();
+            htmlForm.Append("<html><body>");
+            htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
     
-    foreach (var p in parameters)
-    {
-        htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
-    }
-    
-    htmlForm.Append("</form>");
-    htmlForm.Append("<script>document.getElementById('ecpayForm').submit();</script>");
-    htmlForm.Append("</body></html>");
-    return htmlForm.ToString();
-}
+            foreach (var p in parameters)
+            {
+                htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
+            }
+            htmlForm.Append("</form>");
+            htmlForm.Append("<script>document.getElementById('ecpayForm').submit();</script>");
+            htmlForm.Append("</body></html>");
+            return htmlForm.ToString();
+        }
         // 統一管理訂單狀態的文字轉換
-        private string GetStatusText(int? status)
+        public string GetStatusText(int? status)
         {
             return status switch
             {
@@ -340,7 +340,70 @@ namespace Shizuku.Services
                 _ => "未知狀態"
             };
         }
-    }
 
+        // 銷量報表方法
+        public async Task<List<VariantSalesStatsDto>> GetSalesStatsAsync()
+        {
+            // 你幫他寫好這個 Query，他以後就不用自己寫 Join
+            return await _db.TOrderDetails
+                .GroupBy(od => od.FVariantId)
+                .Select(g => new VariantSalesStatsDto
+                {
+                    VariantId = g.Key,
+                    TotalQuantitySold = g.Sum(od => od.FQuantity),
+                    TotalRevenue = g.Sum(od => od.FSubtotal)
+                }).ToListAsync();
+        }
+
+        // 取消訂單並回補庫存(TODO:待組員做完後改呼叫API)
+        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        {
+            // 1. 找出訂單
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null)
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+
+            if (order.FStatus != 1) // 只有待付款(1)才能取消
+                return new ApiResponse<object> { Success = false, Message = "訂單狀態已變更，無法取消" };
+
+            // 2. 開啟資料庫交易 (防護罩)
+            using (var transaction = _db.Database.BeginTransaction())
+            {
+                try
+                {
+                    // A. 修改訂單狀態為「已取消」(5)
+                    order.FStatus = 5;
+                    order.FUpdatedAt = DateTime.Now;
+
+                    // B. 撈出這筆訂單的所有明細
+                    var details = await _db.TOrderDetails.Where(d => d.FOrderId == order.FId).ToListAsync();
+
+                    // C. 迴圈回補庫存
+                    foreach (var item in details)
+                    {
+                        var variant = await _db.TProductVariants.FirstOrDefaultAsync(v => v.FId == item.FVariantId);
+                        if (variant != null)
+                        {
+                            // TODO: 等商品組員實作後，改為呼叫 _productService.RestoreStock(variant.FId, item.FQuantity)
+                            variant.FStock += item.FQuantity; 
+                        }
+                    }
+
+                    // D. 存檔並提交
+                    await _db.SaveChangesAsync();
+                    transaction.Commit();
+
+                    return new ApiResponse<object> { Success = true, Message = "訂單已成功取消，庫存已回補" };
+                }
+                catch (Exception ex)
+                {
+                    // 出錯就倒回 (Rollback)
+                    transaction.Rollback();
+                    return new ApiResponse<object> { Success = false, Message = "取消訂單失敗：" + ex.Message };
+                }
+            }
+        }
+
+    }
 }
 

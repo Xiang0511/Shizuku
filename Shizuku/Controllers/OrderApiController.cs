@@ -147,7 +147,7 @@ namespace Shizuku.Controllers
             }
 
             string html = @"
-        <html>
+         <html>
         <body style='display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;'>
             <div style='text-align:center;'>
                 <h2 style='color: #4CAF50;'>付款成功！</h2>
@@ -204,28 +204,48 @@ namespace Shizuku.Controllers
 
         //取消訂單 /api/orderApi/{orderNo}/cancel
         [HttpPatch("{orderNo}/cancel")]
-public IActionResult CancelOrder(string orderNo)
-{
-    var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == orderNo);
-    if (order == null)
-        return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該訂單" });
-    if (order.FStatus != 1)
-        return BadRequest(new ApiResponse<object> { Success = false, Message = "只有待付款的訂單才能取消" });
-    order.FStatus = 5; // 5 = 已取消
-    order.FUpdatedAt = DateTime.Now;
-    _db.SaveChanges();
-    return Ok(new ApiResponse<object> { Success = true, Message = "訂單已成功取消" });
-}
-    }
+        public async Task<IActionResult> CancelOrder(string orderNo)
+        {
+            // 呼叫 Service 處理邏輯
+            var result = await _orderService.CancelOrderAsync(orderNo);
+            
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }    
+            return Ok(result);
+        }
 
-    // 放在 Controller 最下面，用來接前端的資料
-    public class RepayRequestDto
-    {
-        public int PaymentMethodId { get; set; }
-    }
-    public class ConfirmPaymentRequestDto
-    {
-        public string TransactionId { get; set; }
-        public string OrderId { get; set; }
+        // 銷量報表API /api/orderApi/sales-stats
+        [HttpGet("sales-stats")]
+        public async Task<IActionResult> GetSalesStats()
+        {
+            try
+            {
+                var stats = await _orderService.GetSalesStatsAsync();
+                
+                // TODO: 後端需要加入查產品名稱的功能
+                // 暫時用 VariantId 回傳，前端會顯示 Error
+
+                return Ok(new ApiResponse<List<VariantSalesStatsDto>>
+                {
+                    Success = true,
+                    Message = "查詢成功",
+                    Data = stats
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "系統錯誤: " + ex.Message
+                });
+            }
+        }
+
+        
+
+
     }
 }
