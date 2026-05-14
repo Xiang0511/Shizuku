@@ -77,10 +77,16 @@ builder.Services.AddSwaggerGen();
     builder.Services.AddHttpClient<LinePayService>();
     builder.Services.AddScoped<ProductService>();
     builder.Services.AddHostedService<OrderTimeoutService>();
+    
+    // --- 5. 註冊金流服務 (DI) ---
+    builder.Services.AddScoped<ECPayPaymentService>();
+    builder.Services.AddScoped<LinePayPaymentService>();
+    builder.Services.AddScoped<CashOnDeliveryPaymentService>();
+    builder.Services.AddScoped<PaymentFactory>();
 
-// 加入這行，讓系統載入 SignalR 的相關功能
-builder.Services.AddSignalR();
-var app = builder.Build();
+    // 加入這行，讓系統載入 SignalR 的相關功能
+    builder.Services.AddSignalR();
+    var app = builder.Build();
 
     // --- 5. 中間件順序 ---
     if (app.Environment.IsDevelopment())

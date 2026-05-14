@@ -16,16 +16,16 @@ namespace Shizuku.Services
         private readonly LinePayService _linePayService;
         private readonly ProductService _productService;
         private readonly IConfiguration _config; //讀取 appsettings.json裡的設定
+        private readonly PaymentFactory _paymentFactory;
 
         // 建構子 (Constructor)
         // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext 和 LinePayService，就會自動塞進來
-        public OrderService(DbShizukuDemoContext db, LinePayService linePayService, IConfiguration config, ProductService productService)
-        {
-            _db = db;
-            _linePayService = linePayService;
-            _config = config;
-            _productService = productService;
-        }
+    public OrderService(DbShizukuDemoContext db, ProductService productService, PaymentFactory paymentFactory)
+    {
+        _db = db;
+        _productService = productService;
+        _paymentFactory = paymentFactory;
+    }
 
         //建立訂單
         public async Task<ApiResponse<CreateOrderResponseDto>> CreateOrder(CreateOrderRequestDto request)
@@ -220,112 +220,22 @@ namespace Shizuku.Services
         }
 
         // 獨立出產生付款網址的方法，讓重新付款時也能呼叫
+        // 獨立出產生付款網址的方法
         public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
         {
-            string paymentUrl = string.Empty;
-
-            switch (paymentMethodId)
-            {
-                case 1: // 綠界科技 ECPay
-                    string backendUrl = "https://localhost:7197";
-                    paymentUrl = $"{backendUrl}/api/OrderApi/ecpay/{orderNo}";
-                    break;
-
-                case 2: // LINE Pay
-                    int payAmount = Convert.ToInt32(totalAmount);
-                    var linePayPayload = new
-                    {
-                        amount = payAmount,
-                        currency = "TWD",
-                        orderId = orderNo,
-                        packages = new[]
-                        {
-                            new
-                            {
-                                id = "pkg_1",
-                                amount = payAmount,
-                                name = "Shizuku 訂單",
-                                products = new[]
-                                {
-                                    new { name = "訂單商品", quantity = 1, price = payAmount }
-                                }
-                            }
-                        },
-                        redirectUrls = new
-                        {
-                            confirmUrl = "http://localhost:5173/payment/success",
-                            cancelUrl = "http://localhost:5173/orders" // 取消改回傳訂單列表
-                        }
-                    };
-
-                    string linePayResponseJson = await _linePayService.SendLinePayRequestAsync("/v3/payments/request", linePayPayload);
-                    using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
-                    {
-                        var root = doc.RootElement;
-                        if (root.GetProperty("returnCode").GetString() == "0000")
-                        {
-                            paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
-                        }
-                        else
-                        {
-                            string returnMessage = root.GetProperty("returnMessage").GetString();
-                            throw new Exception("LINE Pay 拒絕請求：" + returnMessage);
-                        }
-                    }
-                    break;
-
-                case 3: // 貨到付款
-                    paymentUrl = string.Empty;
-                    break;
-
-                default:
-                    throw new Exception("系統不支援此付款方式");
-            }
-
-            return paymentUrl;
+            // 透過工廠找出對應的金流服務，直接呼叫共用介面
+            var paymentService = _paymentFactory.GetPaymentService(paymentMethodId);
+            return await paymentService.GeneratePaymentUrlAsync(orderNo, totalAmount);
         }
 
-        //建立產生綠界Html 表單的方法
+        // 建立產生綠界Html 表單的方法
         public async Task<string> GenerateECPayHtmlFormAsync(string orderNo)
         {
-            // 1. 去資料庫找這筆訂單
-            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-            if (order == null) return null; // 找不到訂單就回傳 null
-            string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
-
-            // 2. 準備綠界 API 需要的參數
-            string hashKey = _config["ECPay:HashKey"];
-            string hashIV = _config["ECPay:HashIV"];
-            var parameters = new Dictionary<string, string>
-            {
-                { "MerchantID", _config["ECPay:MerchantID"] },
-                { "MerchantTradeNo", tradeNoForECPay },
-                { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
-                { "PaymentType", "aio" },
-                { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
-                { "TradeDesc", "Shizuku_Order" },
-                { "ItemName", "Shizuku_Items" },
-                { "ReturnURL", _config["ECPay:ReturnURL"] },
-                { "OrderResultURL", _config["ECPay:OrderResultURL"] },
-                { "ChoosePayment", "Credit" },
-                { "EncryptType", "1" }
-            };
-            // 3. 計算 CheckMacValue 
-            parameters["CheckMacValue"] = Shizuku.Helpers.ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
-            // 4. 產生帶有自動送出功能的 HTML 字串
-            StringBuilder htmlForm = new StringBuilder();
-            htmlForm.Append("<html><body>");
-            htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
-    
-            foreach (var p in parameters)
-            {
-                htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
-            }
-            htmlForm.Append("</form>");
-            htmlForm.Append("<script>document.getElementById('ecpayForm').submit();</script>");
-            htmlForm.Append("</body></html>");
-            return htmlForm.ToString();
+            // 因為綠界的 ID 是 1，所以直接請工廠派 1 號服務出來產生表單
+            var paymentService = _paymentFactory.GetPaymentService(1);
+            return await paymentService.GenerateHtmlFormAsync(orderNo);
         }
+
         // 統一管理訂單狀態的文字轉換
         public string GetStatusText(int? status)
         {
