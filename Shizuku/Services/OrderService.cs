@@ -111,7 +111,23 @@ namespace Shizuku.Services
                     }
 
                     _db.SaveChanges();
-                    
+
+                    //建立金流交易主檔(TPaymentTransaction)
+                    var paymentTransaction = new TPaymentTransaction
+                    {
+                        //生成一個唯一的支付單號
+                        FTransactionNo = "PAY" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(100,999),
+                        FOrderId = newOrder.FId, 
+                        FMemberId = request.MemberId,
+                        FMethodId = request.PaymentMethodId,
+                        FAmount = totalAmount,
+                        FStatus = 0, // 0: 待付款
+                        FCreatedAt = DateTime.Now
+                    };
+
+                    _db.TPaymentTransactions.Add(paymentTransaction);
+                    await _db.SaveChangesAsync();//儲存資料庫
+
                     string paymentUrl = await GeneratePaymentUrlAsync(newOrderNo, request.PaymentMethodId, totalAmount);
                     transaction.Commit();
 
@@ -319,13 +335,24 @@ namespace Shizuku.Services
         }
         
         //標記訂單為已付款(統一管理訂單狀態)
-        public async Task<bool> MarkOrderAsPaidAsync(string orderNo)
+         public async Task<bool> MarkOrderAsPaidAsync(string orderNo)
         {
             var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
             if (order != null && order.FStatus == 1) // 1: 待付款才能變更為已付款
             {
+                // 1. 更新主訂單狀態
                 order.FStatus = 2; // 2: 已付款
                 order.FUpdatedAt = DateTime.Now;
+                // 2. 找出關聯的金流單並更新狀態 (這是你原本漏掉的關鍵！)
+                var paymentTransaction = await _db.TPaymentTransactions
+                    .Where(pt => pt.FOrderId == order.FId)
+                    .OrderByDescending(pt => pt.FCreatedAt)
+                    .FirstOrDefaultAsync();
+                if (paymentTransaction != null)
+                {
+                    paymentTransaction.FStatus = 1; // 1: 金流付款成功
+                    paymentTransaction.FPaidAt = DateTime.Now; // 壓上真實付款時間
+                }
                 await _db.SaveChangesAsync();
                 return true;
             }
