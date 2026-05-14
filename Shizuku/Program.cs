@@ -86,6 +86,8 @@ try
     builder.Services.AddHttpClient<LinePayService>();
     builder.Services.AddScoped<ProductService>();
     builder.Services.AddScoped<JwtHelper>();
+    builder.Services.AddScoped<EmailService>();
+    builder.Services.AddScoped<VerificationService>();
 
     builder.Services.AddSignalR();
 
