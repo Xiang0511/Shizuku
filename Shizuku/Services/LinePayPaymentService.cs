@@ -1,14 +1,19 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Shizuku.Models;
 
 namespace Shizuku.Services
 {
     public class LinePayPaymentService : IPaymentService
     {
         private readonly LinePayService _linePayApi;
+        private readonly DbShizukuDemoContext _db;
 
-        public LinePayPaymentService(LinePayService linePayApi)
+        // 注入 LinePayService 以及資料庫實體
+        public LinePayPaymentService(LinePayService linePayApi, DbShizukuDemoContext db)
         {
             _linePayApi = linePayApi;
+            _db = db;
         }
 
         public async Task<string> GeneratePaymentUrlAsync(string orderNo, decimal totalAmount)
@@ -58,6 +63,24 @@ namespace Shizuku.Services
         public Task<string> GenerateHtmlFormAsync(string orderNo)
         {
             return Task.FromResult(string.Empty);
+        }
+
+        // --- 新增：確認扣款邏輯 ---
+        public async Task<bool> ConfirmPaymentAsync(string transactionId, string orderNo)
+        {
+            // 找出這筆訂單確認金額
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null) return false;
+
+            var confirmPayload = new { amount = order.FTotalAmount, currency = "TWD" };
+            string uri = $"/v3/payments/{transactionId}/confirm";
+
+            // 向 LINE Pay 確認扣款
+            string linePayResponseJson = await _linePayApi.SendLinePayRequestAsync(uri, confirmPayload);
+            using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+            {
+                return doc.RootElement.GetProperty("returnCode").GetString() == "0000";
+            }
         }
     }
 }

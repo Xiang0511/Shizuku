@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.Helpers;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 
 namespace Shizuku.Services
 {
@@ -61,6 +62,22 @@ namespace Shizuku.Services
             htmlForm.Append("</body></html>");
 
             return htmlForm.ToString();
+        }
+
+        //綠界回傳驗證結果
+        public bool ValidateECPayCallback(IFormCollection form, out string orderNo)
+        {
+            string rtnCode = form["RtnCode"];
+            string merchantTradeNo = form["MerchantTradeNo"];
+            if (rtnCode == "1" && !string.IsNullOrEmpty(merchantTradeNo))
+            {
+                // 還原真實的訂單編號 (取前 17 碼，因為我們可能加了 fff 後綴)
+                orderNo = merchantTradeNo.Length >= 17 ? merchantTradeNo.Substring(0, 17) : merchantTradeNo;
+                return true;
+            }
+            
+            orderNo = null; // C# 規定 out 參數失敗時必須給值
+            return false;
         }
     }
 }

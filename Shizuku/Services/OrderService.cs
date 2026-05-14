@@ -312,6 +312,25 @@ namespace Shizuku.Services
             }
         }
 
+        // 取得單筆訂單資料
+        public async Task<TOrder> GetOrderAsync(string orderNo)
+        {
+            return await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+        }
+        
+        //標記訂單為已付款(統一管理訂單狀態)
+        public async Task<bool> MarkOrderAsPaidAsync(string orderNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order != null && order.FStatus == 1) // 1: 待付款才能變更為已付款
+            {
+                order.FStatus = 2; // 2: 已付款
+                order.FUpdatedAt = DateTime.Now;
+                await _db.SaveChangesAsync();
+                return true;
+            }
+            return false;
+        }
     }
 }
 
