@@ -331,6 +331,140 @@ namespace Shizuku.Services
             }
             return false;
         }
+
+        //=================== 以下為後台Admin專用方法 ====================
+        // 取得所有訂單資料
+        public async Task<object> GetAllOrdersForAdminAsync()
+        {
+            var orderEntities = await _db.TOrders
+                .OrderByDescending(o => o.FCreatedAt)
+                .ToListAsync();
+            // 後台需要知道是哪位會員的訂單，我們多傳一個 MemberId
+            // 並且保留原始的 Status 數字碼，方便前端下拉選單編輯
+            var orders = orderEntities.Select(o => new 
+            {
+                OrderNo = o.FOrderNo,
+                MemberId = o.FMemberId,
+                TotalAmount = o.FTotalAmount,
+                CreatedAt = o.FCreatedAt,
+                Status = o.FStatus, 
+                StatusText = GetStatusText(o.FStatus)
+            }).ToList();
+            
+            return orders;
+        }
+
+        // 後台取的單筆訂單明細 (不需要檢查MemberId)
+        public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailForAdminAsync(string orderNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            
+            if (order == null)
+            {
+                return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
+            }
+            // 這邊的 JOIN 邏輯跟前台一模一樣
+            var detailsData = await (from od in _db.TOrderDetails
+                             join v in _db.TProductVariants on od.FVariantId equals v.FId
+                             join p in _db.TProducts on v.FProductId equals p.FId
+                             join c in _db.TProductColors on v.FColorId equals c.FId into cg
+                             from color in cg.DefaultIfEmpty()
+                             join s in _db.TProductSizes on v.FSizeId equals s.FId into sg
+                             from size in sg.DefaultIfEmpty()
+                             join img in _db.TProductImages.Where(i => i.FIsMain == 1) on p.FId equals img.FProductId into imgg
+                             from mainImg in imgg.DefaultIfEmpty()
+                             where od.FOrderId == order.FId
+                             select new 
+                             {
+                                 Detail = od,
+                                 ProductName = p.FName,
+                                 ColorName = color != null ? color.FName : "",
+                                 SizeName = size != null ? size.FName : "",
+                                 ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
+                             }).ToListAsync();
+            var dto = new OrderDetailDto
+            {
+                OrderNo = order.FOrderNo,
+                CreatedAt = order.FCreatedAt,
+                StatusText = GetStatusText(order.FStatus),
+                TotalAmount = order.FTotalAmount,
+                ReceiverName = order.FReceiverName,
+                ReceiverPhone = order.FReceiverPhone,
+                ReceiverAddress = order.FReceiverAddress,
+                Note = order.FNote,
+                PaymentMethod = "尚未指定", 
+                Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
+                Discount = 0,
+                ShippingFee = 0,
+                Items = detailsData.Select(d => new OrderItemDto
+                {
+                    ProductName = d.ProductName,
+                    VariantName = (d.ColorName + " " + d.SizeName).Trim(),
+                    UnitPrice = d.Detail.FPriceSnap,
+                    Quantity = d.Detail.FQuantity,
+                    ProductImage = d.ImageUrl
+                }).ToList()
+            };
+            return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
+        }
+        
+        // 後台可以強制更新訂單狀態
+        public async Task<ApiResponse<object>> UpdateOrderStatusAsync(string orderNo, int newStatus)
+        {
+            // 防呆：如果前端試圖把狀態改為 5 (取消)，直接導向專屬的取消方法，確保庫存必定回補
+            if (newStatus == 5)
+            {
+                return await CancelOrderForAdminAsync(orderNo);
+            }
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null)
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            order.FStatus = newStatus;
+            order.FUpdatedAt = DateTime.Now;
+            
+            await _db.SaveChangesAsync();
+            return new ApiResponse<object> { Success = true, Message = "訂單狀態更新成功" };
+        }
+
+        //後台專用：強制取消訂單並回補庫存
+        public async Task<ApiResponse<object>> CancelOrderForAdminAsync(string orderNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null)
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            if (order.FStatus == 5) 
+                return new ApiResponse<object> { Success = false, Message = "訂單已經是取消狀態" };
+            // 開啟資料庫交易 (防護罩)
+            using (var transaction = _db.Database.BeginTransaction())
+            {
+                try
+                {
+                    // A. 修改狀態為 5
+                    order.FStatus = 5;
+                    order.FUpdatedAt = DateTime.Now;
+                    // B. 撈出這筆訂單的所有明細
+                    var details = await _db.TOrderDetails.Where(d => d.FOrderId == order.FId).ToListAsync();
+                    // C. 迴圈回補庫存
+                    foreach (var item in details)
+                    {
+                        bool isRestored = await _productService.RestoreStockAsync(item.FVariantId, item.FQuantity);
+                        if (!isRestored)
+                        {
+                            throw new Exception($"回補庫存失敗，找不到規格 ID: {item.FVariantId}");
+                        }
+                    }
+                    // D. 存檔並提交
+                    await _db.SaveChangesAsync();
+                    transaction.Commit();
+                    return new ApiResponse<object> { Success = true, Message = "後台強制取消訂單成功，庫存已回補" };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ApiResponse<object> { Success = false, Message = "強制取消訂單失敗：" + ex.Message };
+                }
+            }
+        }
     }
 }
 
