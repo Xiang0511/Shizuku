@@ -72,6 +72,7 @@ builder.Services.AddSwaggerGen();
 
     // --- 4. 註冊自定義服務 (DI) ---
     builder.Services.AddScoped<OrderService>();
+    builder.Services.AddScoped<EmployeeService>();
     builder.Services.AddScoped<MemberService>();
     builder.Services.AddHttpClient<LinePayService>();
     builder.Services.AddScoped<ProductService>();
