@@ -206,6 +206,22 @@ namespace Shizuku.Services
                                  ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
                              }).ToListAsync();
 
+            // 找出付款方式
+            var paymentTransaction = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == order.FId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .FirstOrDefaultAsync();
+            
+            string paymentMethodName = "尚未指定";
+            if (paymentTransaction != null)
+            {
+                var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == paymentTransaction.FMethodId);
+                if (method != null)
+                {
+                    paymentMethodName = method.FMethodName;
+                }
+            }
+
             // 3. 把撈出來的安全資料轉換給前端 (DTO)
             var dto = new OrderDetailDto
             {
@@ -217,8 +233,7 @@ namespace Shizuku.Services
                 ReceiverPhone = order.FReceiverPhone,
                 ReceiverAddress = order.FReceiverAddress,
                 Note = order.FNote,
-                // 如果未來有建立訂單與付款方式的關聯，這裡再抽換
-                PaymentMethod = "尚未指定", 
+                PaymentMethod = paymentMethodName, 
                 Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
                 Discount = 0,
                 ShippingFee = 0,
@@ -236,7 +251,6 @@ namespace Shizuku.Services
         }
 
         // 獨立出產生付款網址的方法，讓重新付款時也能呼叫
-        // 獨立出產生付款網址的方法
         public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
         {
             // 透過工廠找出對應的金流服務，直接呼叫共用介面
@@ -409,6 +423,22 @@ namespace Shizuku.Services
                                  SizeName = size != null ? size.FName : "",
                                  ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
                              }).ToListAsync();
+            // 找出付款方式
+            var paymentTransaction = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == order.FId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .FirstOrDefaultAsync();
+            
+            string paymentMethodName = "尚未指定";
+            if (paymentTransaction != null)
+            {
+                var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == paymentTransaction.FMethodId);
+                if (method != null)
+                {
+                    paymentMethodName = method.FMethodName;
+                }
+            }
+
             var dto = new OrderDetailDto
             {
                 OrderNo = order.FOrderNo,
@@ -419,7 +449,7 @@ namespace Shizuku.Services
                 ReceiverPhone = order.FReceiverPhone,
                 ReceiverAddress = order.FReceiverAddress,
                 Note = order.FNote,
-                PaymentMethod = "尚未指定", 
+                PaymentMethod = paymentMethodName, 
                 Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
                 Discount = 0,
                 ShippingFee = 0,
