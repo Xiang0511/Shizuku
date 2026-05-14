@@ -58,7 +58,7 @@ public partial class DbShizukuDemoContext : DbContext
     public virtual DbSet<TOrder> TOrders { get; set; }
     public virtual DbSet<TOrderDetail> TOrderDetails { get; set; }
     public virtual DbSet<TChatbotFaq> TChatbotFaqs { get; set; }
-
+    public virtual DbSet<TLiveChatMessage> TLiveChatMessages { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning OTo protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -467,7 +467,7 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasColumnName("fName");
             entity.Property(e => e.FSortOrder).HasColumnName("fSortOrder");
 
-            
+
         });
 
         modelBuilder.Entity<TProductVariant>(entity =>
@@ -615,6 +615,15 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("fKeyword");
             entity.Property(e => e.fAnswer).HasColumnName("fAnswer");
+        });
+
+        modelBuilder.Entity<TLiveChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.FId).HasName("PK_LiveChatMessages");
+
+            entity.ToTable("tLiveChatMessage");
+
+            entity.Property(e => e.FId).HasColumnName("fId");
         });
 
         OnModelCreatingPartial(modelBuilder);
