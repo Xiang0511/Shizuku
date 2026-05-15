@@ -44,4 +44,7 @@ public partial class TMember
     public string? FWishlist { get; set; }
 
     public string? FImage { get; set; }
+
+    public int? FAccessFailedCount { get; set; } // int
+    public DateTime? FLockoutEnd { get; set; }   // datetime
 }
