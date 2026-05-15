@@ -2,6 +2,7 @@
 {
     public class MemberRegisterResponseDto
     {
+        public int FId { get; set; } 
         public string FMemberId { get; set; } = null!;
         public string FName { get; set; } = null!;
         public string FEmail { get; set; } = null!;

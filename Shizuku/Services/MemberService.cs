@@ -52,7 +52,7 @@ namespace Shizuku.Services
                 FCreatedTime = DateTime.Now,
                 FUpdatedTime = DateTime.Now,
                 FIsActive = true,
-                FLevel = 1,
+                FLevel = 0,
                 FGender = dto.FGender, // 補上預設性別 女裝 所以是女性
                 //FImage = "default.jpg" // 補上預設圖片 先不要好了
                 FReceiverName = dto.FName,
@@ -76,6 +76,7 @@ namespace Shizuku.Services
                 // 5. 轉換成 Response DTO 回傳
                 return new MemberRegisterResponseDto
                 {
+                    FId = newMember.FId,
                     FMemberId = newMember.FMemberId,
                     FName = newMember.FName,
                     FEmail = newMember.FEmail,

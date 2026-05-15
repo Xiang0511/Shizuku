@@ -14,11 +14,14 @@ namespace Shizuku.Controllers
     {
         private readonly MemberService _memberService;
         private readonly JwtHelper _jwtHelper;
+        private readonly VerificationService _verificationService; 
+        private readonly EmailService _emailService;
 
-        public MemberApiController(MemberService memberService, JwtHelper jwtHelper)
+        public MemberApiController(MemberService memberService,VerificationService verificationService,EmailService emailService)
         {
             _memberService = memberService;
-            _jwtHelper = jwtHelper;
+            _verificationService = verificationService;
+            _emailService = emailService;
         }
 
         //登入
@@ -89,18 +92,39 @@ namespace Shizuku.Controllers
             // 3. 執行註冊
             try
             {
+                // 1. 執行會員主表註冊
                 var responseData = await _memberService.RegisterAsync(dto);
 
                 if (responseData != null)
                 {
+                    // 2. 核心整合：產生 6 位數驗證碼並寫入 TMemberVerifications 表
+                    // 這裡傳入剛才註冊成功拿到的流水號 responseData.FId
+                    string code = await _verificationService.CreateEmailVerificationAsync(responseData.FId);
+
+                    // 3. 核心整合：發送 Email 驗證碼
+                    string htmlContent = $@"
+                    <div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
+                        <h2 style='color: #4a4a4a; text-align: center;'>Shizuku 購物平台</h2>
+                        <hr style='border: 0; border-top: 1px solid #eee;' />
+                        <p>親愛的 {responseData.FName} 您好：</p>
+                        <p>感謝您註冊 Shizuku！您的 6 位數電子郵件驗證碼如下：</p>
+                        <div style='background-color: #f3f4f6; padding: 15px; border-radius: 6px; text-align: center; margin: 20px 0;'>
+                            <h1 style='color: #2563eb; letter-spacing: 8px; margin: 0; font-size: 36px;'>{code}</h1>
+                        </div>
+                        <p style='color: #666; font-size: 13px;'>請於 10 分鐘內在網頁輸入此驗證碼完成啟用。如果您沒有註冊此帳號，請忽略此信件。</p>
+                    </div>";
+
+                    await _emailService.SendEmailAsync(responseData.FEmail!, "【Shizuku】您的會員電子郵件驗證碼", htmlContent);
+
+                    // 4. 回傳成功，把 responseData 給前端 Vue
+                    // Vue 拿到後，要把 responseData.fId 存下來，等一下輸入 6 位數按送出時要一起帶過去
                     return Ok(new ApiResponse<MemberRegisterResponseDto>
                     {
                         Success = true,
-                        Message = "註冊成功",
+                        Message = "註冊成功！驗證碼已寄發至您的信箱，請於 10 分鐘內輸入驗證碼。",
                         Data = responseData
                     });
                 }
-
             }
             catch (Exception ex)
             {
