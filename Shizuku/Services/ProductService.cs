@@ -18,7 +18,7 @@ namespace Shizuku.Services
         /// <summary>取得商品列表，支援關鍵字搜尋（商品名稱或貨號）</summary>
         public List<ProductListDto> GetProductList(string keyword, int? categoryId = null)
         {
-            var query = _context.TProducts.Where(p => p.FStatus != 0);
+            var query = _context.TProducts.Where(p => p.FStatus == 1);
 
             if (!string.IsNullOrEmpty(keyword))
             {
