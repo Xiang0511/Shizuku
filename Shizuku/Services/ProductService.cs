@@ -426,5 +426,70 @@ namespace Shizuku.Services
                                  : "正常"
                 }).ToList();
         }
+            /// <summary>取得進貨紀錄</summary>
+public List<StockRecordDto> GetStockRecords()
+        {
+            return _context.TProductStockRecords
+                .OrderByDescending(r => r.FCreatedAt)
+                .Select(r => new StockRecordDto
+                {
+                    fId = r.FId,
+                    fVariantId = r.FVariantId,
+                    fType = r.FType,
+                    fQuantity = r.FQuantity,
+                    fCostPrice = r.FCostPrice,
+                    fNote = r.FNote,
+                    fCreatedAt = r.FCreatedAt,
+                    fColor = _context.TProductColors
+                        .Where(c => c.FId == _context.TProductVariants
+                            .Where(v => v.FId == r.FVariantId)
+                            .Select(v => v.FColorId)
+                            .FirstOrDefault())
+                        .Select(c => c.FName)
+                        .FirstOrDefault() ?? "",
+                    fSize = _context.TProductSizes
+                        .Where(s => s.FId == _context.TProductVariants
+                            .Where(v => v.FId == r.FVariantId)
+                            .Select(v => v.FSizeId)
+                            .FirstOrDefault())
+                        .Select(s => s.FName)
+                        .FirstOrDefault() ?? "",
+                    fProductName = _context.TProducts
+                        .Where(p => p.FId == _context.TProductVariants
+                            .Where(v => v.FId == r.FVariantId)
+                            .Select(v => v.FProductId)
+                            .FirstOrDefault())
+                        .Select(p => p.FName)
+                        .FirstOrDefault() ?? ""
+                }).ToList();
+        }
+
+        /// <summary>新增進貨紀錄並更新庫存</summary>
+        public bool AddStockRecord(StockRecordCreateDto dto)
+        {
+            var variant = _context.TProductVariants.FirstOrDefault(v => v.FId == dto.fVariantId);
+            if (variant == null) return false;
+
+            // 新增進貨紀錄
+            _context.TProductStockRecords.Add(new TProductStockRecord
+            {
+                FVariantId = dto.fVariantId,
+                FType = dto.fType,
+                FQuantity = dto.fQuantity,
+                FCostPrice = dto.fCostPrice,
+                FNote = dto.fNote,
+                FCreatedAt = DateTime.Now
+            });
+
+            // 更新庫存
+            // 完整展開的寫法：新庫存 = 舊庫存 + 增加數量
+            variant.FStock = variant.FStock + dto.fQuantity;
+            // 更新成本價
+            if (dto.fCostPrice.HasValue)
+                variant.FCostPrice = dto.fCostPrice.Value;
+
+            _context.SaveChanges();
+            return true;
+        }
     }
-}
+    }

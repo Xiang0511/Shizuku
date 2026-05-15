@@ -242,5 +242,37 @@ namespace Shizuku.Controllers
                 Data = inventory
             });
         }
+
+        /// <summary>取得進貨紀錄</summary>
+        [HttpGet("stock-records")]
+        public IActionResult GetStockRecords()
+        {
+            var records = _productService.GetStockRecords();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = records
+            });
+        }
+
+        /// <summary>新增進貨紀錄</summary>
+        [HttpPost("stock-records")]
+        public IActionResult AddStockRecord([FromBody] StockRecordCreateDto dto)
+        {
+            var result = _productService.AddStockRecord(dto);
+            if (!result)
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "新增失敗，規格不存在"
+                });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "進貨成功"
+            });
+        }
     }
 }

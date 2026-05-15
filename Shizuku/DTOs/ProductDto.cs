@@ -190,4 +190,28 @@ namespace Shizuku.ViewModels
         public string fSize { get; set; } = string.Empty;
         public string fStockStatus { get; set; } = string.Empty;
     }
+    /// <summary>進貨紀錄 DTO</summary>
+    public class StockRecordDto
+    {
+        public int fId { get; set; }
+        public int fVariantId { get; set; }
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public string fProductName { get; set; } = string.Empty;
+        public string fType { get; set; } = string.Empty;
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
+        public DateTime fCreatedAt { get; set; }
+    }
+
+    /// <summary>新增進貨 DTO</summary>
+    public class StockRecordCreateDto
+    {
+        public int fVariantId { get; set; }
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
+        public string fType { get; set; } = "進貨";
+    }
 }
