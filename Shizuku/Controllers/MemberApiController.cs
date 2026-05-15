@@ -17,9 +17,10 @@ namespace Shizuku.Controllers
         private readonly VerificationService _verificationService; 
         private readonly EmailService _emailService;
 
-        public MemberApiController(MemberService memberService,VerificationService verificationService,EmailService emailService)
+        public MemberApiController(MemberService memberService, JwtHelper jwtHelper, VerificationService verificationService,EmailService emailService)
         {
             _memberService = memberService;
+            _jwtHelper = jwtHelper;
             _verificationService = verificationService;
             _emailService = emailService;
         }
