@@ -4,28 +4,26 @@ using Shizuku.Models;
 public class VerificationService
 {
     private readonly DbShizukuDemoContext _context;
+    public VerificationService(DbShizukuDemoContext context) { _context = context; }
 
-    public VerificationService(DbShizukuDemoContext context)
-    {
-        _context = context;
-    }
-
-    // 產生驗證碼邏輯
+    // 修改產碼邏輯：產 6 位數字
     public async Task<string> CreateEmailVerificationAsync(int memberId)
     {
-        // 作廢舊驗證碼
+        // 1. 作廢舊驗證碼
         var oldRecords = await _context.TMemberVerifications
             .Where(v => v.FMemberId == memberId && v.FType == 1 && v.FIsUsed == false)
             .ToListAsync();
         oldRecords.ForEach(r => r.FIsUsed = true);
 
-        string token = Guid.NewGuid().ToString();
+        // 2. 產生 6 位隨機數字
+        string code = new Random().Next(100000, 999999).ToString();
+
         var newVerify = new TMemberVerification
         {
             FMemberId = memberId,
-            FCode = token,
+            FCode = code, // 存入 6 位數字
             FType = 1,
-            FExpireTime = DateTime.Now.AddHours(24),
+            FExpireTime = DateTime.Now.AddMinutes(10), // 數字驗證碼通常時效較短 (例如 10 分鐘)
             FAttemptCount = 0,
             FIsUsed = false,
             FCreatedTime = DateTime.Now
@@ -33,24 +31,30 @@ public class VerificationService
 
         _context.TMemberVerifications.Add(newVerify);
         await _context.SaveChangesAsync();
-        return token;
+        return code;
     }
 
-    // 驗證 Token 邏輯
-    public async Task<bool> VerifyEmailTokenAsync(string token)
+    // 修改驗證邏輯：需要傳入 memberId 與 code
+    public async Task<bool> VerifyCodeAsync(int memberId, string code)
     {
         var record = await _context.TMemberVerifications
-            .FirstOrDefaultAsync(v => v.FCode == token && v.FType == 1);
+            .Where(v => v.FMemberId == memberId && v.FCode == code && v.FType == 1)
+            .OrderByDescending(v => v.FCreatedTime) // 抓最新的一筆
+            .FirstOrDefaultAsync();
 
-        // 業務規則檢查，失敗直接丟 Exception，訊息會被 Controller 捕捉
-        if (record == null) throw new Exception("找不到對應的驗證資訊。");
-        if (record.FIsUsed == true) throw new Exception("此驗證連結已被使用過。");
-        if (record.FExpireTime < DateTime.Now) throw new Exception("驗證連結已過期，請重新申請。");
-        if (record.FAttemptCount >= 5) throw new Exception("嘗試次數過多，安全性考量已失效。");
+        if (record == null) throw new Exception("驗證碼錯誤。");
+        if (record.FIsUsed == true) throw new Exception("此驗證碼已失效。");
+        if (record.FExpireTime < DateTime.Now) throw new Exception("驗證碼已過期。");
 
-        // 通過驗證，更新狀態
         record.FIsUsed = true;
-        // TODO: 這裡通常會一併更新 TMember 表的 FIsVerified 狀態
+
+        // 更新會員狀態
+        var member = await _context.TMembers.FindAsync(memberId);
+        if (member != null)
+        {
+            member.FLevel = 1; // 假設 1 是已驗證
+            member.FAccessFailedCount = 0;
+        }
 
         await _context.SaveChangesAsync();
         return true;
