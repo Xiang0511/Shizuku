@@ -72,6 +72,16 @@ namespace Shizuku.Services
 
             }).ToList();
         }
+        //取得所有商品圖片
+        public List<string> GetProductImages(int productId)
+        {
+            return _context.TProductImages
+                .Where(img => img.FProductId == productId)
+                .OrderByDescending(img => img.FIsMain)
+                .ThenBy(img => img.FSortOrder)
+                .Select(img => img.FImageUrl)
+                .ToList();
+        }
 
         /// <summary>軟刪除（將 fStatus 設為 0）</summary>
         public bool SoftDelete(int id)
@@ -275,6 +285,33 @@ namespace Shizuku.Services
             });
 
             _context.SaveChanges();
+            return imageUrl;
+        }
+        public async Task<string> SaveExtraImageAsync(int productId, IFormFile photo)
+        {
+            if (photo == null || photo.Length == 0) return null;
+
+            string uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "products");
+            Directory.CreateDirectory(uploadsFolder);
+            string fileName = $"{productId}_{Guid.NewGuid()}{Path.GetExtension(photo.FileName)}";
+            string filePath = Path.Combine(uploadsFolder, fileName);
+            string imageUrl = $"/uploads/products/{fileName}";
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await photo.CopyToAsync(stream);
+            }
+
+            // 不設主圖
+            _context.TProductImages.Add(new TProductImage
+            {
+                FProductId = productId,
+                FImageUrl = imageUrl,
+                FSortOrder = 2,
+                FIsMain = 0
+            });
+            _context.SaveChanges();
+
             return imageUrl;
         }
         /// <summary>取得新增頁所需的下拉選單資料</summary>

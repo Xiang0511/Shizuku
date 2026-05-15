@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
+using Shizuku.Models;
 using Shizuku.Services;
 using Shizuku.ViewModels;
 
@@ -76,6 +78,18 @@ namespace Shizuku.Controllers
             });
         }
 
+        [HttpGet("{id}/images")]
+        
+        public IActionResult GetImages(int id)
+        {
+            var images = _productService.GetProductImages(id);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = images
+            });
+        }
         /// <summary>新增商品</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
@@ -95,7 +109,7 @@ namespace Shizuku.Controllers
                 {
                     Success = true,
                     Message = "新增成功",
-                    Data = new { id = newId }
+                    Data = new { fId = newId }
                 });
             }
             catch (Exception ex)
@@ -136,7 +150,20 @@ namespace Shizuku.Controllers
                 Data = new { imageUrl }
             });
         }
+        [HttpPost("{id}/image/extra")]
+        public async Task<IActionResult> UploadExtraImage(int id, IFormFile photo)
+        {
+            if (photo == null) return BadRequest();
 
+            var imageUrl = await _productService.SaveExtraImageAsync(id, photo);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "上傳成功",
+                Data = imageUrl
+            });
+        }
         /// <summary>更新商品基本資料</summary>
         [HttpPut("{id}")]
         public IActionResult Edit(int id, [FromBody] ProductEditDto dto)
