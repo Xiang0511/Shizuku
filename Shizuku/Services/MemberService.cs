@@ -145,6 +145,7 @@ namespace Shizuku.Services
                 FReceiverName = dto.FName,
                 FPhone = dto.FPhone,
                 FReceiverPhone = dto.FPhone,
+                FAccessFailedCount = 0
             };
 
             _context.TMembers.Add(newMember);
