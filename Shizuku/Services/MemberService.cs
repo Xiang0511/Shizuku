@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 using Shizuku.DTOs; // 引入 DTOs 命名空間
 using Shizuku.Models;
@@ -9,10 +10,12 @@ namespace Shizuku.Services
     public class MemberService
     {
         private readonly DbShizukuDemoContext _context;
+        private readonly IMemoryCache _cache; 
 
-        public MemberService(DbShizukuDemoContext context)
+        public MemberService(DbShizukuDemoContext context, IMemoryCache cache)
         {
-            _context = context;
+            _context = context; 
+            _cache = cache;
         }
 
         //登入
@@ -98,10 +101,24 @@ namespace Shizuku.Services
             };
         }
 
-        // 模擬驗證碼比對的私有方法（之後串接你的驗證碼儲存機制，目前先回傳 true 供你測試測試）
         private async Task<bool> ValidateCaptchaAsync(string? id, string? answer)
         {
-            return true;
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(answer)) return false;
+
+            // 組合出存放在 Cache 裡的 Key
+            string cacheKey = $"Captcha_{id}";
+
+            // 去快取撈出正確答案
+            if (_cache.TryGetValue(cacheKey, out string? correctAnswer))
+            {
+                // 撈出來後，不論對錯都立刻把快取刪除（防止同一個驗證碼被重複暴力嘗試）
+                _cache.Remove(cacheKey);
+
+                // 比對答案（忽略大小寫）
+                return string.Equals(correctAnswer, answer, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false; // 找不到代表過期了或不存在
         }
 
         //註冊
