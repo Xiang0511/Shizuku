@@ -93,6 +93,28 @@ namespace Shizuku.Controllers
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
+        //  取得出貨中心訂單清單 (GET /api/AdminOrderApi/shipping?status=2)
+        [HttpGet("shipping")]
+        public async Task<IActionResult> GetShippingOrders([FromQuery] int status)
+        {
+            var orders = await _orderService.GetShippingOrdersAsync(status);
+            return Ok(new ApiResponse<object> { Success = true, Message = "獲取出貨清單成功", Data = orders });
+        }
+
+        //  批次更新訂單狀態 (POST /api/AdminOrderApi/batch-status)
+        [HttpPost("batch-status")]
+        public async Task<IActionResult> BatchUpdateStatus([FromBody] BatchUpdateStatusDto request)
+        {
+            var result = await _orderService.BatchUpdateOrderStatusAsync(request.OrderNos, request.NewStatus);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
+    }
+
+    public class BatchUpdateStatusDto
+    {
+        public List<string> OrderNos { get; set; } = new();
+        public int NewStatus { get; set; }
     }
 
     // 用來接收前端傳來的新狀態數字 DTO (只有一行,為了方便就直接寫在這支檔案底下)

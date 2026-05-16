@@ -682,7 +682,7 @@ namespace Shizuku.Services
                         .Where(pt => pt.FOrderId == order.FId)
                         .OrderByDescending(pt => pt.FCreatedAt)
                         .FirstOrDefaultAsync();
-                    
+
                     if (payment != null)
                     {
                         payment.FStatus = 1;
@@ -698,6 +698,70 @@ namespace Shizuku.Services
                 {
                     transaction.Rollback();
                     return new ApiResponse<object> { Success = false, Message = "救援失敗：" + ex.Message };
+                }
+            }
+        }
+        //=================== 出貨作業中心 (Shipping Hub) ====================
+
+        /// <summary>
+        /// 取得待出貨或出貨中的訂單 (出貨中心專用，欄位精簡)
+        /// </summary>
+        public async Task<List<object>> GetShippingOrdersAsync(int status)
+        {
+            return await _db.TOrders
+                .Where(o => o.FStatus == status)
+                .OrderBy(o => o.FCreatedAt)
+                .Select(o => new
+                {
+                    o.FId,
+                    o.FOrderNo,
+                    o.FReceiverName,
+                    o.FReceiverPhone,
+                    o.FReceiverAddress,
+                    o.FTotalAmount,
+                    o.FCreatedAt,
+                    // 這裡可以視需求加入商品簡述，例如 "商品A x2, 商品B x1..."
+                    ItemSummary = string.Join(", ", _db.TOrderDetails
+                        .Where(od => od.FOrderId == o.FId)
+                        .Select(od => $"{od.FProductNameSnap} x{od.FQuantity}")
+                        .ToList())
+                })
+                .ToListAsync<object>();
+        }
+
+        /// <summary>
+        /// 批次更新訂單狀態 (出貨中心專用)
+        /// </summary>
+        public async Task<ApiResponse<object>> BatchUpdateOrderStatusAsync(List<string> orderNos, int newStatus)
+        {
+            if (orderNos == null || !orderNos.Any())
+                return new ApiResponse<object> { Success = false, Message = "請選擇至少一筆訂單" };
+
+            using (var transaction = _db.Database.BeginTransaction())
+            {
+                try
+                {
+                    var orders = await _db.TOrders.Where(o => orderNos.Contains(o.FOrderNo)).ToListAsync();
+                    
+                    foreach (var order in orders)
+                    {
+                        order.FStatus = newStatus;
+                        order.FUpdatedAt = DateTime.Now;
+                    }
+
+                    await _db.SaveChangesAsync();
+                    transaction.Commit();
+
+                    return new ApiResponse<object> 
+                    { 
+                        Success = true, 
+                        Message = $"成功批次更新 {orders.Count} 筆訂單為 {GetStatusText(newStatus)}" 
+                    };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ApiResponse<object> { Success = false, Message = "批次更新失敗: " + ex.Message };
                 }
             }
         }
