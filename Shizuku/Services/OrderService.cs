@@ -541,6 +541,166 @@ namespace Shizuku.Services
                 }
             }
         }
+        //=================== 異常訂單監控與救援 ====================
+
+        /// <summary>
+        /// 取得全站異常訂單清單 (不需新增欄位，純邏輯掃描)
+        /// </summary>
+        public async Task<List<AbnormalOrderDto>> GetAbnormalOrdersAsync()
+        {
+            var abnormalOrders = new List<AbnormalOrderDto>();
+
+            // 1. [Conflict] 偵測「金流衝突」：訂單已取消(5)，但金流紀錄卻有成功(1)
+            var conflictData = await (from o in _db.TOrders
+                                     join pt in _db.TPaymentTransactions on o.FId equals pt.FOrderId
+                                     join m in _db.TMembers on o.FMemberId equals m.FId
+                                     where o.FStatus == 5 && pt.FStatus == 1
+                                     select new { o, MemberName = m.FName }).ToListAsync();
+
+            abnormalOrders.AddRange(conflictData.Select(x => new AbnormalOrderDto
+            {
+                OrderNo = x.o.FOrderNo,
+                MemberName = x.MemberName,
+                TotalAmount = x.o.FTotalAmount,
+                Status = x.o.FStatus,
+                StatusText = "已取消",
+                CreatedAt = x.o.FCreatedAt,
+                AbnormalityType = "Conflict",
+                Description = "訂單已被系統取消，但金流端回傳付款成功。",
+                Suggestion = "請執行「強制救援」恢復此訂單並扣除庫存。"
+            }));
+
+            // 2. [Security] 偵測「交易頻率異常」：單筆訂單失敗次數 > 5
+            var suspiciousOrderIds = await _db.TPaymentTransactions
+                .Where(pt => pt.FStatus == 0)
+                .GroupBy(pt => pt.FOrderId)
+                .Where(g => g.Count() >= 3)
+                .Select(g => new { OrderId = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            if (suspiciousOrderIds.Any())
+            {
+                var targetIds = suspiciousOrderIds.Select(s => s.OrderId).ToList();
+                var securityData = await (from o in _db.TOrders
+                                         join m in _db.TMembers on o.FMemberId equals m.FId
+                                         where targetIds.Contains(o.FId) && o.FStatus != 5
+                                         select new { o, MemberName = m.FName }).ToListAsync();
+
+                abnormalOrders.AddRange(securityData.Select(x => new AbnormalOrderDto
+                {
+                    OrderNo = x.o.FOrderNo,
+                    MemberName = x.MemberName,
+                    TotalAmount = x.o.FTotalAmount,
+                    Status = x.o.FStatus,
+                    StatusText = GetStatusText(x.o.FStatus),
+                    CreatedAt = x.o.FCreatedAt,
+                    AbnormalityType = "Security",
+                    Description = "此訂單金流嘗試失敗次數過高，疑似遭惡意刷卡或系統阻斷。",
+                    RelatedCount = suspiciousOrderIds.FirstOrDefault(s => s.OrderId == x.o.FId)?.Count ?? 0,
+                    Suggestion = "建議手動聯繫客戶，或直接取消此訂單。"
+                }));
+            }
+
+            // 3. [Behavior] 偵測「惡意鎖單行為」：同一會員 24 小時內取消 > 5 筆
+            var yesterday = DateTime.Now.AddDays(-1);
+            var badUsers = await _db.TOrders
+                .Where(o => o.FStatus == 5 && o.FCreatedAt > yesterday)
+                .GroupBy(o => o.FMemberId)
+                .Where(g => g.Count() >= 3)
+                .Select(g => g.Key)
+                .ToListAsync();
+
+            if (badUsers.Any())
+            {
+                // 改用手動 Join (不依賴模型的外鍵導覽屬性，直接在查詢時進行 INNER JOIN)
+                var badOrderData = await (from o in _db.TOrders
+                                          join m in _db.TMembers on o.FMemberId equals m.FId
+                                          where badUsers.Contains(o.FMemberId) && o.FStatus == 5 && o.FCreatedAt > yesterday
+                                          orderby o.FCreatedAt descending
+                                          select new 
+                                          {
+                                              Order = o,
+                                              MemberName = m.FName
+                                          })
+                                         .ToListAsync();
+
+                var behaviorAlerts = badOrderData
+                    .GroupBy(x => x.Order.FMemberId)
+                    .Select(g => {
+                        var latest = g.First();
+                        return new AbnormalOrderDto
+                        {
+                            OrderNo = latest.Order.FOrderNo,
+                            MemberName = latest.MemberName,
+                            TotalAmount = latest.Order.FTotalAmount,
+                            Status = latest.Order.FStatus,
+                            StatusText = "已取消",
+                            CreatedAt = latest.Order.FCreatedAt,
+                            AbnormalityType = "Behavior",
+                            Description = $"此會員在 24 小時內有 {g.Count()} 筆取消紀錄，疑似惡意占用庫存。",
+                            RelatedCount = g.Count(),
+                            Suggestion = "建議檢視該會員歷史紀錄，必要時予以停權。"
+                        };
+                    }).ToList();
+                
+                abnormalOrders.AddRange(behaviorAlerts);
+            }
+
+            return abnormalOrders.OrderByDescending(a => a.CreatedAt).ToList();
+        }
+
+        /// <summary>
+        /// 強制救援誤殺訂單：將已取消(5)恢復為已付款(2)，並重新扣除庫存
+        /// </summary>
+        public async Task<ApiResponse<object>> RescueOrderAsync(string orderNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null) return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            if (order.FStatus != 5) return new ApiResponse<object> { Success = false, Message = "此訂單並非取消狀態，不需救援" };
+
+            using (var transaction = _db.Database.BeginTransaction())
+            {
+                try
+                {
+                    // 1. 重新檢查並扣除庫存 (因為取消時庫存已回補)
+                    var details = await _db.TOrderDetails.Where(d => d.FOrderId == order.FId).ToListAsync();
+                    foreach (var item in details)
+                    {
+                        bool stockDeducted = await _productService.DeductStockAsync(item.FVariantId, item.FQuantity);
+                        if (!stockDeducted)
+                        {
+                            throw new Exception($"商品規格 ID {item.FVariantId} 庫存不足，無法恢復訂單！");
+                        }
+                    }
+
+                    // 2. 更新訂單狀態為「已付款 (2)」
+                    order.FStatus = 2;
+                    order.FUpdatedAt = DateTime.Now;
+
+                    // 3. 確保金流交易狀態也是「成功 (1)」
+                    var payment = await _db.TPaymentTransactions
+                        .Where(pt => pt.FOrderId == order.FId)
+                        .OrderByDescending(pt => pt.FCreatedAt)
+                        .FirstOrDefaultAsync();
+                    
+                    if (payment != null)
+                    {
+                        payment.FStatus = 1;
+                        if (payment.FPaidAt == null) payment.FPaidAt = DateTime.Now;
+                    }
+
+                    await _db.SaveChangesAsync();
+                    transaction.Commit();
+
+                    return new ApiResponse<object> { Success = true, Message = $"訂單 {orderNo} 已成功恢復為已付款狀態，庫存已重新扣除。" };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ApiResponse<object> { Success = false, Message = "救援失敗：" + ex.Message };
+                }
+            }
+        }
     }
 }
 

@@ -65,6 +65,34 @@ namespace Shizuku.Controllers
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
+        //  取得全站異常監控清單 (GET /api/AdminOrderApi/abnormal)
+        [HttpGet("abnormal")]
+        public async Task<IActionResult> GetAbnormalOrders()
+        {
+            try
+            {
+                var abnormals = await _orderService.GetAbnormalOrdersAsync();
+                return Ok(new ApiResponse<List<AbnormalOrderDto>>
+                {
+                    Success = true,
+                    Message = "獲取異常監控清單成功",
+                    Data = abnormals
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object> { Success = false, Message = "掃描異常訂單失敗: " + ex.Message });
+            }
+        }
+
+        //  執行訂單救援 (POST /api/AdminOrderApi/{orderNo}/rescue)
+        [HttpPost("{orderNo}/rescue")]
+        public async Task<IActionResult> RescueOrder(string orderNo)
+        {
+            var result = await _orderService.RescueOrderAsync(orderNo);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
     }
 
     // 用來接收前端傳來的新狀態數字 DTO (只有一行,為了方便就直接寫在這支檔案底下)
