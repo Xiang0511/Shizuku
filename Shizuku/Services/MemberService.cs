@@ -21,7 +21,6 @@ namespace Shizuku.Services
         //登入
         public async Task<ApiResponse<MemberLoginResponseDto>> LoginAsync(MemberLoginRequestDto dto)
         {
-            // 先只用 Email 撈出會員主表資料（不連同密碼一起查）
             var member = await _context.TMembers
                 .FirstOrDefaultAsync(m => m.FEmail == dto.FEmail);
 
@@ -30,51 +29,37 @@ namespace Shizuku.Services
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "帳號或密碼錯誤" };
             }
 
-
-            // 動態去系統設定表撈取驗證碼門檻值
-            // 註：TSystemConfigs 之後可在資料庫中手動新增，這裡先加上找不到時的預設值 3 次
-            //var config = await _context.TSystemConfigs
-            //    .FirstOrDefaultAsync(c => c.FConfigKey == "MaxFailedAttemptsBeforeCaptcha");
-
-            //int captchaThreshold = config != null ? int.Parse(config.FConfigValue) : 3;
-
             int captchaThreshold = 3;
 
-            // 判斷目前是否需要檢查圖形驗證碼 (當失敗次數 >= 門檻值)
             bool isCaptchaRequired = member.FAccessFailedCount >= captchaThreshold;
 
             if (isCaptchaRequired)
             {
-                // 檢查前端是否有傳驗證碼，並呼叫驗證碼比對
                 if (string.IsNullOrEmpty(dto.CaptchaAnswer) || !await ValidateCaptchaAsync(dto.CaptchaId, dto.CaptchaAnswer))
                 {
                     return new ApiResponse<MemberLoginResponseDto>
                     {
                         Success = false,
-                        Message = "請輸入正確的圖形驗證碼" // 前端收到此訊息，就要把驗證碼框刷出來
+                        Message = "圖形驗證碼輸入錯誤，請重新輸入"
                     };
                 }
             }
 
-            // 4. 驗證密碼是否正確
             bool isPasswordValid = member.FPassword == dto.FPassword;
 
             if (!isPasswordValid)
             {
-                // 密碼錯誤，失敗次數 + 1
                 member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
                 _context.TMembers.Update(member);
                 await _context.SaveChangesAsync();
 
-                // 判斷加 1 後有沒有達標，給予適當的提示語
                 string returnMessage = member.FAccessFailedCount >= captchaThreshold
-                    ? "密碼錯誤已達上限，下次登入請輸入驗證碼"
-                    : "帳號或密碼錯誤";
+                    ? "電子信箱或密碼輸入錯誤，下次登入請輸入驗證碼"
+                    : "電子信箱或密碼輸入錯誤";
 
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = returnMessage };
             }
 
-            // 5. 登入成功，將失敗次數歸零
             if (member.FAccessFailedCount > 0)
             {
                 member.FAccessFailedCount = 0;
@@ -82,7 +67,6 @@ namespace Shizuku.Services
                 await _context.SaveChangesAsync();
             }
 
-            // 6. 轉換為 Response DTO
             var loginResult = new MemberLoginResponseDto
             {
                 FId = member.FId,
