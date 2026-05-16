@@ -109,6 +109,13 @@ namespace Shizuku.Controllers
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
+        //  取得營收統計數據 (GET /api/AdminOrderApi/revenue-stats?startDate=2023-01-01&endDate=2023-01-31)
+        [HttpGet("revenue-stats")]
+        public async Task<IActionResult> GetRevenueStats([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
+        {
+            var stats = await _orderService.GetRevenueStatsAsync(startDate, endDate);
+            return Ok(new ApiResponse<object> { Success = true, Message = "獲取營收統計成功", Data = stats });
+        }
     }
 
     public class BatchUpdateStatusDto

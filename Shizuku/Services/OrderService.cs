@@ -758,12 +758,84 @@ namespace Shizuku.Services
                         Message = $"成功批次更新 {orders.Count} 筆訂單為 {GetStatusText(newStatus)}" 
                     };
                 }
+                
                 catch (Exception ex)
                 {
                     transaction.Rollback();
                     return new ApiResponse<object> { Success = false, Message = "批次更新失敗: " + ex.Message };
                 }
             }
+        }
+
+        //=================== 營收數據視覺化 (Revenue Visualization) ====================
+
+        public async Task<object> GetRevenueStatsAsync(DateTime? startDate, DateTime? endDate)
+        {
+            var start = startDate ?? DateTime.Today.AddDays(-6);
+            var end = endDate ?? DateTime.Now;
+
+            // 1. 基礎訂單數據 (已付款或已送達的訂單才算營收)
+            var validOrders = await _db.TOrders
+                .Where(o => (o.FStatus == 2 || o.FStatus == 3 || o.FStatus == 4) && o.FCreatedAt >= start && o.FCreatedAt <= end)
+                .ToListAsync();
+
+            var totalGMV = validOrders.Sum(o => o.FTotalAmount);
+            var totalOrders = validOrders.Count;
+            var aov = totalOrders > 0 ? totalGMV / totalOrders : 0;
+
+            // 2. 每日營收趨勢 (智慧分組)
+            var rangeDays = (end - start).TotalDays;
+            object dailyStats;
+
+            if (rangeDays > 60)
+            {
+                // 超過兩個月，改按「月份」分組
+                dailyStats = validOrders
+                    .GroupBy(o => new { o.FCreatedAt.Year, o.FCreatedAt.Month })
+                    .Select(g => new
+                    {
+                        Date = $"{g.Key.Year}/{g.Key.Month:D2}",
+                        Amount = g.Sum(o => o.FTotalAmount),
+                        Count = g.Count()
+                    })
+                    .OrderBy(x => x.Date)
+                    .ToList();
+            }
+            else
+            {
+                // 兩個月內，按「天」分組
+                dailyStats = validOrders
+                    .GroupBy(o => o.FCreatedAt.Date)
+                    .Select(g => new
+                    {
+                        Date = g.Key.ToString("MM/dd"),
+                        Amount = g.Sum(o => o.FTotalAmount),
+                        Count = g.Count()
+                    })
+                    .OrderBy(x => x.Date)
+                    .ToList();
+            }
+
+            // 3. 支付管道佔比
+            var paymentStats = await (from o in _db.TOrders
+                                     join pt in _db.TPaymentTransactions on o.FId equals pt.FOrderId
+                                     join pm in _db.TPaymentMethods on pt.FMethodId equals pm.FId
+                                     where (o.FStatus == 2 || o.FStatus == 3 || o.FStatus == 4) && o.FCreatedAt >= start && o.FCreatedAt <= end
+                                     group o by pm.FMethodName into g
+                                     select new
+                                     {
+                                         Method = g.Key ?? "未知",
+                                         Amount = g.Sum(o => o.FTotalAmount)
+                                     }).ToListAsync();
+
+            return new
+            {
+                TotalGMV = totalGMV,
+                TotalOrders = totalOrders,
+                AOV = aov,
+                DailyStats = dailyStats,
+                PaymentStats = paymentStats
+            };
         }
     }
 }
