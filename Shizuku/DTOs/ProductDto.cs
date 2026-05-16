@@ -214,4 +214,28 @@ namespace Shizuku.ViewModels
         public string? fNote { get; set; }
         public string fType { get; set; } = "進貨";
     }
+
+    // 規格庫存（子列）
+    public class InventoryVariantDto
+    {
+        public int fVariantId { get; set; }
+        public string fSkuCode { get; set; } = string.Empty;
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public int fStock { get; set; }
+        public decimal fPrice { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string fStockStatus { get; set; } = string.Empty;
+    }
+
+    // 商品庫存（主列）
+    public class InventoryProductDto
+    {
+        public int fProductId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public string fProduct { get; set; } = string.Empty;
+        public string? fImage { get; set; }
+        public int fTotalStock { get; set; }
+        public List<InventoryVariantDto> fVariants { get; set; } = new();
+    }
 }

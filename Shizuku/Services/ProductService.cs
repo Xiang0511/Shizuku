@@ -402,29 +402,42 @@ namespace Shizuku.Services
         }
 
         /// <summary>取得所有商品規格庫存總覽</summary>
-        public List<InventoryDto> GetInventory()
+        public List<InventoryProductDto> GetInventory()
         {
-            return _context.TProductVariants
-                .Where(v => v.TProduct.FStatus != 0)
-                .Select(v => new InventoryDto
+            var products = _context.TProducts
+                .Where(p => p.FStatus != 0)
+                .ToList();
+
+            var result = new List<InventoryProductDto>();
+
+            foreach (var p in products)
+            {
+                var variants = _context.TProductVariants
+                    .Where(v => v.FProductId == p.FId)
+                    .ToList();
+                if (!variants.Any()) continue;
+
+                var variantDtos = variants.Select(v => new InventoryVariantDto
                 {
-                    fProductId = v.FProductId,
-                    fProductName = v.TProduct.FName,
                     fVariantId = v.FId,
-                    fSkuCode = v.FSkuCode,
-                    fStock = v.FStock,
+                    fSkuCode = v.FSkuCode ?? "",
                     fColor = _context.TProductColors
-                        .Where(c => c.FId == v.FColorId)
-                        .Select(c => c.FName)
-                        .FirstOrDefault() ?? "無顏色",
+                    .Where(c => c.FId == v.FColorId)
+                    .Select(c => c.FName)
+                    .FirstOrDefault() ?? "無顏色",
                     fSize = _context.TProductSizes
-                        .Where(s => s.FId == v.FSizeId)
-                        .Select(s => s.FName)
-                        .FirstOrDefault() ?? "無尺寸",
+                    .Where(c => c.FId == v.FSizeId)
+                    .Select(c => c.FName)
+                    .FirstOrDefault() ?? "無尺寸",
+                    fStock = v.FStock,
+                    fPrice = v.FPrice ?? p.FPrice,
+                    fCostPrice = v.FCostPrice,
                     fStockStatus = v.FStock == 0 ? "售完"
-                                 : v.FStock <= 5 ? "低庫存"
-                                 : "正常"
+                    : v.FStock <= 5 ? "低庫存"
+                    : "正常"
                 }).ToList();
+            }
+            return result;
         }
             /// <summary>取得進貨紀錄</summary>
 public List<StockRecordDto> GetStockRecords()
