@@ -21,7 +21,9 @@ namespace Shizuku.DTOs
         public DateOnly? FBirthday { get; set; } = null!;
 
         [Required(ErrorMessage = "密碼不能為空")]
-        [MinLength(6, ErrorMessage = "密碼長度至少需 6 個字元")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "密碼長度必須在 8 到 100 個字元之間")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$",
+            ErrorMessage = "密碼必須包含大寫字母、小寫字母、數字及特殊符號各至少一個")]
         public string FPassword { get; set; } = null!;
 
         [Required(ErrorMessage = "確認密碼不能為空")]
