@@ -24,42 +24,92 @@ namespace Shizuku.Services
             var member = await _context.TMembers
                 .FirstOrDefaultAsync(m => m.FEmail == dto.FEmail);
 
+            // 1. 找不到帳號，直接回傳錯誤
             if (member == null)
             {
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "帳號或密碼錯誤" };
             }
 
             int captchaThreshold = 3;
+            int lockThreshold = 6;
 
+            // 2. 檢查帳號是否已經被鎖定或停用
+            if (member.FIsActive == false)
+            {
+                // 即使被鎖定，繼續嘗試登入依然要 count + 1
+                member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
+                _context.TMembers.Update(member);
+                await _context.SaveChangesAsync();
+
+                return new ApiResponse<MemberLoginResponseDto>
+                {
+                    Success = false,
+                    Message = "您的帳號已被鎖定或停用，請聯繫客服人員處理。"
+                };
+            }
+
+            // 3. 檢查是否需要驗證碼
             bool isCaptchaRequired = member.FAccessFailedCount >= captchaThreshold;
 
             if (isCaptchaRequired)
             {
                 if (string.IsNullOrEmpty(dto.CaptchaAnswer) || !await ValidateCaptchaAsync(dto.CaptchaId, dto.CaptchaAnswer))
                 {
+                    // 驗證碼打錯，count + 1
+                    member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
+
+                    // 檢查加完這一次之後，有沒有剛好觸發硬鎖定門檻
+                    if (member.FAccessFailedCount >= lockThreshold)
+                    {
+                        member.FIsActive = false;
+                    }
+
+                    _context.TMembers.Update(member);
+                    await _context.SaveChangesAsync();
+
+                    string captchaErrorMessage = member.FIsActive == false
+                        ? "錯誤次數已達上限，帳號已被鎖定，請聯繫客服人員處理。"
+                        : "圖形驗證碼輸入錯誤，請重新輸入";
+
                     return new ApiResponse<MemberLoginResponseDto>
                     {
                         Success = false,
-                        Message = "圖形驗證碼輸入錯誤，請重新輸入"
+                        Message = captchaErrorMessage
                     };
                 }
             }
 
+            // 4. 驗證密碼
             bool isPasswordValid = member.FPassword == dto.FPassword;
 
             if (!isPasswordValid)
             {
+                // 密碼錯誤，count + 1
                 member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
+
+                string returnMessage;
+
+                if (member.FAccessFailedCount >= lockThreshold)
+                {
+                    member.FIsActive = false;
+                    returnMessage = "密碼錯誤次數已達上限，帳號已被鎖定，請聯繫客服人員處理。";
+                }
+                else if (member.FAccessFailedCount >= captchaThreshold)
+                {
+                    returnMessage = "電子信箱或密碼輸入錯誤，下次登入請輸入驗證碼。";
+                }
+                else
+                {
+                    returnMessage = "電子信箱或密碼輸入錯誤。";
+                }
+
                 _context.TMembers.Update(member);
                 await _context.SaveChangesAsync();
-
-                string returnMessage = member.FAccessFailedCount >= captchaThreshold
-                    ? "電子信箱或密碼輸入錯誤，下次登入請輸入驗證碼"
-                    : "電子信箱或密碼輸入錯誤";
 
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = returnMessage };
             }
 
+            // 5. 只有所有驗證完全通過，才重設為 0
             if (member.FAccessFailedCount > 0)
             {
                 member.FAccessFailedCount = 0;
