@@ -139,6 +139,22 @@ namespace Shizuku.Controllers
 
             try
             {
+                // 如果切換為貨到付款(3)，直接更新訂單狀態為已付款
+                if (request.PaymentMethodId == 3)
+                {
+                    await _orderService.MarkOrderAsPaidAsync(orderNo, request.PaymentMethodId);
+                    return Ok(new ApiResponse<CreateOrderResponseDto>
+                    {
+                        Success = true,
+                        Message = "付款方式已更改為貨到付款",
+                        Data = new CreateOrderResponseDto
+                        {
+                            OrderNo = orderNo,
+                            PaymentUrl = "" // 貨到付款沒有連結
+                        }
+                    });
+                }
+
                 string paymentUrl = await _orderService.GeneratePaymentUrlAsync(orderNo, request.PaymentMethodId, order.FTotalAmount);
                 return Ok(new ApiResponse<CreateOrderResponseDto>
                 {

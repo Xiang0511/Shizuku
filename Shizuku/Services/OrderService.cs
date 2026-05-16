@@ -84,13 +84,22 @@ namespace Shizuku.Services
                         totalAmount += subtotal;
                     }
 
+                    // 計算運費 (貨到付款未滿 1500 加收 60)
+                    decimal shippingFee = 0;
+                    if (request.PaymentMethodId == 3 && totalAmount < 1500)
+                    {
+                        shippingFee = 60;
+                        totalAmount += shippingFee;
+                    }
+
                     // 步驟 5：建立一張主訂單 TOrder
                     var newOrder = new TOrder
                     {
                         FOrderNo = newOrderNo,
                         FMemberId = request.MemberId,
                         FTotalAmount = totalAmount,
-                        FStatus = 1, // 1: 代表待處理 (待付款)
+                        // 貨到付款(3) 直接視為已付款(2)，否則為待付款(1)
+                        FStatus = request.PaymentMethodId == 3 ? 2 : 1, 
                         FReceiverName = request.ReceiverName,
                         FReceiverPhone = request.ReceiverPhone,
                         FReceiverAddress = request.ReceiverAddress,
@@ -121,8 +130,10 @@ namespace Shizuku.Services
                         FMemberId = request.MemberId,
                         FMethodId = request.PaymentMethodId,
                         FAmount = totalAmount,
-                        FStatus = 0, // 0: 待付款
-                        FCreatedAt = DateTime.Now
+                        // 貨到付款直接視為付款成功(1)，並壓上付款時間
+                        FStatus = request.PaymentMethodId == 3 ? 1 : 0, 
+                        FCreatedAt = DateTime.Now,
+                        FPaidAt = request.PaymentMethodId == 3 ? DateTime.Now : null
                     };
 
                     _db.TPaymentTransactions.Add(paymentTransaction);
@@ -215,11 +226,7 @@ namespace Shizuku.Services
             string paymentMethodName = "尚未指定";
             if (paymentTransaction != null)
             {
-                var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == paymentTransaction.FMethodId);
-                if (method != null)
-                {
-                    paymentMethodName = method.FMethodName;
-                }
+                paymentMethodName = await GetPaymentMethodName(paymentTransaction.FMethodId);
             }
 
             // 3. 把撈出來的安全資料轉換給前端 (DTO)
@@ -236,7 +243,8 @@ namespace Shizuku.Services
                 PaymentMethod = paymentMethodName, 
                 Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
                 Discount = 0,
-                ShippingFee = 0,
+                // 推算運費：如果總金額減掉小計與折扣大於 0，視為運費
+                ShippingFee = order.FTotalAmount - detailsData.Sum(d => d.Detail.FSubtotal),
                 Items = detailsData.Select(d => new OrderItemDto
                 {
                     ProductName = d.ProductName,
@@ -349,28 +357,43 @@ namespace Shizuku.Services
         }
         
         //標記訂單為已付款(統一管理訂單狀態)
-         public async Task<bool> MarkOrderAsPaidAsync(string orderNo)
+        // 標記訂單為已付款
+        public async Task<bool> MarkOrderAsPaidAsync(string orderNo, int? paymentMethodId = null)
         {
             var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-            if (order != null && order.FStatus == 1) // 1: 待付款才能變更為已付款
+            if (order != null && order.FStatus == 1)
             {
-                // 1. 更新主訂單狀態
-                order.FStatus = 2; // 2: 已付款
+                order.FStatus = 2;
                 order.FUpdatedAt = DateTime.Now;
-                // 2. 找出關聯的金流單並更新狀態 (這是你原本漏掉的關鍵！)
+
                 var paymentTransaction = await _db.TPaymentTransactions
                     .Where(pt => pt.FOrderId == order.FId)
                     .OrderByDescending(pt => pt.FCreatedAt)
                     .FirstOrDefaultAsync();
+
                 if (paymentTransaction != null)
                 {
-                    paymentTransaction.FStatus = 1; // 1: 金流付款成功
-                    paymentTransaction.FPaidAt = DateTime.Now; // 壓上真實付款時間
+                    paymentTransaction.FStatus = 1;
+                    paymentTransaction.FPaidAt = DateTime.Now;
+                    // 如果有傳入新的付款方式 (例如重新付款切換)，則更新它
+                    if (paymentMethodId.HasValue)
+                    {
+                        paymentTransaction.FMethodId = paymentMethodId.Value;
+                    }
                 }
                 await _db.SaveChangesAsync();
                 return true;
             }
             return false;
+        }
+
+        // 統一管理付款方式名稱
+        public async Task<string> GetPaymentMethodName(int? methodId)
+        {
+            if (methodId == 3) return "貨到付款";
+
+            var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == methodId);
+            return method?.FMethodName ?? "未知方式";
         }
 
         //=================== 以下為後台Admin專用方法 ====================
@@ -432,11 +455,7 @@ namespace Shizuku.Services
             string paymentMethodName = "尚未指定";
             if (paymentTransaction != null)
             {
-                var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == paymentTransaction.FMethodId);
-                if (method != null)
-                {
-                    paymentMethodName = method.FMethodName;
-                }
+                paymentMethodName = await GetPaymentMethodName(paymentTransaction.FMethodId);
             }
 
             var dto = new OrderDetailDto
@@ -452,7 +471,7 @@ namespace Shizuku.Services
                 PaymentMethod = paymentMethodName, 
                 Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
                 Discount = 0,
-                ShippingFee = 0,
+                ShippingFee = order.FTotalAmount - detailsData.Sum(d => d.Detail.FSubtotal),
                 Items = detailsData.Select(d => new OrderItemDto
                 {
                     ProductName = d.ProductName,
