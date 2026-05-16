@@ -38,18 +38,19 @@ namespace Shizuku.Controllers
                 });
             }
 
-            // 呼叫非同步方法並等待結果
-            var loginDto = await _memberService.LoginAsync(dto.FEmail, dto.FPassword);
+            // 呼叫 Service（把整個 dto 傳進去）
+            var serviceResult = await _memberService.LoginAsync(dto);
 
-            if (loginDto == null)
+            // 如果 Service 回傳失敗（可能是密碼錯、或是驗證碼沒打對）
+            if (!serviceResult.Success)
             {
-                return Unauthorized(new ApiResponse<MemberLoginResponseDto>
-                {
-                    Success = false,
-                    Message = "帳號密碼錯誤"
-                });
+                // 依照你的架構，如果需要特定的 Http 狀態碼，可以看 Message 判斷，通常直接回 Ok 帶 Success = false 或是 Unauthorized 都可以
+                return Unauthorized(serviceResult);
             }
 
+
+            // 登入成功，將 Token 補上
+            var loginDto = serviceResult.Data!;
             loginDto.Token = _jwtHelper.GenerateToken(loginDto.FId, loginDto.FName ?? "", loginDto.FEmail ?? "");
 
             return Ok(new ApiResponse<MemberLoginResponseDto>

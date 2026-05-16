@@ -16,22 +16,92 @@ namespace Shizuku.Services
         }
 
         //登入
-        public async Task<MemberLoginResponseDto> LoginAsync(string email, string password)
+        public async Task<ApiResponse<MemberLoginResponseDto>> LoginAsync(MemberLoginRequestDto dto)
         {
-            var loginResult = await _context.TMembers
-                .Where(m => m.FEmail == email && m.FPassword == password)
-                .Select(m => new MemberLoginResponseDto
-                {
-                    FId=m.FId,
-                    FName = m.FName,
-                    FEmail = m.FEmail,
-                    FGender = m.FGender,
-                    FBirthday = m.FBirthday,
-                    FPhone = m.FPhone
-                })
-                .FirstOrDefaultAsync(); // 使用非同步方法
+            // 先只用 Email 撈出會員主表資料（不連同密碼一起查）
+            var member = await _context.TMembers
+                .FirstOrDefaultAsync(m => m.FEmail == dto.FEmail);
 
-            return loginResult;
+            if (member == null)
+            {
+                return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "帳號或密碼錯誤" };
+            }
+
+
+            // 動態去系統設定表撈取驗證碼門檻值
+            // 註：TSystemConfigs 之後可在資料庫中手動新增，這裡先加上找不到時的預設值 3 次
+            //var config = await _context.TSystemConfigs
+            //    .FirstOrDefaultAsync(c => c.FConfigKey == "MaxFailedAttemptsBeforeCaptcha");
+
+            //int captchaThreshold = config != null ? int.Parse(config.FConfigValue) : 3;
+
+            int captchaThreshold = 3;
+
+            // 判斷目前是否需要檢查圖形驗證碼 (當失敗次數 >= 門檻值)
+            bool isCaptchaRequired = member.FAccessFailedCount >= captchaThreshold;
+
+            if (isCaptchaRequired)
+            {
+                // 檢查前端是否有傳驗證碼，並呼叫驗證碼比對
+                if (string.IsNullOrEmpty(dto.CaptchaAnswer) || !await ValidateCaptchaAsync(dto.CaptchaId, dto.CaptchaAnswer))
+                {
+                    return new ApiResponse<MemberLoginResponseDto>
+                    {
+                        Success = false,
+                        Message = "請輸入正確的圖形驗證碼" // 前端收到此訊息，就要把驗證碼框刷出來
+                    };
+                }
+            }
+
+            // 4. 驗證密碼是否正確
+            bool isPasswordValid = member.FPassword == dto.FPassword;
+
+            if (!isPasswordValid)
+            {
+                // 密碼錯誤，失敗次數 + 1
+                member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
+                _context.TMembers.Update(member);
+                await _context.SaveChangesAsync();
+
+                // 判斷加 1 後有沒有達標，給予適當的提示語
+                string returnMessage = member.FAccessFailedCount >= captchaThreshold
+                    ? "密碼錯誤已達上限，下次登入請輸入驗證碼"
+                    : "帳號或密碼錯誤";
+
+                return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = returnMessage };
+            }
+
+            // 5. 登入成功，將失敗次數歸零
+            if (member.FAccessFailedCount > 0)
+            {
+                member.FAccessFailedCount = 0;
+                _context.TMembers.Update(member);
+                await _context.SaveChangesAsync();
+            }
+
+            // 6. 轉換為 Response DTO
+            var loginResult = new MemberLoginResponseDto
+            {
+                FId = member.FId,
+                FName = member.FName,
+                FEmail = member.FEmail,
+                FGender = member.FGender,
+                FBirthday = member.FBirthday,
+                FPhone = member.FPhone
+            };
+
+            return new ApiResponse<MemberLoginResponseDto>
+            {
+                Success = true,
+                Message = "登入成功",
+                Data = loginResult
+            };
+        }
+
+        // 模擬驗證碼比對的私有方法（之後串接你的驗證碼儲存機制，目前先回傳 true 供你測試測試）
+        private async Task<bool> ValidateCaptchaAsync(string? id, string? answer)
+        {
+            return true;
         }
 
         //註冊
