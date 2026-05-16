@@ -436,6 +436,18 @@ namespace Shizuku.Services
                     : v.FStock <= 5 ? "低庫存"
                     : "正常"
                 }).ToList();
+                result.Add(new InventoryProductDto
+                {
+                    fProductId = p.FId,
+                    fProductName = p.FName,
+                    fProduct = p.FProduct ?? "",
+                    fImage = _context.TProductImages
+        .Where(img => img.FProductId == p.FId && img.FIsMain == 1)
+        .Select(img => img.FImageUrl)
+        .FirstOrDefault(),
+                    fTotalStock = variantDtos.Sum(v => v.fStock),
+                    fVariants = variantDtos
+                });
             }
             return result;
         }
