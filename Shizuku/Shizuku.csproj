@@ -25,6 +25,8 @@
     <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.MSSqlServer" Version="9.0.3" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 

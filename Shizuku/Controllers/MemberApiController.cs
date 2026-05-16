@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 using Shizuku.DTOs;
 using Shizuku.Helpers;
 using Shizuku.Services;
+using SkiaSharp;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace Shizuku.Controllers
@@ -15,14 +17,22 @@ namespace Shizuku.Controllers
         private readonly MemberService _memberService;
         private readonly JwtHelper _jwtHelper;
         private readonly VerificationService _verificationService; 
-        private readonly EmailService _emailService;
+        private readonly EmailService _emailService; 
+        private readonly IMemoryCache _cache;
 
-        public MemberApiController(MemberService memberService, JwtHelper jwtHelper, VerificationService verificationService,EmailService emailService)
+        public MemberApiController(
+            MemberService memberService,
+            JwtHelper jwtHelper, 
+            VerificationService verificationService,
+            EmailService emailService,
+            IMemoryCache cache
+            )
         {
             _memberService = memberService;
             _jwtHelper = jwtHelper;
             _verificationService = verificationService;
-            _emailService = emailService;
+            _emailService = emailService; 
+            _cache = cache;
         }
 
         //登入
@@ -38,18 +48,13 @@ namespace Shizuku.Controllers
                 });
             }
 
-            // 呼叫 Service（把整個 dto 傳進去）
             var serviceResult = await _memberService.LoginAsync(dto);
 
-            // 如果 Service 回傳失敗（可能是密碼錯、或是驗證碼沒打對）
             if (!serviceResult.Success)
             {
-                // 依照你的架構，如果需要特定的 Http 狀態碼，可以看 Message 判斷，通常直接回 Ok 帶 Success = false 或是 Unauthorized 都可以
                 return Unauthorized(serviceResult);
             }
 
-
-            // 登入成功，將 Token 補上
             var loginDto = serviceResult.Data!;
             loginDto.Token = _jwtHelper.GenerateToken(loginDto.FId, loginDto.FName ?? "", loginDto.FEmail ?? "");
 
@@ -71,7 +76,6 @@ namespace Shizuku.Controllers
                 return BadRequest(new ApiResponse<MemberRegisterResponseDto> { Success = false, Message = "請提供註冊資料" });
             }
 
-            // 1. 驗證密碼一致性
             if (dto.FPassword != dto.ConfirmPassword)
             {
                 return BadRequest(new ApiResponse<MemberRegisterResponseDto>
@@ -81,7 +85,6 @@ namespace Shizuku.Controllers
                 });
             }
 
-            // 2. 驗證 Email 是否重複
             if (await _memberService.IsEmailTakenAsync(dto.FEmail))
             {
                 return Conflict(new ApiResponse<MemberRegisterResponseDto>
@@ -91,19 +94,14 @@ namespace Shizuku.Controllers
                 });
             }
 
-            // 3. 執行註冊
             try
             {
-                // 1. 執行會員主表註冊
                 var responseData = await _memberService.RegisterAsync(dto);
 
                 if (responseData != null)
                 {
-                    // 2. 核心整合：產生 6 位數驗證碼並寫入 TMemberVerifications 表
-                    // 這裡傳入剛才註冊成功拿到的流水號 responseData.FId
                     string code = await _verificationService.CreateEmailVerificationAsync(responseData.FId);
 
-                    // 3. 核心整合：發送 Email 驗證碼
                     string htmlContent = $@"
                     <div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
                         <h2 style='color: #4a4a4a; text-align: center;'>Shizuku 購物平台</h2>
@@ -118,8 +116,6 @@ namespace Shizuku.Controllers
 
                     await _emailService.SendEmailAsync(responseData.FEmail!, "【Shizuku】您的會員電子郵件驗證碼", htmlContent);
 
-                    // 4. 回傳成功，把 responseData 給前端 Vue
-                    // Vue 拿到後，要把 responseData.fId 存下來，等一下輸入 6 位數按送出時要一起帶過去
                     return Ok(new ApiResponse<MemberRegisterResponseDto>
                     {
                         Success = true,
@@ -159,6 +155,101 @@ namespace Shizuku.Controllers
 
             return BadRequest(new ApiResponse<string> { Success = false, Message = "更新失敗，請確認資料是否有變動" });
         }
+
+        [HttpGet("captcha")]
+        public IActionResult GetCaptcha()
+        {
+            // 1. 產生 4 碼隨機英數字（排除容易混淆的 0, o, 1, I）
+            string chars = "abcdefhkmnrstuvwx3456789ABCDEFGHJKLMNPRSTUVWXY";
+            var random = new Random();
+            string captchaText = new string(Enumerable.Repeat(chars, 4).Select(s => s[random.Next(s.Length)]).ToArray());
+
+            // 2. 產生唯一的 CaptchaId 並將答案寫入 MemoryCache（效期 2 分鐘）
+            string captchaId = Guid.NewGuid().ToString();
+            var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(2));
+            _cache.Set($"Captcha_{captchaId}", captchaText, cacheOptions);
+
+            // 3. 使用 SkiaSharp 繪製扭曲圖片
+            int width = 120;
+            int height = 45;
+            using var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+
+            // 背景填滿淺灰色
+            canvas.Clear(new SKColor(245, 245, 245));
+
+            // 畫幾條隨機干擾線
+            using var linePaint = new SKPaint { Color = new SKColor(200, 200, 200), StrokeWidth = 2, IsAntialias = true };
+            for (int i = 0; i < 4; i++)
+            {
+                canvas.DrawLine(random.Next(width), random.Next(height), random.Next(width), random.Next(height), linePaint);
+            }
+
+            // 畫隨機干擾點
+            for (int i = 0; i < 30; i++)
+            {
+                bitmap.SetPixel(random.Next(width), random.Next(height), new SKColor(180, 180, 180));
+            }
+
+            // 寫入驗證碼文字（使用全新的 SKFont 與 SKTextBlob，避開過時 API）
+            string[] fontFamilies = { "Arial", "Verdana", "Comic Sans MS" };
+
+            for (int i = 0; i < captchaText.Length; i++)
+            {
+                // 1. 設定顏色與抗鋸齒（SKPaint 現在純粹負責顏色、樣式與濾鏡）
+                using var textPaint = new SKPaint
+                {
+                    Color = new SKColor((byte)random.Next(50, 150), (byte)random.Next(50, 150), (byte)random.Next(50, 150)),
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Fill
+                };
+
+                // 2. 建立字體樣式
+                var typeface = SKTypeface.FromFamilyName(
+                    fontFamilies[random.Next(fontFamilies.Length)],
+                    SKFontStyleWeight.Bold,
+                    SKFontStyleWidth.Normal,
+                    SKFontStyleSlant.Upright
+                );
+
+                // 3. ✨ 建立全新的 SKFont 物件來設定字體大小
+                using var textFont = new SKFont(typeface, 26); // 這裡設定文字大小為 26
+
+                canvas.Save();
+
+                // 隨機旋轉角度 (-15度 ~ 15度)
+                float angle = random.Next(-15, 15);
+                float x = 15 + (i * 25);
+                float y = 32 + random.Next(-3, 3);
+
+                canvas.RotateDegrees(angle, x, y);
+
+                // 4. ✨ 使用最新的 DrawText 載入 font 與 paint 繪製單個字元
+                canvas.DrawText(captchaText[i].ToString(), x, y, textFont, textPaint);
+
+                canvas.Restore();
+            }
+
+            // 4. 將圖片轉為 Base64 字串
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+            using var ms = new MemoryStream();
+            data.SaveTo(ms);
+            string base64Image = Convert.ToBase64String(ms.ToArray());
+
+            // 5. 回傳給前端（包含圖片與對應的 ID）
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "驗證碼產生成功",
+                Data = new
+                {
+                    CaptchaId = captchaId,
+                    ImgBase64 = $"data:image/png;base64,{base64Image}"
+                }
+            });
+        }
+
 
         [HttpGet("Lo")]
         public IActionResult Lo()
