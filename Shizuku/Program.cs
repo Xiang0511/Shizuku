@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
@@ -86,6 +86,13 @@ builder.Services.AddSwaggerGen();
 
     // 加入這行，讓系統載入 SignalR 的相關功能
     builder.Services.AddSignalR();
+
+    //  註冊異常偵測背景服務
+    builder.Services.AddSingleton<PaymentAnomalyService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<PaymentAnomalyService>());
+    builder.Services.AddSingleton<OrderAnomalyService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<OrderAnomalyService>());
+
     var app = builder.Build();
 
     // --- 5. 中間件順序 ---
@@ -114,6 +121,9 @@ builder.Services.AddSwaggerGen();
 
     // 加入這行，設定對外開放的 WebSocket 通道網址為 /chatHub
     app.MapHub<ChatHub>("/chatHub");
+
+    // 後台管理員通知專用通道
+    app.MapHub<AdminNotificationHub>("/adminNotificationHub");
 
     Log.Information("應用程式正在啟動...");
     app.Run();

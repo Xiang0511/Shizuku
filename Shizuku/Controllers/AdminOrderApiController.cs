@@ -116,8 +116,56 @@ namespace Shizuku.Controllers
             var stats = await _orderService.GetRevenueStatsAsync(startDate, endDate);
             return Ok(new ApiResponse<object> { Success = true, Message = "獲取營收統計成功", Data = stats });
         }
-    }
 
+        //  取得異常支付資料清單 (GET /api/AdminOrderApi/payment-anomalies)
+        //  供 AnomalyPaymentWidget 顯示高頻失敗與異常高額交易
+        [HttpGet("payment-anomalies")]
+        public async Task<IActionResult> GetPaymentAnomalies()
+        {
+            try
+            {
+                var tenMinutesAgo = DateTime.Now.AddMinutes(-10);
+
+                // 高頻失敗清單
+                var highFreqFailures = await _orderService.GetHighFreqFailuresAsync(tenMinutesAgo);
+
+                // 異常高額交易清單
+                var highAmountTxns = await _orderService.GetHighAmountTxnsAsync(tenMinutesAgo);
+
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "獲取異常支付資料成功",
+                    Data = new { highFreqFailures, highAmountTxns }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object> { Success = false, Message = "系統錯誤: " + ex.Message });
+            }
+        }
+
+        // 手動觸發金流異常掃描 (POST /api/AdminOrderApi/trigger-payment-scan)
+        // 職責：呼叫真實偵測邏輯，並透過 SignalR 推播至金流控制中心，用於驗證通知系統
+        [HttpPost("trigger-payment-scan")]
+        public async Task<IActionResult> TriggerPaymentScan(
+            [FromServices] PaymentAnomalyService paymentAnomalyService)
+        {
+            await paymentAnomalyService.ScanAsync();
+            return Ok(new ApiResponse<object> { Success = true, Message = "金流異常掃描已執行，如有偵測到異常將立即推播" });
+        }
+
+        // 手動觸發訂單異常掃描 (POST /api/AdminOrderApi/trigger-order-scan)
+        // 職責：呼叫真實偵測邏輯，並透過 SignalR 推播至訂單控制中心，用於驗證通知系統
+        [HttpPost("trigger-order-scan")]
+        public async Task<IActionResult> TriggerOrderScan(
+            [FromServices] OrderAnomalyService orderAnomalyService)
+        {
+            await orderAnomalyService.ScanAsync();
+            return Ok(new ApiResponse<object> { Success = true, Message = "訂單異常掃描已執行，如有偵測到異常將立即推播" });
+        }
+    }
+    //TODO:待處理
     public class BatchUpdateStatusDto
     {
         public List<string> OrderNos { get; set; } = new();

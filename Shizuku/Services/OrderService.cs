@@ -541,6 +541,48 @@ namespace Shizuku.Services
                 }
             }
         }
+        //=================== 異常支付查詢（供 AnomalyPaymentWidget 使用）====================
+
+        /// <summary>
+        /// 查詢高頻支付失敗訂單清單（供前端展示，非推播邏輯）
+        /// </summary>
+        public async Task<List<object>> GetHighFreqFailuresAsync(DateTime since)
+        {
+            var result = await _db.TPaymentTransactions
+                .Where(pt => pt.FStatus == 0 && pt.FCreatedAt >= since)
+                .GroupBy(pt => pt.FOrderId)
+                .Select(g => new
+                {
+                    OrderId = g.Key,
+                    FailCount = g.Count(),
+                    LatestTime = g.Max(pt => pt.FCreatedAt).ToString("MM/dd HH:mm:ss")
+                })
+                .Where(g => g.FailCount >= 3)
+                .OrderByDescending(g => g.FailCount)
+                .ToListAsync();
+
+            return result.Cast<object>().ToList();
+        }
+
+        /// <summary>
+        /// 查詢異常高額交易清單（供前端展示，非推播邏輯）
+        /// </summary>
+        public async Task<List<object>> GetHighAmountTxnsAsync(DateTime since)
+        {
+            var result = await _db.TPaymentTransactions
+                .Where(pt => pt.FAmount > 50000 && pt.FCreatedAt >= since)
+                .Select(pt => new
+                {
+                    TransactionNo = pt.FTransactionNo,
+                    Amount = pt.FAmount,
+                    CreatedAt = pt.FCreatedAt.ToString("MM/dd HH:mm:ss")
+                })
+                .OrderByDescending(pt => pt.CreatedAt)
+                .ToListAsync();
+
+            return result.Cast<object>().ToList();
+        }
+
         //=================== 異常訂單監控與救援 ====================
 
         /// <summary>
@@ -551,6 +593,7 @@ namespace Shizuku.Services
             var abnormalOrders = new List<AbnormalOrderDto>();
 
             // 1. [Conflict] 偵測「金流衝突」：訂單已取消(5)，但金流紀錄卻有成功(1)
+            // 職責說明：此為訂單生命週期的狀態衝突，屬於訂單層業務異常，由本服務負責
             var conflictData = await (from o in _db.TOrders
                                      join pt in _db.TPaymentTransactions on o.FId equals pt.FOrderId
                                      join m in _db.TMembers on o.FMemberId equals m.FId
@@ -570,36 +613,8 @@ namespace Shizuku.Services
                 Suggestion = "請執行「強制救援」恢復此訂單並扣除庫存。"
             }));
 
-            // 2. [Security] 偵測「交易頻率異常」：單筆訂單失敗次數 > 5
-            var suspiciousOrderIds = await _db.TPaymentTransactions
-                .Where(pt => pt.FStatus == 0)
-                .GroupBy(pt => pt.FOrderId)
-                .Where(g => g.Count() >= 3)
-                .Select(g => new { OrderId = g.Key, Count = g.Count() })
-                .ToListAsync();
-
-            if (suspiciousOrderIds.Any())
-            {
-                var targetIds = suspiciousOrderIds.Select(s => s.OrderId).ToList();
-                var securityData = await (from o in _db.TOrders
-                                         join m in _db.TMembers on o.FMemberId equals m.FId
-                                         where targetIds.Contains(o.FId) && o.FStatus != 5
-                                         select new { o, MemberName = m.FName }).ToListAsync();
-
-                abnormalOrders.AddRange(securityData.Select(x => new AbnormalOrderDto
-                {
-                    OrderNo = x.o.FOrderNo,
-                    MemberName = x.MemberName,
-                    TotalAmount = x.o.FTotalAmount,
-                    Status = x.o.FStatus,
-                    StatusText = GetStatusText(x.o.FStatus),
-                    CreatedAt = x.o.FCreatedAt,
-                    AbnormalityType = "Security",
-                    Description = "此訂單金流嘗試失敗次數過高，疑似遭惡意刷卡或系統阻斷。",
-                    RelatedCount = suspiciousOrderIds.FirstOrDefault(s => s.OrderId == x.o.FId)?.Count ?? 0,
-                    Suggestion = "建議手動聯繫客戶，或直接取消此訂單。"
-                }));
-            }
+            // 注意：原 Security 類型（高頻支付失敗）已移交 PaymentAnomalyService 統一管轄，
+            // 避免與金流層面的偵測邏輯產生職責重疊。
 
             // 3. [Behavior] 偵測「惡意鎖單行為」：同一會員 24 小時內取消 > 5 筆
             var yesterday = DateTime.Now.AddDays(-1);
