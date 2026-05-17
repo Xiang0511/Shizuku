@@ -548,20 +548,27 @@ namespace Shizuku.Services
         /// </summary>
         public async Task<List<object>> GetHighFreqFailuresAsync(DateTime since)
         {
-            var result = await _db.TPaymentTransactions
+            var rawData = await _db.TPaymentTransactions
                 .Where(pt => pt.FStatus == 0 && pt.FCreatedAt >= since)
                 .GroupBy(pt => pt.FOrderId)
                 .Select(g => new
                 {
                     OrderId = g.Key,
                     FailCount = g.Count(),
-                    LatestTime = g.Max(pt => pt.FCreatedAt).ToString("MM/dd HH:mm:ss")
+                    LatestTime = g.Max(pt => pt.FCreatedAt)
                 })
                 .Where(g => g.FailCount >= 3)
                 .OrderByDescending(g => g.FailCount)
                 .ToListAsync();
 
-            return result.Cast<object>().ToList();
+            var result = rawData.Select(r => new
+            {
+                OrderId = r.OrderId,
+                FailCount = r.FailCount,
+                LatestTime = r.LatestTime.ToString("MM/dd HH:mm:ss")
+            }).Cast<object>().ToList();
+
+            return result;
         }
 
         /// <summary>
@@ -569,18 +576,25 @@ namespace Shizuku.Services
         /// </summary>
         public async Task<List<object>> GetHighAmountTxnsAsync(DateTime since)
         {
-            var result = await _db.TPaymentTransactions
+            var rawData = await _db.TPaymentTransactions
                 .Where(pt => pt.FAmount > 50000 && pt.FCreatedAt >= since)
                 .Select(pt => new
                 {
                     TransactionNo = pt.FTransactionNo,
                     Amount = pt.FAmount,
-                    CreatedAt = pt.FCreatedAt.ToString("MM/dd HH:mm:ss")
+                    CreatedAt = pt.FCreatedAt
                 })
                 .OrderByDescending(pt => pt.CreatedAt)
                 .ToListAsync();
 
-            return result.Cast<object>().ToList();
+            var result = rawData.Select(r => new
+            {
+                TransactionNo = r.TransactionNo,
+                Amount = r.Amount,
+                CreatedAt = r.CreatedAt.ToString("MM/dd HH:mm:ss")
+            }).Cast<object>().ToList();
+
+            return result;
         }
 
         //=================== 異常訂單監控與救援 ====================

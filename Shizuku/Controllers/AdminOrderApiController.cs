@@ -165,16 +165,4 @@ namespace Shizuku.Controllers
             return Ok(new ApiResponse<object> { Success = true, Message = "訂單異常掃描已執行，如有偵測到異常將立即推播" });
         }
     }
-    //TODO:待處理
-    public class BatchUpdateStatusDto
-    {
-        public List<string> OrderNos { get; set; } = new();
-        public int NewStatus { get; set; }
-    }
-
-    // 用來接收前端傳來的新狀態數字 DTO (只有一行,為了方便就直接寫在這支檔案底下)
-    public class UpdateOrderStatusDto
-    {
-        public int NewStatus { get; set; }
-    }
 }
