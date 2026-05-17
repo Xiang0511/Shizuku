@@ -47,4 +47,6 @@ public partial class TMember
 
     public int? FAccessFailedCount { get; set; } // int
     public DateTime? FLockoutEnd { get; set; }   // datetime
+
+    public int? FPoints { get; set; }
 }
