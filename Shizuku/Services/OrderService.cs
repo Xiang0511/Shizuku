@@ -78,8 +78,8 @@ namespace Shizuku.Services
                         });
                     }
 
-                    // 運費計算邏輯：滿 1500 免運，否則運費 80 元
-                    decimal shippingFee = subtotal >= 1500 ? 0 : 80;
+                    // 運費計算邏輯：滿 1500 免運，否則運費 60 元
+                    decimal shippingFee = subtotal >= 1500 ? 0 : 60;
                     decimal totalAmount = subtotal + shippingFee;
 
                     // 寫入訂單主表
