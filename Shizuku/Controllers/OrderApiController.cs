@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Shizuku.DTOs;
 using Shizuku.Services;
-using System.Text.Json;
 
 namespace Shizuku.Controllers
 {
@@ -10,21 +9,16 @@ namespace Shizuku.Controllers
     public class OrderApiController : ControllerBase
     {
         private readonly OrderService _orderService;
-        private readonly LinePayPaymentService _linePayPaymentService;
-        private readonly ECPayPaymentService _ecPayPaymentService;
+        private readonly PaymentFactory _paymentFactory;
 
-        // 建構子：移除 DbContext 與底層的 LinePayService，改依賴封裝好的服務
-        public OrderApiController(
-            OrderService orderService, 
-            LinePayPaymentService linePayPaymentService, 
-            ECPayPaymentService ecPayPaymentService)
+        // 建構子注入：注入訂單服務與金流抽象工廠，避免對具體金流服務的強耦合
+        public OrderApiController(OrderService orderService, PaymentFactory paymentFactory)
         {
             _orderService = orderService;
-            _linePayPaymentService = linePayPaymentService;
-            _ecPayPaymentService = ecPayPaymentService;
+            _paymentFactory = paymentFactory;
         }
 
-        // 建立訂單API /api/orderApi/create
+        // 建立新訂單 (POST /api/orderApi/create)
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
@@ -32,24 +26,39 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
-        // 確認付款api /api/orderApi/confirm
+        // 確認付款並扣款 (POST /api/orderApi/confirm)
         [HttpPost("confirm")]
         public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequestDto request)
         {
-            // 將確認扣款的細節交給 Service
-            bool isSuccess = await _linePayPaymentService.ConfirmPaymentAsync(request.TransactionId, request.OrderId);
-            
-            if (isSuccess)
+            try
             {
-                // 扣款成功，呼叫 OrderService 統一更新訂單狀態為「已付款」
-                await _orderService.MarkOrderAsPaidAsync(request.OrderId);
-                return Ok(new ApiResponse<object> { Success = true, Message = "付款成功！" });
+                // 由工廠取得 LINE Pay 服務進行扣款確認
+                var linePayService = _paymentFactory.GetPaymentService(2) as LinePayPaymentService;
+                if (linePayService == null)
+                {
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "系統未正確配置 LINE Pay 金流服務"
+                    });
+                }
+
+                bool isSuccess = await linePayService.ConfirmPaymentAsync(request.TransactionId, request.OrderId);
+                if (isSuccess)
+                {
+                    await _orderService.MarkOrderAsPaidAsync(request.OrderId);
+                    return Ok(new ApiResponse<object> { Success = true, Message = "付款成功！" });
+                }
+
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "LINE Pay 扣款失敗！" });
             }
-            
-            return BadRequest(new ApiResponse<object> { Success = false, Message = "LINE Pay 扣款失敗！" });
+            catch (Exception ex)
+            {
+                return InternalServerError("LINE Pay 付款確認失敗", ex);
+            }
         }
 
-        // 讀取會員訂單列表API: /api/order/member/{memberId}  
+        // 讀取特定會員的所有訂單列表 (GET /api/orderApi/member/{memberId})
         [HttpGet("member/{memberId}")]
         public async Task<IActionResult> GetMemberOrders(int memberId)
         {
@@ -65,15 +74,11 @@ namespace Shizuku.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "獲取訂單失敗：" + ex.Message
-                });
+                return InternalServerError("獲取會員訂單列表失敗", ex);
             }
         }
 
-        // 讀取訂單明細API /api/order/{orderNo}
+        // 讀取特定訂單明細 (GET /api/orderApi/{orderNo})
         [HttpGet("{orderNo}")]
         public async Task<IActionResult> GetOrderDetail(string orderNo, [FromQuery] int memberId)
         {
@@ -82,28 +87,32 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
-        // 生成綠界訂單表格API /api/orderApi/ecpay/{orderNo}
+        // 產生自動轉向綠界收銀台的 HTML 表單 (GET /api/orderApi/ecpay/{orderNo})
         [HttpGet("ecpay/{orderNo}")]
         public async Task<IActionResult> GenerateECPayForm(string orderNo)
         {
             string htmlForm = await _orderService.GenerateECPayHtmlFormAsync(orderNo);
-            if (string.IsNullOrEmpty(htmlForm)) return NotFound(new ApiResponse<object> { Success = false, Message = "找不到這筆訂單" });
+            if (string.IsNullOrEmpty(htmlForm))
+            {
+                return NotFound(new ApiResponse<object> { Success = false, Message = "找不到這筆訂單" });
+            }
             return Content(htmlForm, "text/html");
         }
 
-        // 綠界回傳API /api/orderApi/ecpayResult
+        // 綠界金流非同步交易回傳通知 (POST /api/orderApi/ecpayResult)
         [HttpPost("ecpayResult")]
         public async Task<IActionResult> ECPayResult([FromForm] IFormCollection form)
         {
             try
             {
-                // 關注點分離：Controller 負責提取 Web Request，並將 Form 轉成標準 Dictionary 傳遞給 Service
-                var formDict = form.ToDictionary(k => k.Key, k => k.Value.ToString());
-
-                if (_ecPayPaymentService.ValidateECPayCallback(formDict, out string orderNo))
+                var ecpayService = _paymentFactory.GetPaymentService(1) as ECPayPaymentService;
+                if (ecpayService != null)
                 {
-                    // 驗證成功，呼叫 OrderService 統一更新訂單狀態
-                    await _orderService.MarkOrderAsPaidAsync(orderNo);
+                    var formDict = form.ToDictionary(k => k.Key, k => k.Value.ToString());
+                    if (ecpayService.ValidateECPayCallback(formDict, out string orderNo))
+                    {
+                        await _orderService.MarkOrderAsPaidAsync(orderNo);
+                    }
                 }
             }
             catch (Exception ex)
@@ -129,19 +138,23 @@ namespace Shizuku.Controllers
             return Content(html, "text/html");
         }
 
-        // 重新付款 /api/orderApi/repay/{orderNo}
+        // 重新發起付款流程 (POST /api/orderApi/repay/{orderNo})
         [HttpPost("repay/{orderNo}")]
         public async Task<IActionResult> RepayOrder(string orderNo, [FromBody] RepayRequestDto request)
         {
-            // 透過 Service 撈取資料，取代原本的 _db.TOrders...
             var order = await _orderService.GetOrderAsync(orderNo);
-            if (order == null) return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" });
+            if (order == null)
+            {
+                return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" });
+            }
 
-            if (order.FStatus != 1) return BadRequest(new ApiResponse<object> { Success = false, Message = "此訂單狀態無法重新付款" });
+            if (order.FStatus != 1)
+            {
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "此訂單狀態無法重新付款" });
+            }
 
             try
             {
-                // 如果切換為貨到付款(3)，直接更新訂單狀態為已付款
                 if (request.PaymentMethodId == 3)
                 {
                     await _orderService.MarkOrderAsPaidAsync(orderNo, request.PaymentMethodId);
@@ -152,7 +165,7 @@ namespace Shizuku.Controllers
                         Data = new CreateOrderResponseDto
                         {
                             OrderNo = orderNo,
-                            PaymentUrl = "" // 貨到付款沒有連結
+                            PaymentUrl = ""
                         }
                     });
                 }
@@ -171,11 +184,15 @@ namespace Shizuku.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new ApiResponse<object> { Success = false, Message = "產生付款連結失敗：" + ex.Message });
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = $"產生付款連結失敗: {ex.Message}"
+                });
             }
         }
 
-        // 取消訂單 /api/orderApi/{orderNo}/cancel
+        // 會員手動取消未付款訂單 (HttpPatch /api/orderApi/{orderNo}/cancel)
         [HttpPatch("{orderNo}/cancel")]
         public async Task<IActionResult> CancelOrder(string orderNo)
         {
@@ -184,7 +201,7 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
-        // 銷量報表API /api/orderApi/sales-stats
+        // 取得前台統計用銷量數據 (GET /api/orderApi/sales-stats)
         [HttpGet("sales-stats")]
         public async Task<IActionResult> GetSalesStats()
         {
@@ -200,8 +217,18 @@ namespace Shizuku.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object> { Success = false, Message = "系統錯誤: " + ex.Message });
+                return InternalServerError("查詢銷量統計失敗", ex);
             }
+        }
+
+        // 輔助方法：統一處理錯誤訊息與狀態碼回傳
+        private IActionResult InternalServerError(string customMessage, Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"{customMessage}: {ex.Message}"
+            });
         }
     }
 }
