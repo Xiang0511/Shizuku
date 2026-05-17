@@ -8,17 +8,20 @@ namespace Shizuku.Controllers
     [Route("api/[controller]")]
     public class AdminOrderApiController : ControllerBase
     {
-        private readonly OrderService _orderService;
+        private readonly OrderAdminService _orderAdminService;
+        private readonly AnomalyMonitorService _anomalyMonitorService;
         private readonly PaymentAnomalyService _paymentAnomalyService;
         private readonly OrderAnomalyService _orderAnomalyService;
 
-        // 統一建構子注入：將所有相依服務由建構子注入，解除 FromServices 的 Action 強耦合，提升可測試性
+        // 建構子注入：注入後台訂單服務、異常監控服務、金流異常服務與訂單異常服務
         public AdminOrderApiController(
-            OrderService orderService,
+            OrderAdminService orderAdminService,
+            AnomalyMonitorService anomalyMonitorService,
             PaymentAnomalyService paymentAnomalyService,
             OrderAnomalyService orderAnomalyService)
         {
-            _orderService = orderService;
+            _orderAdminService = orderAdminService;
+            _anomalyMonitorService = anomalyMonitorService;
             _paymentAnomalyService = paymentAnomalyService;
             _orderAnomalyService = orderAnomalyService;
         }
@@ -29,7 +32,7 @@ namespace Shizuku.Controllers
         {
             try
             {
-                var orders = await _orderService.GetAllOrdersForAdminAsync();
+                var orders = await _orderAdminService.GetAllOrdersForAdminAsync();
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
@@ -47,7 +50,7 @@ namespace Shizuku.Controllers
         [HttpGet("{orderNo}")]
         public async Task<IActionResult> GetOrderDetail(string orderNo)
         {
-            var result = await _orderService.GetOrderDetailForAdminAsync(orderNo);
+            var result = await _orderAdminService.GetOrderDetailForAdminAsync(orderNo);
             if (!result.Success) return NotFound(result);
             return Ok(result);
         }
@@ -56,7 +59,7 @@ namespace Shizuku.Controllers
         [HttpPatch("{orderNo}/status")]
         public async Task<IActionResult> UpdateOrderStatus(string orderNo, [FromBody] UpdateOrderStatusDto request)
         {
-            var result = await _orderService.UpdateOrderStatusAsync(orderNo, request.NewStatus);
+            var result = await _orderAdminService.UpdateOrderStatusAsync(orderNo, request.NewStatus);
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
@@ -65,7 +68,7 @@ namespace Shizuku.Controllers
         [HttpPatch("{orderNo}/cancel")]
         public async Task<IActionResult> CancelOrder(string orderNo)
         {
-            var result = await _orderService.CancelOrderForAdminAsync(orderNo);
+            var result = await _orderAdminService.CancelOrderForAdminAsync(orderNo);
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
@@ -76,7 +79,7 @@ namespace Shizuku.Controllers
         {
             try
             {
-                var abnormals = await _orderService.GetAbnormalOrdersAsync();
+                var abnormals = await _anomalyMonitorService.GetAbnormalOrdersAsync();
                 return Ok(new ApiResponse<List<AbnormalOrderDto>>
                 {
                     Success = true,
@@ -94,7 +97,7 @@ namespace Shizuku.Controllers
         [HttpPost("{orderNo}/rescue")]
         public async Task<IActionResult> RescueOrder(string orderNo)
         {
-            var result = await _orderService.RescueOrderAsync(orderNo);
+            var result = await _anomalyMonitorService.RescueOrderAsync(orderNo);
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
@@ -103,7 +106,7 @@ namespace Shizuku.Controllers
         [HttpGet("shipping")]
         public async Task<IActionResult> GetShippingOrders([FromQuery] int status)
         {
-            var orders = await _orderService.GetShippingOrdersAsync(status);
+            var orders = await _orderAdminService.GetShippingOrdersAsync(status);
             return Ok(new ApiResponse<object> { Success = true, Message = "獲取出貨清單成功", Data = orders });
         }
 
@@ -111,7 +114,7 @@ namespace Shizuku.Controllers
         [HttpPost("batch-status")]
         public async Task<IActionResult> BatchUpdateStatus([FromBody] BatchUpdateStatusDto request)
         {
-            var result = await _orderService.BatchUpdateOrderStatusAsync(request.OrderNos, request.NewStatus);
+            var result = await _orderAdminService.BatchUpdateOrderStatusAsync(request.OrderNos, request.NewStatus);
             if (!result.Success) return BadRequest(result);
             return Ok(result);
         }
@@ -122,7 +125,7 @@ namespace Shizuku.Controllers
         {
             try
             {
-                var stats = await _orderService.GetRevenueStatsAsync(startDate, endDate);
+                var stats = await _orderAdminService.GetRevenueStatsAsync(startDate, endDate);
                 return Ok(new ApiResponse<object> { Success = true, Message = "獲取營收統計成功", Data = stats });
             }
             catch (Exception ex)
@@ -138,8 +141,8 @@ namespace Shizuku.Controllers
             try
             {
                 var tenMinutesAgo = DateTime.Now.AddMinutes(-10);
-                var highFreqFailures = await _orderService.GetHighFreqFailuresAsync(tenMinutesAgo);
-                var highAmountTxns = await _orderService.GetHighAmountTxnsAsync(tenMinutesAgo);
+                var highFreqFailures = await _anomalyMonitorService.GetHighFreqFailuresAsync(tenMinutesAgo);
+                var highAmountTxns = await _anomalyMonitorService.GetHighAmountTxnsAsync(tenMinutesAgo);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -170,7 +173,7 @@ namespace Shizuku.Controllers
             return Ok(new ApiResponse<object> { Success = true, Message = "訂單異常掃描已執行，如有偵測到異常將立即推播" });
         }
 
-        // 輔助方法：統一的伺服器內部錯誤回應處理，避免重複代碼，符合單一職責
+        // 輔助方法：統一處理錯誤訊息與狀態碼回傳
         private IActionResult InternalServerError(string customMessage, Exception ex)
         {
             return StatusCode(500, new ApiResponse<object>
