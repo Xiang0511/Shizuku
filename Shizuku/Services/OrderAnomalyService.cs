@@ -78,7 +78,7 @@ namespace Shizuku.Services
                 _notifiedAnomalies.Add(anomalyKey);
                 _logger.LogWarning("偵測到金流衝突：訂單 {OrderNo} 已取消但金流成功", conflict.FOrderNo);
 
-                await _hubContext.Clients.Group("AdminNotifications").SendAsync(
+                await _hubContext.Clients.Group(AdminNotificationHub.GroupName).SendAsync(
                     "ReceiveAnomalyAlert",
                     "金流衝突警報",
                     $"訂單 {conflict.FOrderNo}（{conflict.MemberName}，金額 ${conflict.FTotalAmount:N0}）已被系統取消，但金流端回傳付款成功。請立即執行「訂單救援」以恢復訂單並扣除庫存。",
@@ -112,7 +112,7 @@ namespace Shizuku.Services
                 _logger.LogWarning("偵測到惡意鎖單行為：會員 ID {MemberId}，24 小時內取消 {Count} 筆",
                     suspect.MemberId, suspect.CancelCount);
 
-                await _hubContext.Clients.Group("AdminNotifications").SendAsync(
+                await _hubContext.Clients.Group(AdminNotificationHub.GroupName).SendAsync(
                     "ReceiveAnomalyAlert",
                     "惡意鎖單行為警報",
                     $"會員「{member?.FName ?? "未知"}」（{member?.FEmail}）在 24 小時內已取消 {suspect.CancelCount} 筆訂單，疑似惡意占用庫存。建議立即查閱該會員歷史記錄並考慮停權。",

@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using System.Web;
 
@@ -9,6 +9,10 @@ namespace Shizuku.Helpers
     {
         public static string BuildCheckMacValue(Dictionary<string, string> parameters, string hashKey, string hashIV)
         {
+            ArgumentNullException.ThrowIfNull(parameters);
+            ArgumentNullException.ThrowIfNull(hashKey);
+            ArgumentNullException.ThrowIfNull(hashIV);
+
             var sortedKeys = parameters.Keys.OrderBy(k => k).ToList();
             var queryStrings = sortedKeys.Select(key => $"{key}={parameters[key]}");
             string rawString = string.Join("&", queryStrings);

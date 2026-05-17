@@ -78,7 +78,7 @@ namespace Shizuku.Services
                 _logger.LogWarning("偵測到高頻支付失敗：訂單 ID {OrderId}，10 分鐘內失敗 {FailCount} 次",
                     group.OrderId, group.FailCount);
 
-                await _hubContext.Clients.Group("AdminNotifications").SendAsync(
+                await _hubContext.Clients.Group(AdminNotificationHub.GroupName).SendAsync(
                     "ReceiveAnomalyAlert",
                     "高頻支付失敗警報",
                     $"訂單 ID #{group.OrderId} 在 10 分鐘內產生了 {group.FailCount} 次支付失敗，疑似惡意刷卡測試或卡號異常，請立即查閱。",
@@ -102,7 +102,7 @@ namespace Shizuku.Services
                 _logger.LogWarning("偵測到異常高額交易：交易 #{TransactionNo}，金額 ${Amount:N0}",
                     txn.FTransactionNo, txn.FAmount);
 
-                await _hubContext.Clients.Group("AdminNotifications").SendAsync(
+                await _hubContext.Clients.Group(AdminNotificationHub.GroupName).SendAsync(
                     "ReceiveAnomalyAlert",
                     "異常高額交易警報",
                     $"交易單號 {txn.FTransactionNo} 金額達 ${txn.FAmount:N0}，已超過 $50,000 安全閾值，請立即確認是否為正常授權交易。",
