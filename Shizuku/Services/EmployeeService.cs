@@ -1,19 +1,57 @@
 using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
+using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
+    // 員工資料處理與行政業務服務
+    // 職責：專責處理員工行政管理（CRUD）、編號自動產生、以及員工身分驗證登入等商業邏輯
     public class EmployeeService
     {
         private readonly DbShizukuDemoContext _db;
 
-        // 透過依賴注入 (DI) 取得資料庫實體
         public EmployeeService(DbShizukuDemoContext db)
         {
             _db = db;
         }
 
-        // 1. 取得員工列表 (含關鍵字與狀態過濾)
+        // 員工身分驗證登入商業邏輯
+        public async Task<ApiResponse<TEmployee>> ValidateLoginAsync(string number, string password)
+        {
+            var employee = await _db.TEmployees.FirstOrDefaultAsync(e =>
+                e.FNumber == number &&
+                e.FPassword == password
+            );
+
+            if (employee == null)
+            {
+                return new ApiResponse<TEmployee>
+                {
+                    Success = false,
+                    Message = "員工編號或密碼錯誤",
+                    Data = null
+                };
+            }
+
+            if (employee.FStatus != "在職")
+            {
+                return new ApiResponse<TEmployee>
+                {
+                    Success = false,
+                    Message = "此帳號已停用，請聯絡管理員",
+                    Data = null
+                };
+            }
+
+            return new ApiResponse<TEmployee>
+            {
+                Success = true,
+                Message = "登入成功",
+                Data = employee
+            };
+        }
+
+        // 取得員工列表 (含關鍵字與狀態過濾)
         public List<TEmployee> GetEmployees(string keyword, string statusFilter)
         {
             var query = _db.TEmployees.AsQueryable();
@@ -44,32 +82,32 @@ namespace Shizuku.Services
             return query.ToList();
         }
 
-        // 2. 取得單一員工
+        // 取得單一員工
         public TEmployee GetEmployeeById(int id)
         {
             return _db.TEmployees.FirstOrDefault(p => p.FId == id);
         }
 
-        // 3. 取得所有部門 (供下拉選單)
+        // 取得所有部門 (供下拉選單)
         public List<TDepartment> GetAllDepartments()
         {
             return _db.TDepartments.ToList();
         }
 
-        // 4. 取得所有職位 (供下拉選單)
+        // 取得所有職位 (供下拉選單)
         public List<TPosition> GetAllPositions()
         {
             return _db.TPositions.ToList();
         }
 
-        // 5. 新增員工與自動產生編號
+        // 新增員工與自動產生編號
         public void CreateEmployee(TEmployee p)
         {
             p.FStatus = "在職";
             p.FCreatedAt = DateTime.Now;
             p.FUpdatedAt = DateTime.Now;
 
-            // --- 自動生成 EMP+流水號 邏輯開始 ---
+            // 自動生成 EMP+流水號 邏輯開始
             if (string.IsNullOrEmpty(p.FNumber))
             {
                 var lastEmployee = _db.TEmployees
@@ -93,7 +131,7 @@ namespace Shizuku.Services
             _db.SaveChanges();
         }
 
-        // 6. 更新員工資料
+        // 更新員工資料
         public void UpdateEmployee(TEmployee e)
         {
             TEmployee dbEmployee = _db.TEmployees.FirstOrDefault(p => p.FId == e.FId);
@@ -113,7 +151,7 @@ namespace Shizuku.Services
             }
         }
 
-        // 7. 軟刪除員工 (離職)
+        // 軟刪除員工 (離職)
         public void SoftDeleteEmployee(int id)
         {
             TEmployee x = _db.TEmployees.FirstOrDefault(p => p.FId == id);
