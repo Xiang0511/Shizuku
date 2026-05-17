@@ -76,6 +76,7 @@ builder.Services.AddSwaggerGen();
     builder.Services.AddScoped<MemberService>();
     builder.Services.AddHttpClient<LinePayService>();
     builder.Services.AddScoped<ProductService>();
+    builder.Services.AddScoped<PaymentAdminService>();
     builder.Services.AddHostedService<OrderTimeoutService>();
     
     // --- 5. 註冊金流服務 (DI) ---

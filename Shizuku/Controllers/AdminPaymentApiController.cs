@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Shizuku.Models;
 using Shizuku.DTOs;
+using Shizuku.Services;
 
 namespace Shizuku.Controllers
 {
@@ -9,59 +8,61 @@ namespace Shizuku.Controllers
     [ApiController]
     public class AdminPaymentApiController : ControllerBase
     {
-        private readonly DbShizukuDemoContext _db;
+        private readonly PaymentAdminService _paymentAdminService;
 
-        public AdminPaymentApiController(DbShizukuDemoContext db)
+        // 構造子注入：消除對資料庫實體的直接依賴，改為注入行政管理服務，符合 SoC 與高解耦性
+        public AdminPaymentApiController(PaymentAdminService paymentAdminService)
         {
-            _db = db;
+            _paymentAdminService = paymentAdminService;
         }
 
-        //取得所有金流交易列表
+        // 取得所有金流交易列表 (GET /api/admin/payments)
         [HttpGet]
         public async Task<IActionResult> GetTransactions()
         {
-            var query = await _db.TPaymentTransactions
-            .GroupJoin(_db.TOrders, pt => pt.FOrderId, o => o.FId, (pt, o) => new { pt, o })
-            .SelectMany(x => x.o.DefaultIfEmpty(), (x, o) => new { x.pt, o })
-            .GroupJoin(_db.TPaymentMethods, x => x.pt.FMethodId, pm => pm.FId, (x, pm) => new { x.pt, x.o, pm })
-            .SelectMany(x => x.pm.DefaultIfEmpty(), (x, pm) => new
+            try
             {
-                x.pt.FId,
-                x.pt.FTransactionNo,
-                OrderNo = x.o != null ? x.o.FOrderNo : "未知訂單",
-                MethodName = pm != null ? pm.FMethodName : "未知付款方式",
-                x.pt.FAmount,
-                x.pt.FGatewayTradeNo,
-                x.pt.FStatus,
-                x.pt.FPaidAt,
-                x.pt.FCreatedAt
-            })
-            .OrderByDescending(x => x.FCreatedAt)
-            .ToListAsync();
-            return Ok(new ApiResponse<object> { Success = true, Message = "取得列表成功", Data = query });
+                var transactions = await _paymentAdminService.GetTransactionsAsync();
+                return Ok(new ApiResponse<object> 
+                { 
+                    Success = true, 
+                    Message = "取得金流交易列表成功", 
+                    Data = transactions 
+                });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("取得金流交易列表失敗", ex);
+            }
         }
 
-        //取得特定交易的詳細日誌
+        // 取得特定交易的詳細通訊日誌 (GET /api/admin/payments/{transactionId}/logs)
         [HttpGet("{transactionId}/logs")]
         public async Task<IActionResult> GetLogs(int transactionId)
         {
-            var logs = await _db.TPaymentLogs
-                .Where(l => l.FPaymentTransactionsId == transactionId)
-                .OrderBy(l => l.FCreatedAt)
-                .Select(l => new
-                {
-                    l.FActionType,
-                    l.FRequestData,
-                    l.FResponseData,
-                    l.FCreatedAt
-                })
-                .ToListAsync();
+            try
+            {
+                var logs = await _paymentAdminService.GetTransactionLogsAsync(transactionId);
+                return Ok(new ApiResponse<object> 
+                { 
+                    Success = true, 
+                    Message = "取得金流交易詳細日誌成功", 
+                    Data = logs 
+                });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("取得金流交易詳細日誌失敗", ex);
+            }
+        }
 
-            return Ok(new ApiResponse<object> 
-            { 
-                Success = true, 
-                Message = "取得通訊日誌成功", 
-                Data = logs 
+        // 輔助方法：統一的伺服器內部錯誤回應，避免程式碼重複，符合 SRP
+        private IActionResult InternalServerError(string customMessage, Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"{customMessage}: {ex.Message}"
             });
         }
     }
