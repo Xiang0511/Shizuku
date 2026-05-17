@@ -2,10 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.Helpers;
 using System.Text;
-using Microsoft.AspNetCore.Http;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Shizuku.Services
 {
+    // 綠界科技 (ECPay) 線上金流處理服務
+    // 組裝綠界金流規格參數、進行雜湊驗證與 callback 資料解析
+    // 不強耦合於 Web 框架（改用 IDictionary 代替 IFormCollection），且所有網址參數均由 appsettings.json 注入
     public class ECPayPaymentService : IPaymentService
     {
         private readonly DbShizukuDemoContext _db;
@@ -17,22 +21,28 @@ namespace Shizuku.Services
             _config = config;
         }
 
+        // 產生線上支付引導連結
         public Task<string> GeneratePaymentUrlAsync(string orderNo, decimal totalAmount)
         {
-            string backendUrl = "https://localhost:7197"; // 綠界觸發轉向的後端網址
+            // 由設定檔讀取後端域名，防止本機硬編碼 Port 衝突
+            string backendUrl = _config["ECPay:BackendUrl"] ?? "https://localhost:7197";
             string paymentUrl = $"{backendUrl}/api/OrderApi/ecpay/{orderNo}";
             return Task.FromResult(paymentUrl);
         }
 
+        // 產生自動轉向綠界收銀台的 HTML 表單
         public async Task<string> GenerateHtmlFormAsync(string orderNo)
         {
             var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-            if (order == null) return null; 
+            if (order == null) return null;
 
+            // 綠界交易序號 MerchantTradeNo 必須為唯一值，因此加上豪秒字尾防止重複傳送錯誤
             string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
 
             string hashKey = _config["ECPay:HashKey"];
             string hashIV = _config["ECPay:HashIV"];
+            string actionUrl = _config["ECPay:PaymentActionUrl"] ?? "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
+
             var parameters = new Dictionary<string, string>
             {
                 { "MerchantID", _config["ECPay:MerchantID"] },
@@ -50,14 +60,13 @@ namespace Shizuku.Services
 
             parameters["CheckMacValue"] = ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
 
-            // 寫入發送請求日誌 (CreateRequest)
+            // 寫入發送請求日誌
             var transaction = await _db.TPaymentTransactions
                 .OrderByDescending(t => t.FCreatedAt)
                 .FirstOrDefaultAsync(t => t.FOrderId == order.FId);
 
             if (transaction != null)
             {
-                // 順便把金流商交易序號 (MerchantTradeNo) 押回去
                 transaction.FGatewayTradeNo = tradeNoForECPay;
 
                 _db.TPaymentLogs.Add(new TPaymentLog
@@ -70,9 +79,10 @@ namespace Shizuku.Services
                 await _db.SaveChangesAsync();
             }
 
+            // 產生隱藏表單與自動 Submit 的 JavaScript
             StringBuilder htmlForm = new StringBuilder();
             htmlForm.Append("<html><body>");
-            htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
+            htmlForm.Append($"<form id='ecpayForm' action='{actionUrl}' method='POST'>");
             foreach (var p in parameters)
             {
                 htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
@@ -84,24 +94,22 @@ namespace Shizuku.Services
             return htmlForm.ToString();
         }
 
-        //綠界回傳驗證結果
-        public bool ValidateECPayCallback(IFormCollection form, out string orderNo)
+        // 驗證綠界非同步回傳結果 (解耦 IFormCollection，改用標準泛型 Dictionary 以便於單元測試)
+        public bool ValidateECPayCallback(IDictionary<string, string> form, out string orderNo)
         {
-            // 將 form 轉成 JSON 字串以便寫入日誌
-            var formData = form.ToDictionary(k => k.Key, k => k.Value.ToString());
-            string responseJson = System.Text.Json.JsonSerializer.Serialize(formData);
+            string responseJson = System.Text.Json.JsonSerializer.Serialize(form);
 
-            string rtnCode = form["RtnCode"];
-            string merchantTradeNo = form["MerchantTradeNo"];
+            form.TryGetValue("RtnCode", out string rtnCode);
+            form.TryGetValue("MerchantTradeNo", out string merchantTradeNo);
             orderNo = null;
 
             if (!string.IsNullOrEmpty(merchantTradeNo))
             {
-                // 還原真實的訂單編號
+                // 還原真實的訂單編號（前 17 碼為 Shizuku 標準訂單編號）
                 string actualOrderNo = merchantTradeNo.Length >= 17 ? merchantTradeNo.Substring(0, 17) : merchantTradeNo;
                 orderNo = actualOrderNo;
 
-                // 🚨 新增：同步寫入非同步付款通知日誌 (Notification)
+                // 同步寫入非同步付款通知日誌
                 var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == actualOrderNo);
                 if (order != null)
                 {
@@ -124,7 +132,7 @@ namespace Shizuku.Services
 
                 if (rtnCode == "1") return true;
             }
-            
+
             return false;
         }
     }

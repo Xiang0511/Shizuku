@@ -97,8 +97,10 @@ namespace Shizuku.Controllers
         {
             try
             {
-                // 將參數解析邏輯交給 ECPayPaymentService
-                if (_ecPayPaymentService.ValidateECPayCallback(form, out string orderNo))
+                // 關注點分離：Controller 負責提取 Web Request，並將 Form 轉成標準 Dictionary 傳遞給 Service
+                var formDict = form.ToDictionary(k => k.Key, k => k.Value.ToString());
+
+                if (_ecPayPaymentService.ValidateECPayCallback(formDict, out string orderNo))
                 {
                     // 驗證成功，呼叫 OrderService 統一更新訂單狀態
                     await _orderService.MarkOrderAsPaidAsync(orderNo);
