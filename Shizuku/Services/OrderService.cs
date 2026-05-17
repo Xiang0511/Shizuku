@@ -371,8 +371,8 @@ namespace Shizuku.Services
         private string GenerateOrderNo()
         {
             string dateStr = DateTime.Now.ToString("yyyyMMdd");
-            string randomStr = new Random().Next(1000, 9999).ToString();
-            return $"OD{dateStr}{randomStr}";
+            string randomStr = new Random().Next(100, 999).ToString();
+            return $"ORD{dateStr}{randomStr}";
         }
 
         // 解析訂單狀態中文語譯
