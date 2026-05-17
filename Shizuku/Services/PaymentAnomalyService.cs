@@ -8,10 +8,10 @@ using Shizuku.Models;
 
 namespace Shizuku.Services
 {
-    /// 金流安全異常偵測背景服務
-    /// 職責：定時掃描支付交易資料，偵測金流層面的可疑行為並推播警報
-    /// 解耦：透過 IHubContext 注入推播，不直接依賴 Hub 實例
-    /// 分類：推播時帶上 category = "payment"，確保只有金流控制中心接收
+    // 金流安全異常偵測背景服務
+    // 定時掃描支付交易資料，偵測金流層面的可疑行為並推播警報
+    // 透過 IHubContext 注入推播，不直接依賴 Hub 實例
+    // 推播時帶上 category = "payment"，確保只有金流控制中心接收
     public class PaymentAnomalyService : BackgroundService
     {
         private readonly IServiceScopeFactory _scopeFactory;
@@ -51,7 +51,7 @@ namespace Shizuku.Services
             }
         }
 
-        /// 核心掃描邏輯（可被手動觸發 API 呼叫）
+        // 核心掃描邏輯（可被手動觸發 API 呼叫）
         public async Task ScanAsync()
         {
             using var scope = _scopeFactory.CreateScope();
