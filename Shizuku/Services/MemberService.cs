@@ -124,7 +124,9 @@ namespace Shizuku.Services
                 FEmail = member.FEmail,
                 FGender = member.FGender,
                 FBirthday = member.FBirthday,
-                FPhone = member.FPhone
+                FPhone = member.FPhone,
+                FLevel=member.FLevel,
+                FPoints=member.FPoints
             };
 
             return new ApiResponse<MemberLoginResponseDto>
@@ -179,7 +181,8 @@ namespace Shizuku.Services
                 FReceiverName = dto.FName,
                 FPhone = dto.FPhone,
                 FReceiverPhone = dto.FPhone,
-                FAccessFailedCount = 0
+                FAccessFailedCount = 0,
+                FPoints=1000
             };
 
             _context.TMembers.Add(newMember);
