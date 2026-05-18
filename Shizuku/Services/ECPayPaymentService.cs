@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
+using Shizuku.DTOs;
 using Shizuku.Helpers;
 using System.Text;
 using System.Collections.Generic;
@@ -134,6 +135,17 @@ namespace Shizuku.Services
             }
 
             return false;
+        }
+
+        // 綠界模擬退款（測試環境因請款週期限制，無法即時退刷，採用模擬成功機制）
+        // 若未來正式上線需串接真實退款 API，只需修改此方法即可
+        public Task<ApiResponse<object>> RefundAsync(string orderNo, decimal amount, string gatewayTradeNo)
+        {
+            return Task.FromResult(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "綠界模擬退刷成功（測試環境無法即時退刷，狀態已同步更新）"
+            });
         }
     }
 }

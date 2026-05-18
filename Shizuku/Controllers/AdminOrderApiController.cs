@@ -12,18 +12,21 @@ namespace Shizuku.Controllers
         private readonly AnomalyMonitorService _anomalyMonitorService;
         private readonly PaymentAnomalyService _paymentAnomalyService;
         private readonly OrderAnomalyService _orderAnomalyService;
+        private readonly RefundAdminService _refundService;
 
-        // 建構子注入：注入後台訂單服務、異常監控服務、金流異常服務與訂單異常服務
+        // 建構子注入
         public AdminOrderApiController(
             OrderAdminService orderAdminService,
             AnomalyMonitorService anomalyMonitorService,
             PaymentAnomalyService paymentAnomalyService,
-            OrderAnomalyService orderAnomalyService)
+            OrderAnomalyService orderAnomalyService,
+            RefundAdminService refundService)
         {
             _orderAdminService = orderAdminService;
             _anomalyMonitorService = anomalyMonitorService;
             _paymentAnomalyService = paymentAnomalyService;
             _orderAnomalyService = orderAnomalyService;
+            _refundService = refundService;
         }
 
         // 取得全站所有訂單 (GET /api/AdminOrderApi)
@@ -171,6 +174,39 @@ namespace Shizuku.Controllers
         {
             await _orderAnomalyService.ScanAsync();
             return Ok(new ApiResponse<object> { Success = true, Message = "訂單異常掃描已執行，如有偵測到異常將立即推播" });
+        }
+
+        // 取得待退款訂單列表 (GET /api/AdminOrderApi/refunds)
+        [HttpGet("refunds")]
+        public async Task<IActionResult> GetPendingRefunds()
+        {
+            try
+            {
+                var orders = await _refundService.GetPendingRefundOrdersAsync();
+                return Ok(new ApiResponse<object> { Success = true, Message = "取得待退款訂單成功", Data = orders });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("查詢待退款訂單失敗", ex);
+            }
+        }
+
+        // 核准退款 (POST /api/AdminOrderApi/{orderNo}/approve-refund)
+        [HttpPost("{orderNo}/approve-refund")]
+        public async Task<IActionResult> ApproveRefund(string orderNo)
+        {
+            var result = await _refundService.ApproveRefundAsync(orderNo);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
+
+        // 駁回退款申請 (POST /api/AdminOrderApi/{orderNo}/reject-refund)
+        [HttpPost("{orderNo}/reject-refund")]
+        public async Task<IActionResult> RejectRefund(string orderNo, [FromBody] RejectRefundDto request)
+        {
+            var result = await _refundService.RejectRefundAsync(orderNo, request.Reason);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
         }
 
         // 輔助方法：統一處理錯誤訊息與狀態碼回傳

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
+using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
@@ -158,6 +159,68 @@ namespace Shizuku.Services
             using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
             {
                 return doc.RootElement.GetProperty("returnCode").GetString() == "0000";
+            }
+        }
+
+        // LINE Pay 真實沙盒退款 API
+        // 呼叫 POST /v3/payments/{transactionId}/refund 進行即時退款
+        public async Task<ApiResponse<object>> RefundAsync(string orderNo, decimal amount, string gatewayTradeNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null)
+                return new ApiResponse<object> { Success = false, Message = "找不到訂單" };
+
+            var transaction = await _db.TPaymentTransactions
+                .OrderByDescending(t => t.FCreatedAt)
+                .FirstOrDefaultAsync(t => t.FOrderId == order.FId);
+
+            int refundAmount = Convert.ToInt32(amount);
+            var refundPayload = new { refundAmount };
+            string uri = $"/v3/payments/{gatewayTradeNo}/refund";
+
+            // 寫入退款請求日誌
+            if (transaction != null)
+            {
+                _db.TPaymentLogs.Add(new TPaymentLog
+                {
+                    FPaymentTransactionsId = transaction.FId,
+                    FActionType = "RefundRequest",
+                    FRequestData = JsonSerializer.Serialize(refundPayload),
+                    FCreatedAt = DateTime.Now
+                });
+                await _db.SaveChangesAsync();
+            }
+
+            // 呼叫 LINE Pay 退款 API
+            string linePayResponseJson = await _linePayApi.SendLinePayRequestAsync(uri, refundPayload);
+
+            // 寫入退款回應日誌
+            if (transaction != null)
+            {
+                _db.TPaymentLogs.Add(new TPaymentLog
+                {
+                    FPaymentTransactionsId = transaction.FId,
+                    FActionType = "RefundResponse",
+                    FResponseData = linePayResponseJson,
+                    FCreatedAt = DateTime.Now
+                });
+                await _db.SaveChangesAsync();
+            }
+
+            // 解析 LINE Pay 退款回應
+            using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+            {
+                var returnCode = doc.RootElement.GetProperty("returnCode").GetString();
+                var returnMessage = doc.RootElement.GetProperty("returnMessage").GetString();
+
+                if (returnCode == "0000")
+                {
+                    return new ApiResponse<object> { Success = true, Message = "LINE Pay 退款成功！" };
+                }
+                else
+                {
+                    return new ApiResponse<object> { Success = false, Message = $"LINE Pay 退款失敗：{returnMessage} (代碼：{returnCode})" };
+                }
             }
         }
     }

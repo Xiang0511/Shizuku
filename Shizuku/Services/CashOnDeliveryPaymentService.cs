@@ -1,3 +1,5 @@
+using Shizuku.DTOs;
+
 namespace Shizuku.Services
 {
     // 貨到付款 (COD) 金流處理服務
@@ -16,6 +18,16 @@ namespace Shizuku.Services
         public Task<string> GenerateHtmlFormAsync(string orderNo)
         {
             return Task.FromResult(string.Empty);
+        }
+
+        // 貨到付款退款（無金流退款機制，提醒人員手動處理現金/匯款退還）
+        public Task<ApiResponse<object>> RefundAsync(string orderNo, decimal amount, string gatewayTradeNo)
+        {
+            return Task.FromResult(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "貨到付款退款已記錄，請引導內部人員手動退現或匯款。"
+            });
         }
     }
 }

@@ -10,12 +10,14 @@ namespace Shizuku.Controllers
     {
         private readonly OrderService _orderService;
         private readonly PaymentFactory _paymentFactory;
+        private readonly RefundAdminService _refundService;
 
-        // 建構子注入：注入訂單服務與金流抽象工廠，避免對具體金流服務的強耦合
-        public OrderApiController(OrderService orderService, PaymentFactory paymentFactory)
+        // 建構子注入：注入訂單服務、金流抽象工廠與退款服務
+        public OrderApiController(OrderService orderService, PaymentFactory paymentFactory, RefundAdminService refundService)
         {
             _orderService = orderService;
             _paymentFactory = paymentFactory;
+            _refundService = refundService;
         }
 
         // 建立新訂單 (POST /api/orderApi/create)
@@ -219,6 +221,15 @@ namespace Shizuku.Controllers
             {
                 return InternalServerError("查詢銷量統計失敗", ex);
             }
+        }
+
+        // 前台會員申請退款 (POST /api/OrderApi/{orderNo}/refund)
+        [HttpPost("{orderNo}/refund")]
+        public async Task<IActionResult> RequestRefund(string orderNo, [FromBody] RefundRequestDto request)
+        {
+            var result = await _refundService.RequestRefundAsync(orderNo, request.Reason);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
         }
 
         // 輔助方法：統一處理錯誤訊息與狀態碼回傳
