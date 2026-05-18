@@ -7,6 +7,7 @@ using Shizuku.Helpers;
 using Shizuku.Services;
 using SkiaSharp;
 using System.IdentityModel.Tokens.Jwt;
+using static Shizuku.DTOs.MemberSecurityDto;
 
 namespace Shizuku.Controllers
 {
@@ -250,6 +251,93 @@ namespace Shizuku.Controllers
             });
         }
 
+        // 步驟 1：發送修改手機驗證碼
+        [Authorize]
+        [HttpPost("security/request-code")]
+        public async Task<IActionResult> RequestSecurityCode([FromBody] MemberSecurityDto.SecurityRequestCodeDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FEmail))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入有效的 Email" });
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int memberId))
+            {
+                return Unauthorized(new ApiResponse<string> { Success = false, Message = "未授權的存取" });
+            }
+
+            var serviceResult = await _memberService.GenerateSecurityCodeAsync(memberId, dto.FEmail);
+            if (!serviceResult.Success)
+            {
+                return BadRequest(serviceResult);
+            }
+
+            string code = serviceResult.Data!;
+
+            string htmlContent = $@"
+            <div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
+                <h2 style='color: #4a4a4a; text-align: center;'>Shizuku 購物平台</h2>
+                <hr style='border: 0; border-top: 1px solid #eee;' />
+                <p>您好：</p>
+                <p>您正在進行變更手機號碼的身分驗證。您的 6 位數安全驗證碼如下：</p>
+                <div style='background-color: #f3f4f6; padding: 15px; border-radius: 6px; text-align: center; margin: 20px 0;'>
+                    <h1 style='color: #2563eb; letter-spacing: 8px; margin: 0; font-size: 36px;'>{code}</h1>
+                </div>
+                <p style='color: #666; font-size: 13px;'>請於 10 分鐘內在網頁輸入此驗證碼。如果您沒有要求變更此資料，請立即忽略並檢查帳號安全。</p>
+            </div>";
+
+            try
+            {
+                await _emailService.SendEmailAsync(dto.FEmail, "【Shizuku】安全變更：手機號碼修改驗證信", htmlContent);
+                return Ok(new ApiResponse<string> { Success = true, Message = "驗證碼已成功寄發至您的信箱。" });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "修改手機發送郵件失敗, MemberId: {MemberId}, Email: {Email}", memberId, dto.FEmail);
+                return StatusCode(500, new ApiResponse<string> { Success = false, Message = "郵件伺服器發送失敗，請稍後再試" });
+            }
+        }
+
+        // 步驟 2：驗證安全驗證碼
+        [Authorize]
+        [HttpPost("security/verify-code")]
+        public async Task<IActionResult> VerifySecurityCode([FromBody] MemberSecurityDto.SecurityVerifyCodeDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FCode))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入驗證碼" });
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int memberId))
+            {
+                return Unauthorized(new ApiResponse<string> { Success = false, Message = "未授權的存取" });
+            }
+
+            var result = await _memberService.VerifySecurityCodeAsync(memberId, dto.FCode);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // 步驟 3：確認變更手機
+        [Authorize]
+        [HttpPost("security/update-phone")]
+        public async Task<IActionResult> UpdatePhone([FromBody] MemberSecurityDto.SecurityUpdatePhoneDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FNewPhone))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入新手機號碼" });
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int memberId))
+            {
+                return Unauthorized(new ApiResponse<string> { Success = false, Message = "未授權的存取" });
+            }
+
+            var result = await _memberService.UpdatePhoneAsync(memberId, dto.FNewPhone, dto.FVerifiedCode);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
 
         [HttpGet("Lo")]
         public IActionResult Lo()

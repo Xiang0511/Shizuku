@@ -10,12 +10,14 @@ namespace Shizuku.Services
     public class MemberService
     {
         private readonly DbShizukuDemoContext _context;
-        private readonly IMemoryCache _cache; 
+        private readonly IMemoryCache _cache;
+        private readonly VerificationService _verificationService;
 
-        public MemberService(DbShizukuDemoContext context, IMemoryCache cache)
+        public MemberService(DbShizukuDemoContext context, IMemoryCache cache, VerificationService verificationService)
         {
             _context = context; 
             _cache = cache;
+            _verificationService= verificationService;
         }
 
         //登入
@@ -264,6 +266,83 @@ namespace Shizuku.Services
             member.FReceiverName = dto.FName;
 
             return await _context.SaveChangesAsync() > 0;
+        }
+
+        // 1. 生成安全驗證碼
+        public async Task<ApiResponse<string>> GenerateSecurityCodeAsync(int memberId, string inputEmail)
+        {
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            // 安全防禦：輸入的 Email 是否為該會員綁定的帳號
+            if (!string.Equals(member.FEmail, inputEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                return new ApiResponse<string> { Success = false, Message = "輸入的 Email 與目前登入帳號不相符" };
+            }
+
+            // 呼叫現有的驗證碼服務生成 6 位數驗證碼 (預期內部效期為 10 分鐘)
+            // 這裡傳入 member.FId，如果 VerificationService 需要，請配合原有的結構
+            string code = await _verificationService.CreateEmailVerificationAsync(member.FId);
+
+            // 同時放一份在 Cache 加強步驟 3 的安全校驗（防網頁繞過）
+            var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+            _cache.Set($"PhoneChangeVerifyPassed_{memberId}", code, cacheOptions);
+
+            return new ApiResponse<string> { Success = true, Message = "成功", Data = code };
+        }
+
+        // 2. 驗證安全驗證碼
+        public async Task<ApiResponse<string>> VerifySecurityCodeAsync(int memberId, string code)
+        {
+            // 呼叫你的驗證服務比對 (這裡可以沿用註冊時驗證資料庫或快取的邏輯)
+            // 假設你是用一組獨立的機制比對，以下為一般邏輯範例：
+            if (_cache.TryGetValue($"PhoneChangeVerifyPassed_{memberId}", out string? savedCode))
+            {
+                if (string.Equals(savedCode, code, StringComparison.Ordinal))
+                {
+                    return new ApiResponse<string> { Success = true, Message = "驗證通過" };
+                }
+            }
+
+            return new ApiResponse<string> { Success = false, Message = "驗證碼不正確或已過期" };
+        }
+
+        // 3. 實際寫入資料庫並保存
+        public async Task<ApiResponse<string>> UpdatePhoneAsync(int memberId, string newPhone, string verifiedCode)
+        {
+            // 雙重保險：確認快取內真的有這筆通過紀錄，且代碼一致，防止直接呼叫 API 闖入
+            if (!_cache.TryGetValue($"PhoneChangeVerifyPassed_{memberId}", out string? savedCode) ||
+                !string.Equals(savedCode, verifiedCode, StringComparison.Ordinal))
+            {
+                return new ApiResponse<string> { Success = false, Message = "安全權杖錯誤或失效，請重新進行首步驗證" };
+            }
+
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            // 開始變更手機號碼
+            member.FPhone = newPhone;
+            member.FReceiverPhone = newPhone; // 同步改預設收件人手機
+            member.FUpdatedTime = DateTime.Now;
+
+            _context.TMembers.Update(member);
+            var isSaved = await _context.SaveChangesAsync() > 0;
+
+            if (isSaved)
+            {
+                // 變更成功後清除快取金鑰
+                _cache.Remove($"PhoneChangeVerifyPassed_{memberId}");
+
+                return new ApiResponse<string> { Success = true, Message = "手機號碼修改成功" };
+            }
+
+            return new ApiResponse<string> { Success = false, Message = "手機號碼變更失敗，無資料更動" };
         }
     }
 }
