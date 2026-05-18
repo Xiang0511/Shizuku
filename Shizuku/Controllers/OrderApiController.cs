@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Shizuku.DTOs;
+using Shizuku.Enums;
 using Shizuku.Services;
 
 namespace Shizuku.Controllers
@@ -157,7 +158,7 @@ namespace Shizuku.Controllers
 
             try
             {
-                if (request.PaymentMethodId == 3)
+                if (request.PaymentMethodId == (int)PaymentMethod.COD)
                 {
                     await _orderService.MarkOrderAsPaidAsync(orderNo, request.PaymentMethodId);
                     return Ok(new ApiResponse<CreateOrderResponseDto>

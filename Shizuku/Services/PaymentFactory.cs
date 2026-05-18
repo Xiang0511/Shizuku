@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Shizuku.Enums;
 
 namespace Shizuku.Services
 {
@@ -15,14 +16,14 @@ namespace Shizuku.Services
             _serviceProvider = serviceProvider;
         }
 
-        // 依支付方式 ID 獲取對應金流處理服務
+        // 依支付方式 ID 獲取對應金流處理服務 (使用 strongly-typed PaymentMethod 列舉)
         public IPaymentService GetPaymentService(int paymentMethodId)
         {
-            return paymentMethodId switch
+            return (PaymentMethod)paymentMethodId switch
             {
-                1 => _serviceProvider.GetRequiredService<ECPayPaymentService>(),
-                2 => _serviceProvider.GetRequiredService<LinePayPaymentService>(),
-                3 => _serviceProvider.GetRequiredService<CashOnDeliveryPaymentService>(),
+                PaymentMethod.ECPay => _serviceProvider.GetRequiredService<ECPayPaymentService>(),
+                PaymentMethod.LinePay => _serviceProvider.GetRequiredService<LinePayPaymentService>(),
+                PaymentMethod.COD => _serviceProvider.GetRequiredService<CashOnDeliveryPaymentService>(),
                 _ => throw new ArgumentException($"系統不支援 {paymentMethodId} 的付款方式。", nameof(paymentMethodId))
             };
         }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
+using Shizuku.Enums;
 using Shizuku.Models;
 
 namespace Shizuku.Services
@@ -92,7 +93,7 @@ namespace Shizuku.Services
                         FReceiverPhone = request.ReceiverPhone,
                         FReceiverAddress = request.ReceiverAddress,
                         FNote = request.Note,
-                        FStatus = 1, // 預設狀態為「未付款」
+                        FStatus = (int)OrderStatus.Pending, // 預設狀態為「未付款 (Pending)」
                         FCreatedAt = DateTime.Now,
                         FUpdatedAt = DateTime.Now
                     };
@@ -115,7 +116,7 @@ namespace Shizuku.Services
                         FTransactionNo = "TX" + orderNo.Substring(2),
                         FMethodId = request.PaymentMethodId,
                         FAmount = totalAmount,
-                        FStatus = 0, // 交易預設為「未付款/待處理」
+                        FStatus = (int)PaymentStatus.Unpaid, // 交易預設為「未付款/待處理 (Unpaid)」
                         FCreatedAt = DateTime.Now
                     };
                     _db.TPaymentTransactions.Add(paymentTx);
@@ -124,11 +125,11 @@ namespace Shizuku.Services
                     // 依照金流管道生成付款連結
                     string paymentUrl = "";
 
-                    // 貨到付款 (ID=3) 直接將狀態標記為「已付款」，防止逾時被背景服務自動取消
-                    if (request.PaymentMethodId == 3)
+                    // 貨到付款直接將狀態標記為「已付款」，防止逾時被背景服務自動取消
+                    if (request.PaymentMethodId == (int)PaymentMethod.COD)
                     {
-                        order.FStatus = 2; // 貨到付款默認視為「已付款」以不被自動超時取消
-                        paymentTx.FStatus = 1; // 標記為成功
+                        order.FStatus = (int)OrderStatus.Paid; // 貨到付款默認視為「已付款」以不被自動超時取消
+                        paymentTx.FStatus = (int)PaymentStatus.Success; // 標記為付款成功
                         paymentTx.FPaidAt = DateTime.Now;
                         await _db.SaveChangesAsync();
                     }
@@ -345,7 +346,7 @@ namespace Shizuku.Services
             var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
             if (order == null) return false;
 
-            order.FStatus = 2; // 已付款
+            order.FStatus = (int)OrderStatus.Paid; // 已付款
             order.FUpdatedAt = DateTime.Now;
 
             var paymentTx = await _db.TPaymentTransactions
@@ -355,7 +356,7 @@ namespace Shizuku.Services
 
             if (paymentTx != null)
             {
-                paymentTx.FStatus = 1; // 成功
+                paymentTx.FStatus = (int)PaymentStatus.Success; // 付款成功
                 paymentTx.FPaidAt = DateTime.Now;
                 if (paymentMethodId != null)
                 {
@@ -375,18 +376,20 @@ namespace Shizuku.Services
             return $"ORD{dateStr}{randomStr}";
         }
 
-        // 解析訂單狀態中文語譯
+        // 解析訂單狀態中文語譯 (使用 strongly-typed OrderStatus 列舉)
         private string GetStatusText(int? status)
         {
-            return status switch
+            if (status == null) return "未知狀態";
+
+            return (OrderStatus)status switch
             {
-                1 => "未付款",
-                2 => "已付款",
-                3 => "出貨中",
-                4 => "已送達",
-                5 => "已取消",
-                6 => "待退款",
-                7 => "已退款",
+                OrderStatus.Pending => "未付款",
+                OrderStatus.Paid => "已付款",
+                OrderStatus.Shipping => "出貨中",
+                OrderStatus.Delivered => "已送達",
+                OrderStatus.Cancelled => "已取消",
+                OrderStatus.PendingRefund => "待退款",
+                OrderStatus.Refunded => "已退款",
                 _ => "未知狀態"
             };
         }

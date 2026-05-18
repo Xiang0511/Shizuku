@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
+using Shizuku.Enums;
 using Shizuku.Models;
 
 namespace Shizuku.Services
@@ -312,16 +313,20 @@ namespace Shizuku.Services
             };
         }
 
-        // 解析訂單狀態中文語譯
+        // 解析訂單狀態中文語譯 (使用 strongly-typed OrderStatus 列舉)
         private string GetStatusText(int? status)
         {
-            return status switch
+            if (status == null) return "未知狀態";
+
+            return (OrderStatus)status switch
             {
-                1 => "未付款",
-                2 => "已付款",
-                3 => "出貨中",
-                4 => "已送達",
-                5 => "已取消",
+                OrderStatus.Pending => "未付款",
+                OrderStatus.Paid => "已付款",
+                OrderStatus.Shipping => "出貨中",
+                OrderStatus.Delivered => "已送達",
+                OrderStatus.Cancelled => "已取消",
+                OrderStatus.PendingRefund => "待退款",
+                OrderStatus.Refunded => "已退款",
                 _ => "未知狀態"
             };
         }
