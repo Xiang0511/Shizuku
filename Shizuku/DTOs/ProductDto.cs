@@ -238,4 +238,63 @@ namespace Shizuku.ViewModels
         public int fTotalStock { get; set; }
         public List<InventoryVariantDto> fVariants { get; set; } = new();
     }
+    /// <summary>進貨單列表 DTO</summary>
+    public class PurchaseOrderDto
+    {
+        public int fId { get; set; }
+        public string fOrderNo { get; set; } = string.Empty;
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public int fTotalQuantity { get; set; }
+        public decimal fTotalAmount { get; set; }
+        public int fItemCount { get; set; }
+        public DateTime fCreatedAt { get; set; }
+    }
+
+    /// <summary>進貨單明細 DTO</summary>
+    public class PurchaseOrderDetailDto
+    {
+        public int fId { get; set; }
+        public int fVariantId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public decimal? fAmount { get; set; }
+        public string? fNote { get; set; }
+    }
+
+    /// <summary>進貨單詳細（含明細）</summary>
+    public class PurchaseOrderFullDto
+    {
+        public int fId { get; set; }
+        public string fOrderNo { get; set; } = string.Empty;
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public int fTotalQuantity { get; set; }
+        public decimal fTotalAmount { get; set; }
+        public DateTime fCreatedAt { get; set; }
+        public List<PurchaseOrderDetailDto> fDetails { get; set; } = new();
+    }
+
+    /// <summary>新增進貨單 DTO</summary>
+    public class PurchaseOrderCreateDto
+    {
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public List<PurchaseOrderDetailCreateDto> fDetails { get; set; } = new();
+    }
+
+    /// <summary>新增進貨單明細 DTO</summary>
+    public class PurchaseOrderDetailCreateDto
+    {
+        public int fVariantId { get; set; }
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
+    }
 }

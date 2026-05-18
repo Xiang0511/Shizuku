@@ -50,6 +50,9 @@ public partial class DbShizukuDemoContext : DbContext
 
     public virtual DbSet<TProductStockRecord> TProductStockRecords { get; set; }
 
+    public virtual DbSet<TPurchaseOrder> TPurchaseOrders { get; set; }
+    public virtual DbSet<TPurchaseOrderDetail> TPurchaseOrderDetails { get; set; }
+
     public virtual DbSet<TRefund> TRefunds { get; set; }
 
     public virtual DbSet<TTicketCategory> TTicketCategories { get; set; }
@@ -513,6 +516,33 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FNote).HasColumnName("fNote");
             entity.Property(e => e.FCreatedAt).HasColumnName("fCreatedAt");
         });
+        modelBuilder.Entity<TPurchaseOrder>(entity =>
+        {
+            entity.ToTable("tPurchaseOrder");
+            entity.HasKey(e => e.FId);
+            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FOrderNo).HasColumnName("fOrderNo");
+            entity.Property(e => e.FSupplier).HasColumnName("fSupplier");
+            entity.Property(e => e.FPaymentMethod).HasColumnName("fPaymentMethod");
+            entity.Property(e => e.FNote).HasColumnName("fNote");
+            entity.Property(e => e.FTotalQuantity).HasColumnName("fTotalQuantity");
+            entity.Property(e => e.FTotalAmount).HasColumnName("fTotalAmount");
+            entity.Property(e => e.FCreatedAt).HasColumnName("fCreatedAt");
+        });
+
+        modelBuilder.Entity<TPurchaseOrderDetail>(entity =>
+        {
+            entity.ToTable("tPurchaseOrderDetail");
+            entity.HasKey(e => e.FId);
+            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FOrderId).HasColumnName("fOrderId");
+            entity.Property(e => e.FVariantId).HasColumnName("fVariantId");
+            entity.Property(e => e.FQuantity).HasColumnName("fQuantity");
+            entity.Property(e => e.FCostPrice).HasColumnName("fCostPrice");
+            entity.Property(e => e.FAmount).HasColumnName("fAmount");
+            entity.Property(e => e.FNote).HasColumnName("fNote");
+        });
+
 
         modelBuilder.Entity<TRefund>(entity =>
         {
