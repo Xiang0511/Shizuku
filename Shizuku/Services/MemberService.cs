@@ -268,8 +268,8 @@ namespace Shizuku.Services
             return await _context.SaveChangesAsync() > 0;
         }
 
-        // 1. 生成安全驗證碼
-        public async Task<ApiResponse<string>> GenerateSecurityCodeAsync(int memberId, string inputEmail)
+        // 1. 生成安全驗證碼（手機、生日共用）
+        public async Task<ApiResponse<string>> GenerateSecurityCodeAsync(int memberId, string inputEmail, int type)
         {
             var member = await _context.TMembers.FindAsync(memberId);
             if (member == null)
@@ -284,22 +284,37 @@ namespace Shizuku.Services
             }
 
             // 呼叫現有的驗證碼服務生成 6 位數驗證碼 (預期內部效期為 10 分鐘)
-            // 這裡傳入 member.FId，如果 VerificationService 需要，請配合原有的結構
             string code = await _verificationService.CreateEmailVerificationAsync(member.FId);
+
+            // 依據型態決定 Cache Key，1 為手機，其餘（2）為生日
+            string cacheKey = type switch
+            {
+                1 => $"PhoneChangeVerifyPassed_{memberId}",
+                2 => $"BirthdayChangeVerifyPassed_{memberId}",
+                //3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
+                _ => throw new ArgumentException("未支援的安全變更類型")
+            };
 
             // 同時放一份在 Cache 加強步驟 3 的安全校驗（防網頁繞過）
             var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
-            _cache.Set($"PhoneChangeVerifyPassed_{memberId}", code, cacheOptions);
+            _cache.Set(cacheKey, code, cacheOptions);
 
             return new ApiResponse<string> { Success = true, Message = "成功", Data = code };
         }
 
-        // 2. 驗證安全驗證碼
-        public async Task<ApiResponse<string>> VerifySecurityCodeAsync(int memberId, string code)
+        // 2. 驗證安全驗證碼（手機、生日共用）
+        public async Task<ApiResponse<string>> VerifySecurityCodeAsync(int memberId, string code, int type)
         {
-            // 呼叫你的驗證服務比對 (這裡可以沿用註冊時驗證資料庫或快取的邏輯)
-            // 假設你是用一組獨立的機制比對，以下為一般邏輯範例：
-            if (_cache.TryGetValue($"PhoneChangeVerifyPassed_{memberId}", out string? savedCode))
+            // 依據型態尋找對應的 Cache Key
+            string cacheKey = type switch
+            {
+                1 => $"PhoneChangeVerifyPassed_{memberId}",
+                2 => $"BirthdayChangeVerifyPassed_{memberId}",
+                //3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
+                _ => throw new ArgumentException("未支援的安全變更類型")
+            };
+
+            if (_cache.TryGetValue(cacheKey, out string? savedCode))
             {
                 if (string.Equals(savedCode, code, StringComparison.Ordinal))
                 {
@@ -310,7 +325,7 @@ namespace Shizuku.Services
             return new ApiResponse<string> { Success = false, Message = "驗證碼不正確或已過期" };
         }
 
-        // 3. 實際寫入資料庫並保存
+        // 3. 實際寫入資料庫並保存手機
         public async Task<ApiResponse<string>> UpdatePhoneAsync(int memberId, string newPhone, string verifiedCode)
         {
             // 雙重保險：確認快取內真的有這筆通過紀錄，且代碼一致，防止直接呼叫 API 闖入
@@ -343,43 +358,6 @@ namespace Shizuku.Services
             }
 
             return new ApiResponse<string> { Success = false, Message = "手機號碼變更失敗，無資料更動" };
-        }
-
-        // 1. 生成安全驗證碼 (生日專用)
-        public async Task<ApiResponse<string>> GenerateBirthdaySecurityCodeAsync(int memberId, string inputEmail)
-        {
-            var member = await _context.TMembers.FindAsync(memberId);
-            if (member == null)
-            {
-                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
-            }
-
-            if (!string.Equals(member.FEmail, inputEmail, StringComparison.OrdinalIgnoreCase))
-            {
-                return new ApiResponse<string> { Success = false, Message = "輸入的 Email 與目前登入帳號不相符" };
-            }
-
-            string code = await _verificationService.CreateEmailVerificationAsync(member.FId);
-
-            // 使用獨立的 Cache Key，防止與手機修改衝突
-            var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
-            _cache.Set($"BirthdayChangeVerifyPassed_{memberId}", code, cacheOptions);
-
-            return new ApiResponse<string> { Success = true, Message = "成功", Data = code };
-        }
-
-        // 2. 驗證安全驗證碼 (生日專用)
-        public async Task<ApiResponse<string>> VerifyBirthdaySecurityCodeAsync(int memberId, string code)
-        {
-            if (_cache.TryGetValue($"BirthdayChangeVerifyPassed_{memberId}", out string? savedCode))
-            {
-                if (string.Equals(savedCode, code, StringComparison.Ordinal))
-                {
-                    return new ApiResponse<string> { Success = true, Message = "驗證通過" };
-                }
-            }
-
-            return new ApiResponse<string> { Success = false, Message = "驗證碼不正確或已過期" };
         }
 
         // 3. 實際寫入資料庫並保存生日
