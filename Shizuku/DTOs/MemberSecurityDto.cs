@@ -23,5 +23,12 @@
             public required string FNewPhone { get; set; }
             public required string FVerifiedCode { get; set; } // 安全防禦比對用
         }
+
+        // 步驟 3：變更新生日
+        public class SecurityUpdateBirthdayDto
+        {
+            public DateOnly FNewBirthday { get; set; }
+            public required string FVerifiedCode { get; set; }
+        }
     }
 }

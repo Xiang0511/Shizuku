@@ -344,5 +344,76 @@ namespace Shizuku.Services
 
             return new ApiResponse<string> { Success = false, Message = "手機號碼變更失敗，無資料更動" };
         }
+
+        // 1. 生成安全驗證碼 (生日專用)
+        public async Task<ApiResponse<string>> GenerateBirthdaySecurityCodeAsync(int memberId, string inputEmail)
+        {
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            if (!string.Equals(member.FEmail, inputEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                return new ApiResponse<string> { Success = false, Message = "輸入的 Email 與目前登入帳號不相符" };
+            }
+
+            string code = await _verificationService.CreateEmailVerificationAsync(member.FId);
+
+            // 使用獨立的 Cache Key，防止與手機修改衝突
+            var cacheOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+            _cache.Set($"BirthdayChangeVerifyPassed_{memberId}", code, cacheOptions);
+
+            return new ApiResponse<string> { Success = true, Message = "成功", Data = code };
+        }
+
+        // 2. 驗證安全驗證碼 (生日專用)
+        public async Task<ApiResponse<string>> VerifyBirthdaySecurityCodeAsync(int memberId, string code)
+        {
+            if (_cache.TryGetValue($"BirthdayChangeVerifyPassed_{memberId}", out string? savedCode))
+            {
+                if (string.Equals(savedCode, code, StringComparison.Ordinal))
+                {
+                    return new ApiResponse<string> { Success = true, Message = "驗證通過" };
+                }
+            }
+
+            return new ApiResponse<string> { Success = false, Message = "驗證碼不正確或已過期" };
+        }
+
+        // 3. 實際寫入資料庫並保存生日
+        public async Task<ApiResponse<string>> UpdateBirthdayAsync(int memberId, DateOnly newBirthday, string verifiedCode)
+        {
+            // 雙重保險：確認生日快取權杖正確
+            if (!_cache.TryGetValue($"BirthdayChangeVerifyPassed_{memberId}", out string? savedCode) ||
+                !string.Equals(savedCode, verifiedCode, StringComparison.Ordinal))
+            {
+                return new ApiResponse<string> { Success = false, Message = "安全權杖錯誤或失效，請重新進行首步驗證" };
+            }
+
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            // 開始變更生日
+            member.FBirthday = newBirthday;
+            member.FUpdatedTime = DateTime.Now;
+
+            _context.TMembers.Update(member);
+            var isSaved = await _context.SaveChangesAsync() > 0;
+
+            if (isSaved)
+            {
+                // 變更成功後清除生日快取
+                _cache.Remove($"BirthdayChangeVerifyPassed_{memberId}");
+
+                return new ApiResponse<string> { Success = true, Message = "生日修改成功" };
+            }
+
+            return new ApiResponse<string> { Success = false, Message = "生日變更失敗，無資料更動" };
+        }
     }
 }
