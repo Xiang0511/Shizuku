@@ -21,7 +21,7 @@ namespace Shizuku.Hubs
             await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
         }
 
-        // ★ 修改 1：多接了一個 int memberId
+        //  修改 1：多接了一個 int memberId
         public async Task SendMessageToAdmin(int memberId, string memberName, string message)
         {
             string guestId = Context.ConnectionId;
@@ -42,7 +42,7 @@ namespace Shizuku.Hubs
             await Clients.Group("Admins").SendAsync("ReceiveFromMember", guestId, memberId, memberName, message);
         }
 
-        // ★ 修改 2：多接了一個 int memberId
+        //  修改 2：多接了一個 int memberId
         public async Task ReplyToMember(string guestId, int memberId, string adminName, string message)
         {
             // --- 1. 寫入資料庫 ---
