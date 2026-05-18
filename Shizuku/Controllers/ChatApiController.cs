@@ -24,7 +24,7 @@ namespace Shizuku.Controllers
                 .Where(m => m.FMemberId == memberId)
                 .OrderBy(m => m.FSendTime) // 照時間排序，舊的在上面
                 .Select(m => new {
-                    sender = m.FSenderType == "Admin" ? $"客服 ({m.FSenderName})" : m.FSenderName,
+                    sender = m.FSenderName, // ★ 改成原汁原味輸出真實名字
                     text = m.FMessage,
                     isMe = m.FSenderType == "Member", // 如果是會員發的，對前台會員來說就是 我
                     time = m.FSendTime.ToString("HH:mm"),
