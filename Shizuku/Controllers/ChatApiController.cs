@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
+using Shizuku.DTOs; // 引入你們組長規範的 DTO 命名空間
 
 namespace Shizuku.Controllers
 {
@@ -25,20 +26,27 @@ namespace Shizuku.Controllers
                 .Select(m => new {
                     sender = m.FSenderType == "Admin" ? $"客服 ({m.FSenderName})" : m.FSenderName,
                     text = m.FMessage,
-                    isMe = m.FSenderType == "Member", // 如果是會員發的，對前台會員來說就是 "我"
+                    isMe = m.FSenderType == "Member", // 如果是會員發的，對前台會員來說就是 我
                     time = m.FSendTime.ToString("HH:mm"),
                     type = m.FSenderType
                 })
                 .ToListAsync();
 
-            return Ok(history);
+            // 套用組長規範：成功、提示訊息、把陣列塞進 Data 裡面
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "成功取得聊天歷史紀錄",
+                Data = history
+            });
         }
+
         // 取得所有曾有對話紀錄的會員清單
         [HttpGet("GetChatMembers")]
         public async Task<IActionResult> GetChatMembers()
         {
-            // 從聊天紀錄表中，找出所有不重複的會員ID，並關聯會員資料表抓取姓名
             var members = await _context.TLiveChatMessages
+                .Where(m => m.FSenderType == "Member")
                 .Select(m => new { m.FMemberId, m.FSenderName })
                 .Distinct()
                 .GroupBy(m => m.FMemberId)
@@ -49,7 +57,13 @@ namespace Shizuku.Controllers
                 })
                 .ToListAsync();
 
-            return Ok(members);
+            // 套用組長規範：成功、提示訊息、把清單塞進 Data 裡面
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "成功取得聊天會員清單",
+                Data = members
+            });
         }
     }
 }

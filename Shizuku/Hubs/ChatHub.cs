@@ -1,16 +1,14 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
-using Shizuku.Models; // 確保有引入你的 Models 命名空間
+using Shizuku.Models;
 using System;
+using System.Threading.Tasks;
 
 namespace Shizuku.Hubs
 {
     public class ChatHub : Hub
     {
-        // 宣告一個唯讀的變數來裝資料庫連線
         private readonly DbShizukuDemoContext _context;
 
-        // 透過「依賴注入」把資料庫叫進來
         public ChatHub(DbShizukuDemoContext context)
         {
             _context = context;
@@ -21,12 +19,15 @@ namespace Shizuku.Hubs
             await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
         }
 
-        //  修改 1：多接了一個 int memberId
+        //  新增：會員連線時，讓他加入專屬的 ID 群組
+        public async Task JoinAsMember(int memberId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"Member_{memberId}");
+        }
+
+        // 參數精簡：不用再傳 ConnectionId 了
         public async Task SendMessageToAdmin(int memberId, string memberName, string message)
         {
-            string guestId = Context.ConnectionId;
-
-            // --- 1. 寫入資料庫 ---
             var chatLog = new TLiveChatMessage
             {
                 FMemberId = memberId,
@@ -36,16 +37,15 @@ namespace Shizuku.Hubs
                 FSendTime = DateTime.Now
             };
             _context.TLiveChatMessages.Add(chatLog);
-            await _context.SaveChangesAsync(); // 存檔！
+            await _context.SaveChangesAsync();
 
-            // --- 2. 廣播給客服 --- (多把 memberId 傳給後台)
-            await Clients.Group("Admins").SendAsync("ReceiveFromMember", guestId, memberId, memberName, message);
+            // 廣播給所有 Admin
+            await Clients.Group("Admins").SendAsync("ReceiveFromMember", memberId, memberName, message);
         }
 
-        //  修改 2：多接了一個 int memberId
-        public async Task ReplyToMember(string guestId, int memberId, string adminName, string message)
+        // 參數精簡：客服回覆時，直接對著該會員的群組喊話
+        public async Task ReplyToMember(int memberId, string adminName, string message)
         {
-            // --- 1. 寫入資料庫 ---
             var chatLog = new TLiveChatMessage
             {
                 FMemberId = memberId,
@@ -55,10 +55,10 @@ namespace Shizuku.Hubs
                 FSendTime = DateTime.Now
             };
             _context.TLiveChatMessages.Add(chatLog);
-            await _context.SaveChangesAsync(); // 存檔！
+            await _context.SaveChangesAsync();
 
-            // --- 2. 廣播給會員 ---
-            await Clients.Client(guestId).SendAsync("ReceiveFromAdmin", adminName, message);
+            //  關鍵：直接廣播給指定的會員群組，不管他怎麼重整都收得到！
+            await Clients.Group($"Member_{memberId}").SendAsync("ReceiveFromAdmin", adminName, message);
         }
     }
 }
