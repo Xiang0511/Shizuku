@@ -1,346 +1,443 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
+using Shizuku.Enums;
 using Shizuku.Models;
-using System.Text.Json;
-using System.Text;
-using System.Security.Cryptography;
-using System.Web;
-
 
 namespace Shizuku.Services
 {
+    // 前台會員訂單交易核心服務
+    // 專責處理前台會員購物車結帳、訂單創立、庫存扣減、會員訂單明細查詢、自行取消以及綠界/LINE Pay 付款連結之動態生成
     public class OrderService
     {
-        // 宣告一個唯讀的私有變數，用來存放資料庫連線
         private readonly DbShizukuDemoContext _db;
-        private readonly LinePayService _linePayService;
-        private readonly IConfiguration _config; //讀取 appsettings.json裡的設定
+        private readonly ProductService _productService;
+        private readonly PaymentFactory _paymentFactory;
 
-        // 這是建構子 (Constructor)
-        // 當 DI 容器要建立 OrderService 時，發現它需要 DbShizukuDemoContext 和 LinePayService，就會自動塞進來
-        public OrderService(DbShizukuDemoContext db, LinePayService linePayService, IConfiguration config)
+        // 建構子注入
+        public OrderService(
+            DbShizukuDemoContext db, 
+            ProductService productService, 
+            PaymentFactory paymentFactory)
         {
             _db = db;
-            _linePayService = linePayService;
-            _config = config;
+            _productService = productService;
+            _paymentFactory = paymentFactory;
         }
 
-        //建立訂單
+        // 前台會員結帳建立新訂單
         public async Task<ApiResponse<CreateOrderResponseDto>> CreateOrder(CreateOrderRequestDto request)
         {
-            // 1. 先檢查購物車是不是空的
-            if (request.CartItems == null || request.CartItems.Count == 0)
-                return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車是空的喔！" };
+            if (request.CartItems == null || !request.CartItems.Any())
+            {
+                return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車內無商品，無法建立訂單！" };
+            }
 
-            // 2. 產生一個唯一的訂單編號 (例如: ORD20260502123456)
-            string newOrderNo = "ORD" + DateTime.Now.ToString("yyyyMMddHHmmss");
-            decimal totalAmount = 0; // 用來累加總金額
-
-            // 3. 開啟資料庫交易 (Transaction) 防護罩！
             using (var transaction = _db.Database.BeginTransaction())
             {
                 try
                 {
-                    // 準備一個空箱子，用來裝所有的訂單明細
-                    List<TOrderDetail> details = new List<TOrderDetail>();
+                    // 產生不重複訂單編號
+                    string orderNo = GenerateOrderNo();
 
-                    // 步驟 4：跑一個 foreach 迴圈，檢查購物車裡的每一個商品
+                    // 計算商品總價並即時扣庫存
+                    decimal subtotal = 0;
+                    var orderDetails = new List<TOrderDetail>();
+
                     foreach (var item in request.CartItems)
                     {
-                        // 4-1: 去 _db.TProductVariants 找出這個商品規格
-                        var variant = _db.TProductVariants.FirstOrDefault(v => v.FId == item.VariantId);
+                        var variant = await _db.TProductVariants
+                            .Include(v => v.TProduct)
+                            .FirstOrDefaultAsync(v => v.FId == item.VariantId);
+
                         if (variant == null)
                         {
-                            throw new Exception($"找不到商品規格代碼 {item.VariantId}");
+                            throw new Exception($"找不到商品規格 ID: {item.VariantId}");
                         }
 
-                        // 4-2: 檢查庫存 (FStock) 夠不夠？
-                        if (variant.FStock < item.Quantity)
+                        // 即時扣庫存 (原子操作)
+                        bool stockDeducted = await _productService.DeductStockAsync(item.VariantId, item.Quantity);
+                        if (!stockDeducted)
                         {
-                            throw new Exception("很抱歉，部分商品庫存不足，被搶走啦！");
+                            throw new Exception($"商品「{variant.TProduct?.FName}」庫存不足，無法建立訂單！");
                         }
 
-                        // 4-3: 庫存夠的話，馬上扣除庫存！
-                        variant.FStock -= item.Quantity;
+                        decimal price = variant.TProduct?.FPrice ?? 0;
+                        decimal itemTotal = price * item.Quantity;
+                        subtotal += itemTotal;
 
-                        // 4-4: 為了拿到商品的名字，我們去 TProduct 找一下主商品資料
-                        var product = _db.TProducts.FirstOrDefault(p => p.FId == variant.FProductId);
-                        string productName = product != null ? product.FName : "未知商品";
-
-                        // 決定結帳價格 (如果 Variant 沒特別設定價格，就用 Product 的預設價格)
-                        decimal unitPrice = variant.FPrice ?? (product?.FPrice ?? 0);
-                        decimal subtotal = unitPrice * item.Quantity; // 算出小計
-
-                        // 4-5: 建立一個 TOrderDetail (明細) 並且放入剛剛的箱子裡
-                        details.Add(new TOrderDetail
+                        orderDetails.Add(new TOrderDetail
                         {
                             FVariantId = item.VariantId,
-                            FProductNameSnap = productName,
-                            FPriceSnap = unitPrice,
+                            FProductNameSnap = variant.TProduct?.FName ?? "未知商品",
+                            FPriceSnap = price,
                             FQuantity = item.Quantity,
-                            FSubtotal = subtotal
+                            FSubtotal = itemTotal
                         });
-
-                        // 4-6: 把小計金額累加到這整張訂單的總金額上
-                        totalAmount += subtotal;
                     }
 
-                    // 步驟 5：建立一張主訂單 TOrder
-                    var newOrder = new TOrder
+                    // 運費計算邏輯：滿 1500 免運，否則運費 60 元
+                    decimal shippingFee = subtotal >= 1500 ? 0 : 60;
+                    decimal totalAmount = subtotal + shippingFee;
+
+                    // 寫入訂單主表
+                    var order = new TOrder
                     {
-                        FOrderNo = newOrderNo,
+                        FOrderNo = orderNo,
                         FMemberId = request.MemberId,
                         FTotalAmount = totalAmount,
-                        FStatus = 1, // 1: 代表待處理 (待付款)
                         FReceiverName = request.ReceiverName,
                         FReceiverPhone = request.ReceiverPhone,
                         FReceiverAddress = request.ReceiverAddress,
                         FNote = request.Note,
+                        FStatus = (int)OrderStatus.Pending, // 預設狀態為「未付款 (Pending)」
                         FCreatedAt = DateTime.Now,
                         FUpdatedAt = DateTime.Now
                     };
 
-                    // 先把主訂單寫入資料庫，這樣系統才會發一個最新的 FId (訂單流水號) 給它
-                    _db.TOrders.Add(newOrder);
-                    _db.SaveChanges();
+                    _db.TOrders.Add(order);
+                    await _db.SaveChangesAsync();
 
-                    // 把剛拿到的新訂單流水號，塞給箱子裡面的每一個明細，然後存入資料庫
-                    foreach (var detail in details)
+                    // 寫入訂單明細表
+                    foreach (var detail in orderDetails)
                     {
-                        detail.FOrderId = newOrder.FId;
+                        detail.FOrderId = order.FId;
                         _db.TOrderDetails.Add(detail);
                     }
+                    await _db.SaveChangesAsync();
 
-                    _db.SaveChanges();
-                    
-                    string paymentUrl = await GeneratePaymentUrlAsync(newOrderNo, request.PaymentMethodId, totalAmount);
+                    // 寫入金流交易主表 (PaymentTransactions)
+                    var paymentTx = new TPaymentTransaction
+                    {
+                        FOrderId = order.FId,
+                        FMemberId = request.MemberId,  // 補填會員 ID，方便後台按會員查詢
+                        FTransactionNo = "TX" + orderNo.Substring(2),
+                        FMethodId = request.PaymentMethodId,
+                        FAmount = totalAmount,
+                        FStatus = (int)PaymentStatus.Unpaid, // 交易預設為「未付款/待處理 (Unpaid)」
+                        FCreatedAt = DateTime.Now
+                    };
+                    _db.TPaymentTransactions.Add(paymentTx);
+                    await _db.SaveChangesAsync();
+
+                    // 依照金流管道生成付款連結
+                    string paymentUrl = "";
+
+                    // 貨到付款直接將狀態標記為「已付款」，防止逾時被背景服務自動取消
+                    if (request.PaymentMethodId == (int)PaymentMethod.COD)
+                    {
+                        order.FStatus = (int)OrderStatus.Paid; // 貨到付款默認視為「已付款」以不被自動超時取消
+                        paymentTx.FStatus = (int)PaymentStatus.Success; // 標記為付款成功
+                        paymentTx.FPaidAt = DateTime.Now;
+                        await _db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        paymentUrl = await GeneratePaymentUrlAsync(orderNo, request.PaymentMethodId, totalAmount);
+                    }
+
                     transaction.Commit();
 
-                    // 無論是哪種付款方式，成功後統一在這裡回傳給前端
                     return new ApiResponse<CreateOrderResponseDto>
                     {
                         Success = true,
                         Message = "訂單建立成功！",
                         Data = new CreateOrderResponseDto
                         {
-                            OrderNo = newOrderNo,
+                            OrderNo = orderNo,
                             PaymentUrl = paymentUrl
                         }
                     };
                 }
                 catch (Exception ex)
                 {
-                    // 如果上面任何一個步驟發生錯誤 (例如庫存不足、資料庫當機)
-                    // 就會跳到這裡，執行 Rollback (時光倒流)，什麼都不會存進去資料庫
                     transaction.Rollback();
-
-                    return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "訂單建立失敗：" + ex.Message };
+                    return new ApiResponse<CreateOrderResponseDto>
+                    {
+                        Success = false,
+                        Message = "建立訂單失敗：" + ex.Message,
+                        Data = null
+                    };
                 }
             }
         }
 
-        //根據memberId 取的訂單列表
+        // 取得會員前台的訂單列表
         public async Task<List<OrderListDto>> GetMemberOrdersAsync(int memberId)
         {
-            //先從資料庫撈出原始資料 (不要在 Select 裡轉狀態)
-            var orderEntities = await _db.TOrders
-            .Where(o => o.FMemberId == memberId)
-            .OrderByDescending(o => o.FCreatedAt)
-            .ToListAsync();
+            var orders = await _db.TOrders
+                .Where(o => o.FMemberId == memberId)
+                .OrderByDescending(o => o.FCreatedAt)
+                .ToListAsync();
 
-            var orders = orderEntities.Select(o => new OrderListDto
+            var list = new List<OrderListDto>();
+            foreach (var o in orders)
             {
-                OrderNo = o.FOrderNo,
-                TotalAmount = o.FTotalAmount,
-                CreatedAt = o.FCreatedAt,
-                StatusText = GetStatusText(o.FStatus)
-            }).ToList();
-            return orders;
+                list.Add(new OrderListDto
+                {
+                    OrderNo = o.FOrderNo,
+                    CreatedAt = o.FCreatedAt,
+                    StatusText = GetStatusText(o.FStatus),
+                    TotalAmount = o.FTotalAmount
+                });
+            }
+
+            return list;
         }
 
-
-        //根據orderNo 取的訂單明細
+        // 取得會員前台的單筆訂單明細
         public async Task<ApiResponse<OrderDetailDto>> GetOrderDetailAsync(string orderNo, int memberId)
         {
-            // 1. 先單獨把訂單主表撈出來
             var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo && o.FMemberId == memberId);
-            
             if (order == null)
             {
                 return new ApiResponse<OrderDetailDto> { Success = false, Message = "找不到該筆訂單" };
             }
-            // 2. 透過原生的 LINQ Join 語法，把明細、規格、商品、顏色、尺寸、圖片全部安全地串聯起來！
+
             var detailsData = await (from od in _db.TOrderDetails
-                             join v in _db.TProductVariants on od.FVariantId equals v.FId
-                             join p in _db.TProducts on v.FProductId equals p.FId
-                             // 顏色與尺寸可能為空，所以使用 Left Join
-                             join c in _db.TProductColors on v.FColorId equals c.FId into cg
-                             from color in cg.DefaultIfEmpty()
-                             join s in _db.TProductSizes on v.FSizeId equals s.FId into sg
-                             from size in sg.DefaultIfEmpty()
-                             // 圖片獨立一張表，且只要抓「主圖」 (FIsMain == 1)
-                             join img in _db.TProductImages.Where(i => i.FIsMain == 1) on p.FId equals img.FProductId into imgg
-                             from mainImg in imgg.DefaultIfEmpty()
-                             where od.FOrderId == order.FId
-                             select new 
-                             {
-                                 Detail = od,
-                                 ProductName = p.FName,
-                                 ColorName = color != null ? color.FName : "",
-                                 SizeName = size != null ? size.FName : "",
-                                 ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
-                             }).ToListAsync();
-    // 3. 把撈出來的安全資料轉換給前端 (DTO)
-    var dto = new OrderDetailDto
-    {
-        OrderNo = order.FOrderNo,
-        CreatedAt = order.FCreatedAt,
-        StatusText = GetStatusText(order.FStatus),
-        TotalAmount = order.FTotalAmount,
-        ReceiverName = order.FReceiverName,
-        ReceiverPhone = order.FReceiverPhone,
-        ReceiverAddress = order.FReceiverAddress,
-        Note = order.FNote,
-        // 如果未來有建立訂單與付款方式的關聯，這裡再抽換
-        PaymentMethod = "尚未指定", 
-        Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
-        Discount = 0,
-        ShippingFee = 0,
-        Items = detailsData.Select(d => new OrderItemDto
-        {
-            ProductName = d.ProductName,
-            // 將顏色與尺寸組合起來 (例如: "紅色 XL")
-            VariantName = (d.ColorName + " " + d.SizeName).Trim(),
-            UnitPrice = d.Detail.FPriceSnap,
-            Quantity = d.Detail.FQuantity,
-            ProductImage = d.ImageUrl
-        }).ToList()
-    };
-    return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
-}
+                              join v in _db.TProductVariants on od.FVariantId equals v.FId
+                              join p in _db.TProducts on v.FProductId equals p.FId
+                              join c in _db.TProductColors on v.FColorId equals c.FId into cg
+                              from color in cg.DefaultIfEmpty()
+                              join s in _db.TProductSizes on v.FSizeId equals s.FId into sg
+                              from size in sg.DefaultIfEmpty()
+                              join img in _db.TProductImages.Where(i => i.FIsMain == 1) on p.FId equals img.FProductId into imgg
+                              from mainImg in imgg.DefaultIfEmpty()
+                              where od.FOrderId == order.FId
+                              select new 
+                              {
+                                  Detail = od,
+                                  ProductName = p.FName,
+                                  ColorName = color != null ? color.FName : "",
+                                  SizeName = size != null ? size.FName : "",
+                                  ImageUrl = mainImg != null ? mainImg.FImageUrl : ""
+                              }).ToListAsync();
 
-        // 獨立出產生付款網址的方法，讓重新付款時也能呼叫
-        public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
-        {
-            string paymentUrl = string.Empty;
-
-            switch (paymentMethodId)
+            var paymentTransaction = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == order.FId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .FirstOrDefaultAsync();
+            
+            string paymentMethodName = "尚未指定";
+            if (paymentTransaction != null)
             {
-                case 1: // 綠界科技 ECPay
-                    string backendUrl = "https://localhost:7197";
-                    paymentUrl = $"{backendUrl}/api/OrderApi/ecpay/{orderNo}";
-                    break;
-
-                case 2: // LINE Pay
-                    int payAmount = Convert.ToInt32(totalAmount);
-                    var linePayPayload = new
-                    {
-                        amount = payAmount,
-                        currency = "TWD",
-                        orderId = orderNo,
-                        packages = new[]
-                        {
-                            new
-                            {
-                                id = "pkg_1",
-                                amount = payAmount,
-                                name = "Shizuku 訂單",
-                                products = new[]
-                                {
-                                    new { name = "訂單商品", quantity = 1, price = payAmount }
-                                }
-                            }
-                        },
-                        redirectUrls = new
-                        {
-                            confirmUrl = "http://localhost:5173/payment/success",
-                            cancelUrl = "http://localhost:5173/orders" // 取消改回傳訂單列表
-                        }
-                    };
-
-                    string linePayResponseJson = await _linePayService.SendLinePayRequestAsync("/v3/payments/request", linePayPayload);
-                    using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
-                    {
-                        var root = doc.RootElement;
-                        if (root.GetProperty("returnCode").GetString() == "0000")
-                        {
-                            paymentUrl = root.GetProperty("info").GetProperty("paymentUrl").GetProperty("web").GetString();
-                        }
-                        else
-                        {
-                            string returnMessage = root.GetProperty("returnMessage").GetString();
-                            throw new Exception("LINE Pay 拒絕請求：" + returnMessage);
-                        }
-                    }
-                    break;
-
-                case 3: // 貨到付款
-                    paymentUrl = string.Empty;
-                    break;
-
-                default:
-                    throw new Exception("系統不支援此付款方式");
+                paymentMethodName = await GetPaymentMethodNameAsync(paymentTransaction.FMethodId);
             }
 
-            return paymentUrl;
+            var dto = new OrderDetailDto
+            {
+                OrderNo = order.FOrderNo,
+                CreatedAt = order.FCreatedAt,
+                StatusText = GetStatusText(order.FStatus),
+                TotalAmount = order.FTotalAmount,
+                ReceiverName = order.FReceiverName,
+                ReceiverPhone = order.FReceiverPhone,
+                ReceiverAddress = order.FReceiverAddress,
+                Note = order.FNote,
+                PaymentMethod = paymentMethodName, 
+                Subtotal = detailsData.Sum(d => d.Detail.FSubtotal),
+                Discount = 0,
+                ShippingFee = order.FTotalAmount - detailsData.Sum(d => d.Detail.FSubtotal),
+                Items = detailsData.Select(d => new OrderItemDto
+                {
+                    ProductName = d.ProductName,
+                    VariantName = (d.ColorName + " " + d.SizeName).Trim(),
+                    UnitPrice = d.Detail.FPriceSnap,
+                    Quantity = d.Detail.FQuantity,
+                    ProductImage = d.ImageUrl
+                }).ToList()
+            };
+
+            return new ApiResponse<OrderDetailDto> { Success = true, Message = "讀取成功", Data = dto };
         }
 
-        //建立產生綠界Html 表單的方法
-        public async Task<string> GenerateECPayHtmlFormAsync(string orderNo)
-{
-    // 1. 去資料庫找這筆訂單
-    var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
-    if (order == null) return null; // 找不到訂單就回傳 null
-    string tradeNoForECPay = order.FOrderNo + DateTime.Now.ToString("fff");
+        // 產生第三方金流支付跳轉連結
+        public async Task<string> GeneratePaymentUrlAsync(string orderNo, int paymentMethodId, decimal totalAmount)
+        {
+            var paymentService = _paymentFactory.GetPaymentService(paymentMethodId);
+            return await paymentService.GeneratePaymentUrlAsync(orderNo, totalAmount);
+        }
 
-            // 2. 準備綠界 API 需要的參數
-            string hashKey = _config["ECPay:HashKey"];
-            string hashIV = _config["ECPay:HashIV"];
-            var parameters = new Dictionary<string, string>
-    {
-        { "MerchantID", _config["ECPay:MerchantID"] },
-        { "MerchantTradeNo", tradeNoForECPay },
-        { "MerchantTradeDate", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") },
-        { "PaymentType", "aio" },
-        { "TotalAmount", Convert.ToInt32(order.FTotalAmount).ToString() },
-        { "TradeDesc", "Shizuku_Order" },
-        { "ItemName", "Shizuku_Items" },
-        { "ReturnURL", _config["ECPay:ReturnURL"] },
-        { "OrderResultURL", _config["ECPay:OrderResultURL"] },
-        { "ChoosePayment", "Credit" },
-        { "EncryptType", "1" }
-    };
-    // 3. 計算 CheckMacValue 
-    parameters["CheckMacValue"] = Shizuku.Helpers.ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
-    // 4. 產生帶有自動送出功能的 HTML 字串
-    StringBuilder htmlForm = new StringBuilder();
-    htmlForm.Append("<html><body>");
-    htmlForm.Append("<form id='ecpayForm' action='https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5' method='POST'>");
-    
-    foreach (var p in parameters)
-    {
-        htmlForm.Append($"<input type='hidden' name='{p.Key}' value='{p.Value}' />");
-    }
-    
-    htmlForm.Append("</form>");
-    htmlForm.Append("<script>document.getElementById('ecpayForm').submit();</script>");
-    htmlForm.Append("</body></html>");
-    return htmlForm.ToString();
-}
-        // 統一管理訂單狀態的文字轉換
+        // 產生綠界自動 Submit 的 HTML Form 字串
+        public async Task<string> GenerateECPayHtmlFormAsync(string orderNo)
+        {
+            var ecpayService = _paymentFactory.GetPaymentService(1) ;
+            if (ecpayService == null) return "";
+
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null) return "";
+
+            return await ecpayService.GenerateHtmlFormAsync(orderNo);
+        }
+
+        // 取得前台統計用銷量數據
+        public async Task<List<VariantSalesStatsDto>> GetSalesStatsAsync()
+        {
+            var stats = await (from od in _db.TOrderDetails
+                               join o in _db.TOrders on od.FOrderId equals o.FId
+                               where o.FStatus != 5 // 排除取消的訂單
+                               group od by od.FVariantId into g
+                               select new VariantSalesStatsDto
+                               {
+                                   VariantId = g.Key,
+                                   TotalQuantitySold = g.Sum(x => x.FQuantity),
+                                   TotalRevenue = g.Sum(x => x.FSubtotal)
+                               })
+                               .OrderByDescending(x => x.TotalQuantitySold)
+                               .Take(10)
+                               .ToListAsync();
+
+            return stats;
+        }
+
+        // 會員自行取消訂單並回補庫存
+        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null)
+            {
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            }
+            if (order.FStatus != 1) 
+            {
+                return new ApiResponse<object> { Success = false, Message = "只有未付款訂單才能取消" };
+            }
+
+            using (var transaction = _db.Database.BeginTransaction())
+            {
+                try
+                {
+                    order.FStatus = 5; // 狀態變更為「已取消」
+                    order.FUpdatedAt = DateTime.Now;
+
+                    var details = await _db.TOrderDetails.Where(d => d.FOrderId == order.FId).ToListAsync();
+                    foreach (var item in details)
+                    {
+                        bool isRestored = await _productService.RestoreStockAsync(item.FVariantId, item.FQuantity);
+                        if (!isRestored)
+                        {
+                            throw new Exception($"回補庫存失敗，找不到規格 ID: {item.FVariantId}");
+                        }
+                    }
+
+                    await _db.SaveChangesAsync();
+                    transaction.Commit();
+                    return new ApiResponse<object> { Success = true, Message = "訂單取消成功，庫存已回補" };
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    return new ApiResponse<object> { Success = false, Message = "取消訂單失敗：" + ex.Message };
+                }
+            }
+        }
+
+        // 取得單筆資料庫訂單實體
+        public async Task<TOrder> GetOrderAsync(string orderNo)
+        {
+            return await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+        }
+
+        // 取得指定訂單的所有金流交易紀錄列表 (供前台支付明細列表頁使用)
+        public async Task<List<object>> GetOrderTransactionsAsync(int orderId)
+        {
+            var txns = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == orderId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .ToListAsync();
+
+            var result = new List<object>();
+            foreach (var tx in txns)
+            {
+                var methodName = await GetPaymentMethodNameAsync(tx.FMethodId);
+                var statusText = tx.FStatus switch
+                {
+                    0 => "待付款",
+                    1 => "付款成功",
+                    2 => "交易失敗",
+                    3 => "已退款",
+                    _ => "未知"
+                };
+
+                result.Add(new
+                {
+                    TransactionId = tx.FId,
+                    TransactionNo = tx.FTransactionNo,
+                    Method = methodName,
+                    Amount = tx.FAmount,
+                    Status = tx.FStatus,
+                    StatusText = statusText,
+                    PaidAt = tx.FPaidAt,
+                    CreatedAt = tx.FCreatedAt,
+                    GatewayTradeNo = tx.FGatewayTradeNo
+                });
+            }
+            return result;
+        }
+
+        // 統一更新訂單狀態為已付款
+        public async Task<bool> MarkOrderAsPaidAsync(string orderNo, int? paymentMethodId = null)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            if (order == null) return false;
+
+            order.FStatus = (int)OrderStatus.Paid; // 已付款
+            order.FUpdatedAt = DateTime.Now;
+
+            var paymentTx = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == order.FId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (paymentTx != null)
+            {
+                paymentTx.FStatus = (int)PaymentStatus.Success; // 付款成功
+                paymentTx.FPaidAt = DateTime.Now;
+                if (paymentMethodId != null)
+                {
+                    paymentTx.FMethodId = paymentMethodId.Value;
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        // 產生不重複之訂單編號
+        private string GenerateOrderNo()
+        {
+            string dateStr = DateTime.Now.ToString("yyyyMMdd");
+            string randomStr = new Random().Next(100, 999).ToString();
+            return $"ORD{dateStr}{randomStr}";
+        }
+
+        // 解析訂單狀態中文語譯 (使用 strongly-typed OrderStatus 列舉)
         private string GetStatusText(int? status)
         {
-            return status switch
+            if (status == null) return "未知狀態";
+
+            return (OrderStatus)status switch
             {
-                1 => "待付款",
-                2 => "已付款",
-                3 => "已出貨",
-                4 => "已完成",
-                5 => "已取消",
+                OrderStatus.Pending => "未付款",
+                OrderStatus.Paid => "已付款",
+                OrderStatus.Shipping => "出貨中",
+                OrderStatus.Delivered => "已送達",
+                OrderStatus.Cancelled => "已取消",
+                OrderStatus.PendingRefund => "待退款",
+                OrderStatus.Refunded => "已退款",
                 _ => "未知狀態"
             };
         }
+
+        // 取得付款管道中文名稱
+        private async Task<string> GetPaymentMethodNameAsync(int? methodId)
+        {
+            if (methodId == null) return "未知付款方式";
+            var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == methodId);
+            return method != null ? method.FMethodName : "未知付款方式";
+        }
     }
-
 }
-

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.ViewModels;
+using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
@@ -376,6 +377,44 @@ namespace Shizuku.Services
                                  : v.FStock <= 5 ? "低庫存"
                                  : "正常"
                 }).ToList();
+        }
+
+        /// <summary>扣除庫存 (下單用)</summary>
+        public async Task<bool> DeductStockAsync(int variantId, int quantity)
+        {
+            var variant = await _context.TProductVariants.FindAsync(variantId);
+            if (variant == null || variant.FStock < quantity)
+            {
+                return false; // 找不到規格或庫存不足
+            }
+            variant.FStock -= quantity;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>回補庫存 (取消訂單用)</summary>
+        public async Task<bool> RestoreStockAsync(int variantId, int quantity)
+        {
+            var variant = await _context.TProductVariants.FindAsync(variantId);
+            if (variant == null) return false;
+            variant.FStock += quantity;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>取得最新價格與庫存 (結帳預檢用)</summary>
+        public async Task<List<ProductCheckDto>> GetLatestInfoAsync(List<int> variantIds)
+        {
+            return await _context.TProductVariants
+            .Where(v => variantIds.Contains(v.FId))
+            .Select(v => new ProductCheckDto
+            {
+            VariantId = v.FId,
+            // 優先取規格價格，若無則取商品主表價格
+            LatestPrice = v.FPrice ?? v.TProduct.FPrice, 
+            CurrentStock = v.FStock,
+            ProductName = v.TProduct.FName
+            }).ToListAsync();
         }
     }
 }

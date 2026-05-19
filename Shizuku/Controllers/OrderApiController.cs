@@ -1,74 +1,73 @@
 using Microsoft.AspNetCore.Mvc;
 using Shizuku.DTOs;
+using Shizuku.Enums;
 using Shizuku.Services;
-using System.Text.Json;
 
 namespace Shizuku.Controllers
 {
-    //  加上這些屬性，告訴系統這是一個給 Vue 用的 API Controller
     [ApiController]
     [Route("api/[controller]")]
     public class OrderApiController : ControllerBase
     {
-        // 宣告變數來裝 Service
         private readonly OrderService _orderService;
-        private readonly LinePayService _linePayService;
-        private readonly Models.DbShizukuDemoContext _db;
+        private readonly PaymentFactory _paymentFactory;
+        private readonly RefundAdminService _refundService;
 
-        // 建構子注入 (Constructor Injection)
-        // 系統管家 (DI 容器) 看到你需要 OrderService，就會自動把你剛剛在 Program.cs 註冊好的實體派過來
-        public OrderApiController(OrderService orderService, LinePayService linePayService, Models.DbShizukuDemoContext db)
+        // 建構子注入：注入訂單服務、金流抽象工廠與退款服務
+        public OrderApiController(OrderService orderService, PaymentFactory paymentFactory, RefundAdminService refundService)
         {
             _orderService = orderService;
-            _linePayService = linePayService;
-            _db = db;
+            _paymentFactory = paymentFactory;
+            _refundService = refundService;
         }
 
-        //建立訂單API /api/orderApi/create
+        // 建立新訂單 (POST /api/orderApi/create)
         [HttpPost("create")]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequestDto request)
         {
-            // 先建立訂單
             var result = await _orderService.CreateOrder(request);
             return Ok(result);
         }
 
-        //確認付款api /api/orderApi/confirm
+        // 確認付款並扣款 (POST /api/orderApi/confirm)
         [HttpPost("confirm")]
         public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequestDto request)
         {
-            // 找出這筆訂單確認金額
-            var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == request.OrderId);
-            if (order == null) return BadRequest(new ApiResponse<object> { Success = false, Message = "找不到訂單" });
-            var confirmPayload = new { amount = order.FTotalAmount, currency = "TWD" };
-            string uri = $"/v3/payments/{request.TransactionId}/confirm";
-
-            // 向 LINE Pay 確認扣款
-            string linePayResponseJson = await _linePayService.SendLinePayRequestAsync(uri, confirmPayload);
-            using (JsonDocument doc = JsonDocument.Parse(linePayResponseJson))
+            try
             {
-                if (doc.RootElement.GetProperty("returnCode").GetString() == "0000")
+                // 由工廠取得 LINE Pay 服務進行扣款確認
+                var linePayService = _paymentFactory.GetPaymentService(2) as LinePayPaymentService;
+                if (linePayService == null)
                 {
-                    //  扣款成功！更改訂單狀態為「已付款」(假設狀態 2)
-                    order.FStatus = 2;
-                    order.FUpdatedAt = DateTime.Now;
-                    _db.SaveChanges();
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "系統未正確配置 LINE Pay 金流服務"
+                    });
+                }
+
+                bool isSuccess = await linePayService.ConfirmPaymentAsync(request.TransactionId, request.OrderId);
+                if (isSuccess)
+                {
+                    await _orderService.MarkOrderAsPaidAsync(request.OrderId);
                     return Ok(new ApiResponse<object> { Success = true, Message = "付款成功！" });
                 }
+
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "LINE Pay 扣款失敗！" });
             }
-            return BadRequest(new ApiResponse<object> { Success = false, Message = "LINE Pay 扣款失敗！" });
+            catch (Exception ex)
+            {
+                return InternalServerError("LINE Pay 付款確認失敗", ex);
+            }
         }
 
-        //讀取會員訂單列表API: /api/order/member/{memberId}  
+        // 讀取特定會員的所有訂單列表 (GET /api/orderApi/member/{memberId})
         [HttpGet("member/{memberId}")]
         public async Task<IActionResult> GetMemberOrders(int memberId)
         {
             try
             {
-                // 呼叫我們剛剛在 Service 寫好的方法，去撈這個 memberId 的訂單
                 var orders = await _orderService.GetMemberOrdersAsync(memberId);
-
-                // 把轉換好的 DTO 資料，用 Http 200 (OK) 回傳給前端
                 return Ok(new ApiResponse<List<OrderListDto>>
                 {
                     Success = true,
@@ -78,76 +77,54 @@ namespace Shizuku.Controllers
             }
             catch (Exception ex)
             {
-                // 如果發生錯誤，回傳 Http 400 以及錯誤訊息給前端
-                return BadRequest(new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "獲取訂單失敗：" + ex.Message
-                });
+                return InternalServerError("獲取會員訂單列表失敗", ex);
             }
         }
 
-        //讀取訂單明細API /api/order/{orderNo}
+        // 讀取特定訂單明細 (GET /api/orderApi/{orderNo})
         [HttpGet("{orderNo}")]
         public async Task<IActionResult> GetOrderDetail(string orderNo, [FromQuery] int memberId)
         {
             var result = await _orderService.GetOrderDetailAsync(orderNo, memberId);
-            
-            if (!result.Success)
-            {
-                return NotFound(result); // 找不到訂單回傳 404
-            }
+            if (!result.Success) return NotFound(result); 
             return Ok(result);
         }
 
-        //生成綠界訂單表格API /api/orderApi/ecpay/{orderNo}
+        // 產生自動轉向綠界收銀台的 HTML 表單 (GET /api/orderApi/ecpay/{orderNo})
         [HttpGet("ecpay/{orderNo}")]
         public async Task<IActionResult> GenerateECPayForm(string orderNo)
         {
-            //直接呼叫Service
             string htmlForm = await _orderService.GenerateECPayHtmlFormAsync(orderNo);
-    
             if (string.IsNullOrEmpty(htmlForm))
             {
                 return NotFound(new ApiResponse<object> { Success = false, Message = "找不到這筆訂單" });
             }
-            //成功的話，將 HTML 字串以 text/html 格式直接回傳給瀏覽器
             return Content(htmlForm, "text/html");
         }
 
-        //綠界回傳API /api/orderApi/ecpayResult
+        // 綠界金流非同步交易回傳通知 (POST /api/orderApi/ecpayResult)
         [HttpPost("ecpayResult")]
-        public IActionResult ECPayResult([FromForm] IFormCollection form)
+        public async Task<IActionResult> ECPayResult([FromForm] IFormCollection form)
         {
             try
             {
-                // 1. 取得綠界回傳的付款狀態 (1 代表成功)
-                string rtnCode = form["RtnCode"];
-                string merchantTradeNo = form["MerchantTradeNo"];
-
-                if (rtnCode == "1" && !string.IsNullOrEmpty(merchantTradeNo))
+                var ecpayService = _paymentFactory.GetPaymentService(1) as ECPayPaymentService;
+                if (ecpayService != null)
                 {
-                    // 2. 還原真實的訂單編號 (取前 17 碼，因為我們可能加了 fff 後綴)
-                    string orderNo = merchantTradeNo.Length >= 17 ? merchantTradeNo.Substring(0, 17) : merchantTradeNo;
-
-                    // 3. 找出該筆訂單並更新狀態為「已付款」(2)
-                    var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == orderNo);
-                    if (order != null && order.FStatus == 1)
+                    var formDict = form.ToDictionary(k => k.Key, k => k.Value.ToString());
+                    if (ecpayService.ValidateECPayCallback(formDict, out string orderNo))
                     {
-                        order.FStatus = 2; // 2: 已付款
-                        order.FUpdatedAt = DateTime.Now;
-                        _db.SaveChanges();
+                        await _orderService.MarkOrderAsPaidAsync(orderNo);
                     }
                 }
             }
             catch (Exception ex)
             {
-                // 若有例外發生，僅印出錯誤，確保還是能回傳 HTML 讓前端視窗正常關閉
                 Console.WriteLine("ECPay 狀態更新失敗：" + ex.Message);
             }
 
             string html = @"
-        <html>
+         <html>
         <body style='display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;'>
             <div style='text-align:center;'>
                 <h2 style='color: #4CAF50;'>付款成功！</h2>
@@ -164,12 +141,11 @@ namespace Shizuku.Controllers
             return Content(html, "text/html");
         }
 
-        //重新付款 /api/orderApi/pay/{orderNo}
+        // 重新發起付款流程 (POST /api/orderApi/repay/{orderNo})
         [HttpPost("repay/{orderNo}")]
         public async Task<IActionResult> RepayOrder(string orderNo, [FromBody] RepayRequestDto request)
         {
-            // 找出這筆訂單
-            var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == orderNo);
+            var order = await _orderService.GetOrderAsync(orderNo);
             if (order == null)
             {
                 return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" });
@@ -182,9 +158,22 @@ namespace Shizuku.Controllers
 
             try
             {
-                // 產生新的付款連結
+                if (request.PaymentMethodId == (int)PaymentMethod.COD)
+                {
+                    await _orderService.MarkOrderAsPaidAsync(orderNo, request.PaymentMethodId);
+                    return Ok(new ApiResponse<CreateOrderResponseDto>
+                    {
+                        Success = true,
+                        Message = "付款方式已更改為貨到付款",
+                        Data = new CreateOrderResponseDto
+                        {
+                            OrderNo = orderNo,
+                            PaymentUrl = ""
+                        }
+                    });
+                }
+
                 string paymentUrl = await _orderService.GeneratePaymentUrlAsync(orderNo, request.PaymentMethodId, order.FTotalAmount);
-                
                 return Ok(new ApiResponse<CreateOrderResponseDto>
                 {
                     Success = true,
@@ -198,34 +187,80 @@ namespace Shizuku.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new ApiResponse<object> { Success = false, Message = "產生付款連結失敗：" + ex.Message });
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = $"產生付款連結失敗: {ex.Message}"
+                });
             }
         }
 
-        //取消訂單 /api/orderApi/{orderNo}/cancel
+        // 會員手動取消未付款訂單 (HttpPatch /api/orderApi/{orderNo}/cancel)
         [HttpPatch("{orderNo}/cancel")]
-public IActionResult CancelOrder(string orderNo)
-{
-    var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == orderNo);
-    if (order == null)
-        return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該訂單" });
-    if (order.FStatus != 1)
-        return BadRequest(new ApiResponse<object> { Success = false, Message = "只有待付款的訂單才能取消" });
-    order.FStatus = 5; // 5 = 已取消
-    order.FUpdatedAt = DateTime.Now;
-    _db.SaveChanges();
-    return Ok(new ApiResponse<object> { Success = true, Message = "訂單已成功取消" });
-}
-    }
+        public async Task<IActionResult> CancelOrder(string orderNo)
+        {
+            var result = await _orderService.CancelOrderAsync(orderNo);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
 
-    // 放在 Controller 最下面，用來接前端的資料
-    public class RepayRequestDto
-    {
-        public int PaymentMethodId { get; set; }
-    }
-    public class ConfirmPaymentRequestDto
-    {
-        public string TransactionId { get; set; }
-        public string OrderId { get; set; }
+        // 取得前台統計用銷量數據 (GET /api/orderApi/sales-stats)
+        [HttpGet("sales-stats")]
+        public async Task<IActionResult> GetSalesStats()
+        {
+            try
+            {
+                var stats = await _orderService.GetSalesStatsAsync();
+                return Ok(new ApiResponse<List<VariantSalesStatsDto>>
+                {
+                    Success = true,
+                    Message = "查詢成功",
+                    Data = stats
+                });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("查詢銷量統計失敗", ex);
+            }
+        }
+
+        // 前台會員申請退款 (POST /api/OrderApi/{orderNo}/refund)
+        [HttpPost("{orderNo}/refund")]
+        public async Task<IActionResult> RequestRefund(string orderNo, [FromBody] RefundRequestDto request)
+        {
+            var result = await _refundService.RequestRefundAsync(orderNo, request.Reason);
+            if (!result.Success) return BadRequest(result);
+            return Ok(result);
+        }
+
+        // 取得訂單的金流交易列表 (GET /api/orderApi/{orderNo}/transactions)
+        // 供前台「支付明細列表」頁面使用，顯示該訂單所有的支付嘗試紀錄
+        [HttpGet("{orderNo}/transactions")]
+        public async Task<IActionResult> GetOrderTransactions(string orderNo)
+        {
+            try
+            {
+                var order = await _orderService.GetOrderAsync(orderNo);
+                if (order == null)
+                    return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" });
+
+                var transactions = await _orderService.GetOrderTransactionsAsync(order.FId);
+                return Ok(new ApiResponse<object> { Success = true, Message = "查詢成功", Data = transactions });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("查詢金流交易列表失敗", ex);
+            }
+        }
+
+        // 輔助方法：統一處理錯誤訊息與狀態碼回傳
+        private IActionResult InternalServerError(string customMessage, Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"{customMessage}: {ex.Message}"
+            });
+        }
     }
 }

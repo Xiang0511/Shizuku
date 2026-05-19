@@ -1,103 +1,50 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Shizuku.Models;
+using Shizuku.Services; 
 using Shizuku.ViewModels;
 
 namespace Shizuku.Controllers
 {
-    public class employeeController : Controller
+    public class EmployeeController : Controller // 將原本小寫 e 的 employeeController 改為大寫 E
     {
-        //員工清單&搜尋欄
-        // [修改範圍：List 方法]
-        // 參數新增 string statusFilter，並給予預設值 "Active"
+        private readonly EmployeeService _employeeService;
+
+        // 透過 DI 注入 EmployeeService
+        public EmployeeController(EmployeeService employeeService)
+        {
+            _employeeService = employeeService;
+        }
+
+        // 員工清單 & 搜尋欄
         public IActionResult List(CKeywordViewModel vm, string statusFilter = "Active")
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-
-            // 將目前的過濾狀態存入 ViewBag，讓前端的下拉選單能維持選取狀態
             ViewBag.StatusFilter = statusFilter;
 
-            //：建立基礎查詢 (Base Query)
-            var query = db.TEmployees.AsQueryable();
-
-            // 步驟 2：根據下拉選單進行狀態過濾 (核心邏輯升級)
-            if (statusFilter == "Active")
-            {
-                // 僅顯示在職 (過濾掉離職)
-                query = query.Where(p => p.FStatus != "離職");
-            }
-            else if (statusFilter == "Resigned")
-            {
-                // 僅顯示離職
-                query = query.Where(p => p.FStatus == "離職");
-            }
-            // 如果是 "All"，則不加任何狀態過濾條件，直接往下走
-            if (!string.IsNullOrEmpty(vm.txtKeyword))
-            {
-                query = query.Where(p =>
-                    p.FNumber.Contains(vm.txtKeyword) ||
-                    p.FName.Contains(vm.txtKeyword) ||
-                    p.FAddress.Contains(vm.txtKeyword) ||
-                    p.FPhone.Contains(vm.txtKeyword) ||
-                    p.FEmail.Contains(vm.txtKeyword) ||
-                    p.FStatus.Contains(vm.txtKeyword) ||
-                    p.FDepartmentId.ToString().Contains(vm.txtKeyword) ||
-                    p.FHireDate.ToString().Contains(vm.txtKeyword)
-                );
-            }
-            // 執行查詢並回傳
-
-            var datas = query.ToList();
+            // 將複雜的查詢邏輯交給 Service
+            var datas = _employeeService.GetEmployees(vm.txtKeyword, statusFilter);
 
             return View(datas);
         }
 
-        //新建員工
+        // 新建員工 (顯示表單)
         public IActionResult Create()
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            ViewBag.DepartmentList = new SelectList(db.TDepartments.ToList(), "FId", "FDepartmentName");
-            ViewBag.PositionList = new SelectList(db.TPositions.ToList(), "FId", "FPositionName");
+            ViewBag.DepartmentList = new SelectList(_employeeService.GetAllDepartments(), "FId", "FDepartmentName");
+            ViewBag.PositionList = new SelectList(_employeeService.GetAllPositions(), "FId", "FPositionName");
+            
             TEmployee defaultEmployee = new TEmployee()
             {
-                FStatus = "在職" // 設定預設狀態為「在職」
+                FStatus = "在職" 
             };
             return View(defaultEmployee);
         }
+
+        // 新建員工 (處理送出資料)
         [HttpPost]
         public IActionResult Create(TEmployee p)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-
-
-            p.FStatus = "在職";
-            p.FCreatedAt = DateTime.Now;
-            p.FUpdatedAt = DateTime.Now;
-
-            // --- 自動生成 EMP+流水號 邏輯開始 ---
-            if (string.IsNullOrEmpty(p.FNumber))
-            {
-                // 取得資料庫中目前最後一筆 EMP 開頭的編號
-                var lastEmployee = db.TEmployees
-                    .Where(e => e.FNumber.StartsWith("EMP"))
-                    .OrderByDescending(e => e.FNumber)
-                    .FirstOrDefault();
-
-                int nextNumber = 1;
-                if (lastEmployee != null)
-                {
-                    // 擷取 EMP 之後的數字部分 並轉為數字加 1
-                    string lastNumStr = lastEmployee.FNumber.Replace("EMP", "");
-                    if (int.TryParse(lastNumStr, out int lastId))
-                    {
-                        nextNumber = lastId + 1;
-                    }
-                }
-                // 格式化為 EMP + 三位數字，不足三位補 0
-                p.FNumber = $"EMP{nextNumber:D3}";
-            }
-
-            //移除不需要使用者填寫的驗證
+            // 移除不需要使用者填寫的驗證
             ModelState.Remove("FStatus");
             ModelState.Remove(nameof(p.FNumber));
             ModelState.Remove(nameof(p.FStatus));
@@ -106,85 +53,60 @@ namespace Shizuku.Controllers
 
             if (ModelState.IsValid)
             {
-                db.TEmployees.Add(p);
-                db.SaveChanges();
+                // 將資料庫寫入與編號產生邏輯交給 Service
+                _employeeService.CreateEmployee(p);
                 return RedirectToAction("List");
             }
 
-            DbShizukuDemoContext dbRetry = new DbShizukuDemoContext();
-            ViewBag.DepartmentList = new SelectList(dbRetry.TDepartments.ToList(), "FId", "FDepartmentName", p.FDepartmentId);
-            ViewBag.PositionList = new SelectList(dbRetry.TPositions.ToList(), "FId", "FPositionName", p.FPositionId);
+            // 驗證失敗時，重新準備下拉選單資料
+            ViewBag.DepartmentList = new SelectList(_employeeService.GetAllDepartments(), "FId", "FDepartmentName", p.FDepartmentId);
+            ViewBag.PositionList = new SelectList(_employeeService.GetAllPositions(), "FId", "FPositionName", p.FPositionId);
 
             return View(p);
         }
 
-        //修改員工
+        // 修改員工 (顯示表單)
         public IActionResult Edit(int? id)
         {
             if (id == null) return RedirectToAction("List");
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TEmployee x = db.TEmployees.FirstOrDefault(p => p.FId == id);
+            TEmployee x = _employeeService.GetEmployeeById(id.Value);
 
-            if (x == null)
-                return RedirectToAction("List");
+            if (x == null) return RedirectToAction("List");
 
-            // 準備部門與職位的下拉選單資料
-            ViewBag.DepartmentList = new SelectList(db.TDepartments.ToList(), "FId", "FDepartmentName");
-            ViewBag.PositionList = new SelectList(db.TPositions.ToList(), "FId", "FPositionName");
+            // 準備部門與職位的下拉選單資料交給 Service 處理
+            ViewBag.DepartmentList = new SelectList(_employeeService.GetAllDepartments(), "FId", "FDepartmentName");
+            ViewBag.PositionList = new SelectList(_employeeService.GetAllPositions(), "FId", "FPositionName");
 
             return View(x);
         }
+
+        // 修改員工 (處理送出資料)
         [HttpPost]
         public IActionResult Edit(TEmployee e)
         {
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-
-            // 確保表單驗證成功才進行資料庫寫入
             if (ModelState.IsValid)
             {
-                TEmployee dbEmployee = db.TEmployees.FirstOrDefault(p => p.FId == e.FId);
-                if (dbEmployee != null)
-                {
-                    // 更新基本資料
-                    dbEmployee.FName = e.FName;
-                    dbEmployee.FPassword = e.FPassword;
-                    dbEmployee.FPhone = e.FPhone;
-                    dbEmployee.FEmail = e.FEmail;
-                    dbEmployee.FAddress = e.FAddress;
-
-
-                    // [新增] 更新部門、職位與狀態
-                    dbEmployee.FDepartmentId = e.FDepartmentId;
-                    dbEmployee.FPositionId = e.FPositionId;
-                    dbEmployee.FStatus = e.FStatus; // 修改頁面必須允許變更狀態 (例如：離職)
-                    dbEmployee.FUpdatedAt = DateTime.Now;
-
-                    db.SaveChanges();
-                }
+                // 更新邏輯交給 Service
+                _employeeService.UpdateEmployee(e);
                 return RedirectToAction("List");
             }
-            // 若驗證失敗，需要重新準備下拉選單的資料，否則返回 View 時會報錯
-            ViewBag.DepartmentList = new SelectList(db.TDepartments.ToList(), "FId", "FDepartmentName", e.FDepartmentId);
-            ViewBag.PositionList = new SelectList(db.TPositions.ToList(), "FId", "FPositionName", e.FPositionId);
+
+            // 若驗證失敗，重新準備下拉選單
+            ViewBag.DepartmentList = new SelectList(_employeeService.GetAllDepartments(), "FId", "FDepartmentName", e.FDepartmentId);
+            ViewBag.PositionList = new SelectList(_employeeService.GetAllPositions(), "FId", "FPositionName", e.FPositionId);
 
             return View(e);
         }
-        //軟刪除,隱藏已離職員工
+
+        // 軟刪除,隱藏已離職員工
         public IActionResult Delete(int? id)
         {
-            //  基礎防呆，避免 id 為 null 時發生錯誤
             if (id == null) return RedirectToAction("List");
 
-            DbShizukuDemoContext db = new DbShizukuDemoContext();
-            TEmployee x = db.TEmployees.FirstOrDefault(p => p.FId == id);
-
-            if (x != null)
-            {
-                x.FStatus = "離職";
-                x.FUpdatedAt = DateTime.Now;
-                db.SaveChanges();
-            }
+            // 軟刪除邏輯交給 Service
+            _employeeService.SoftDeleteEmployee(id.Value);
+            
             return RedirectToAction("List");
         }
     }

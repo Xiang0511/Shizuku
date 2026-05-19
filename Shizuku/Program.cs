@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
@@ -82,18 +82,40 @@ try
 
     // --- 5. 註冊自定義服務 (DI) ---
     builder.Services.AddScoped<OrderService>();
+    builder.Services.AddScoped<EmployeeService>();
     builder.Services.AddScoped<MemberService>();
     builder.Services.AddHttpClient<LinePayService>();
     builder.Services.AddScoped<ProductService>();
+    builder.Services.AddScoped<PaymentAdminService>();
+    builder.Services.AddScoped<OrderAdminService>();
+    builder.Services.AddScoped<AnomalyMonitorService>();
+    builder.Services.AddScoped<RefundAdminService>();
+    builder.Services.AddHostedService<OrderTimeoutService>();
+
+    // 新增合併進來的服務
     builder.Services.AddScoped<JwtHelper>();
     builder.Services.AddScoped<EmailService>();
     builder.Services.AddScoped<VerificationService>();
 
+    // --- 6. 註冊金流服務 (DI) ---
+    builder.Services.AddScoped<ECPayPaymentService>();
+    builder.Services.AddScoped<LinePayPaymentService>();
+    builder.Services.AddScoped<CashOnDeliveryPaymentService>();
+    builder.Services.AddScoped<PaymentFactory>();
+
+    // 加入這行，讓系統載入 SignalR 的相關功能
     builder.Services.AddSignalR();
 
+    // 註冊異常偵測背景服務
+    builder.Services.AddSingleton<PaymentAnomalyService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<PaymentAnomalyService>());
+    builder.Services.AddSingleton<OrderAnomalyService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<OrderAnomalyService>());
+
+    // 所有的服務註冊都必須在 Build 之前完成
     var app = builder.Build();
 
-    // --- 6. 中間件順序 (Pipeline) ---
+    // --- 7. 中間件順序 (Pipeline) ---
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -121,6 +143,9 @@ try
         pattern: "{controller=Home}/{action=Index}/{id?}");
 
     app.MapHub<ChatHub>("/chatHub");
+
+    // 後台管理員通知專用通道
+    app.MapHub<AdminNotificationHub>("/adminNotificationHub");
 
     Log.Information("應用程式正在啟動...");
     app.Run();

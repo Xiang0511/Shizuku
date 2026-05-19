@@ -215,5 +215,23 @@ namespace Shizuku.Controllers
                 Data = inventory
             });
         }
+
+        /// <summary>結帳時檢查商品庫存與價格請求</summary>
+        [HttpPost("check-items")]
+        public async Task<IActionResult> CheckItems([FromBody] List<int> variantIds)
+        {
+            if (variantIds == null || !variantIds.Any())
+            {
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "未提供商品 ID" });
+            }
+            var results = await _productService.GetLatestInfoAsync(variantIds);
+            return Ok(new ApiResponse<List<ProductCheckDto>>
+            {
+                Success = true,
+                Message = "檢查成功",
+                Data = results
+            });
+        }
+
     }
 }
