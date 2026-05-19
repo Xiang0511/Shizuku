@@ -113,6 +113,7 @@ namespace Shizuku.Services
                     var paymentTx = new TPaymentTransaction
                     {
                         FOrderId = order.FId,
+                        FMemberId = request.MemberId,  // 補填會員 ID，方便後台按會員查詢
                         FTransactionNo = "TX" + orderNo.Substring(2),
                         FMethodId = request.PaymentMethodId,
                         FAmount = totalAmount,
@@ -338,6 +339,43 @@ namespace Shizuku.Services
         public async Task<TOrder> GetOrderAsync(string orderNo)
         {
             return await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+        }
+
+        // 取得指定訂單的所有金流交易紀錄列表 (供前台支付明細列表頁使用)
+        public async Task<List<object>> GetOrderTransactionsAsync(int orderId)
+        {
+            var txns = await _db.TPaymentTransactions
+                .Where(pt => pt.FOrderId == orderId)
+                .OrderByDescending(pt => pt.FCreatedAt)
+                .ToListAsync();
+
+            var result = new List<object>();
+            foreach (var tx in txns)
+            {
+                var methodName = await GetPaymentMethodNameAsync(tx.FMethodId);
+                var statusText = tx.FStatus switch
+                {
+                    0 => "待付款",
+                    1 => "付款成功",
+                    2 => "交易失敗",
+                    3 => "已退款",
+                    _ => "未知"
+                };
+
+                result.Add(new
+                {
+                    TransactionId = tx.FId,
+                    TransactionNo = tx.FTransactionNo,
+                    Method = methodName,
+                    Amount = tx.FAmount,
+                    Status = tx.FStatus,
+                    StatusText = statusText,
+                    PaidAt = tx.FPaidAt,
+                    CreatedAt = tx.FCreatedAt,
+                    GatewayTradeNo = tx.FGatewayTradeNo
+                });
+            }
+            return result;
         }
 
         // 統一更新訂單狀態為已付款

@@ -233,6 +233,26 @@ namespace Shizuku.Controllers
             return Ok(result);
         }
 
+        // 取得訂單的金流交易列表 (GET /api/orderApi/{orderNo}/transactions)
+        // 供前台「支付明細列表」頁面使用，顯示該訂單所有的支付嘗試紀錄
+        [HttpGet("{orderNo}/transactions")]
+        public async Task<IActionResult> GetOrderTransactions(string orderNo)
+        {
+            try
+            {
+                var order = await _orderService.GetOrderAsync(orderNo);
+                if (order == null)
+                    return NotFound(new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" });
+
+                var transactions = await _orderService.GetOrderTransactionsAsync(order.FId);
+                return Ok(new ApiResponse<object> { Success = true, Message = "查詢成功", Data = transactions });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("查詢金流交易列表失敗", ex);
+            }
+        }
+
         // 輔助方法：統一處理錯誤訊息與狀態碼回傳
         private IActionResult InternalServerError(string customMessage, Exception ex)
         {
