@@ -104,10 +104,10 @@ namespace Shizuku.Controllers
             }
             return RedirectToAction("Categories");
         }
-        // 10 . 聊天室 
-        public IActionResult Chat()
-        {
-            return View();
-        }
+        //// 10 . 聊天室 
+        //public IActionResult Chat()
+        //{
+        //    return View();
+        //}
     }
 }

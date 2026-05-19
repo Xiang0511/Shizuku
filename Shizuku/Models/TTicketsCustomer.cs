@@ -22,7 +22,7 @@ public partial class TTicketsCustomer
     public virtual TTicketCategory FCategory { get; set; }
 
     // ==========================================
-    // ✨ 我們新增的 3 個訪客專用欄位放這邊
+    //  我們新增的 3 個訪客專用欄位放這邊
     // ==========================================
     [DisplayName("訪客姓名")]
     public string? FGuestName { get; set; }

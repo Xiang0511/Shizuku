@@ -254,23 +254,31 @@ namespace Shizuku.Services
         }
         public async Task<string> GetBotResponseAsync(string userMessage)
         {
-            // 1. 從資料庫的 tChatbotFaq 資料表取出所有的問答資料
-            // 這邊會對應你剛剛在 DbContext 註冊的 TChatbotFaqs
-            var faqs = await _db.TChatbotFaqs.ToListAsync();
-
-            // 2. 遍歷每一筆資料，比對客人的訊息是否包含關鍵字
-            foreach (var faq in faqs)
+            // 防呆：如果傳來的訊息是空的，直接回傳預設訊息
+            if (string.IsNullOrWhiteSpace(userMessage))
             {
-                // 檢查客人的訊息是否包含資料表中的 FKeyword 欄位內容
-                if (userMessage.Contains(faq.fKeyword))
-                {
-                    // 如果匹配成功，回傳資料庫中 FAnswer 欄位的答案
-                    return faq.fAnswer;
-                }
+                return "不好意思，我不太明白您的意思。您可以嘗試詢問關於運費、退換貨或門市的問題，或是填寫聯絡表單，我們會盡快由專人為您解答。";
             }
 
-            // 3. 如果資料庫中所有的關鍵字都沒匹配到，則回傳預設訊息
-            // 這裡已經移除所有表情符號
+            // 1. 將客人的訊息去除前後空白，並「全部轉成小寫」，避免大小寫比對失敗
+            string searchMsg = userMessage.Trim().ToLower();
+
+            // 2. 從資料庫把問答集撈出來 (因為題庫通常不多，全部撈出來比對效能很 OK)
+            var faqs = await _db.TChatbotFaqs.ToListAsync();
+
+            // 3. 用 LINQ 找出第一個匹配的答案
+            var matchedFaq = faqs.FirstOrDefault(faq =>
+                !string.IsNullOrWhiteSpace(faq.fKeyword) &&      // 防呆：確保資料庫裡的關鍵字不是空的
+                searchMsg.Contains(faq.fKeyword.ToLower())       // 關鍵：將資料庫關鍵字也轉小寫後進行模糊比對
+            );
+
+            // 4. 如果有找到對應的答案，就回傳
+            if (matchedFaq != null)
+            {
+                return matchedFaq.fAnswer;
+            }
+
+            // 5. 如果所有的關鍵字都沒匹配到，回傳預設訊息
             return "不好意思，我不太明白您的意思。您可以嘗試詢問關於運費、退換貨或門市的問題，或是填寫聯絡表單，我們會盡快由專人為您解答。";
         }
     }

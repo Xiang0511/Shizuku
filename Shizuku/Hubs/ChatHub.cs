@@ -1,30 +1,64 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Shizuku.Models;
+using System;
+using System.Threading.Tasks;
 
 namespace Shizuku.Hubs
 {
     public class ChatHub : Hub
     {
-        // 1. 客服專用：客服登入後台開啟連線時，呼叫這個方法加入「客服群組」
+        private readonly DbShizukuDemoContext _context;
+
+        public ChatHub(DbShizukuDemoContext context)
+        {
+            _context = context;
+        }
+
         public async Task JoinAsAdmin()
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
         }
 
-        // 2. 訪客專用：訪客傳送訊息
-        public async Task SendMessageToAdmin(string message)
+        //  新增：會員連線時，讓他加入專屬的 ID 群組
+        public async Task JoinAsMember(int memberId)
         {
-            // Context.ConnectionId 是 SignalR 自動配發給這個訪客的唯一亂碼 (例如: aB3x9Y...)
-            string guestId = Context.ConnectionId;
-
-            // 把訪客的 ID 和訊息，推播給所有在 "Admins" 群組裡的客服人員
-            await Clients.Group("Admins").SendAsync("ReceiveFromGuest", guestId, message);
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"Member_{memberId}");
         }
 
-        // 3. 客服專用：客服指定回覆給特定訪客
-        public async Task ReplyToGuest(string guestId, string message)
+        // 參數精簡：不用再傳 ConnectionId 了
+        public async Task SendMessageToAdmin(int memberId, string memberName, string message)
         {
-            // 透過剛才拿到的 guestId，把訊息精準送回給那個唯一的訪客，其他人絕對看不到
-            await Clients.Client(guestId).SendAsync("ReceiveFromAdmin", message);
+            var chatLog = new TLiveChatMessage
+            {
+                FMemberId = memberId,
+                FSenderType = "Member",
+                FSenderName = memberName,
+                FMessage = message,
+                FSendTime = DateTime.Now
+            };
+            _context.TLiveChatMessages.Add(chatLog);
+            await _context.SaveChangesAsync();
+
+            // 廣播給所有 Admin
+            await Clients.Group("Admins").SendAsync("ReceiveFromMember", memberId, memberName, message);
+        }
+
+        // 參數精簡：客服回覆時，直接對著該會員的群組喊話
+        public async Task ReplyToMember(int memberId, string adminName, string message)
+        {
+            var chatLog = new TLiveChatMessage
+            {
+                FMemberId = memberId,
+                FSenderType = "Admin",
+                FSenderName = adminName,
+                FMessage = message,
+                FSendTime = DateTime.Now
+            };
+            _context.TLiveChatMessages.Add(chatLog);
+            await _context.SaveChangesAsync();
+
+            //  關鍵：直接廣播給指定的會員群組，不管他怎麼重整都收得到！
+            await Clients.Group($"Member_{memberId}").SendAsync("ReceiveFromAdmin", adminName, message);
         }
     }
 }

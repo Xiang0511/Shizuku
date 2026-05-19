@@ -58,6 +58,7 @@ public partial class DbShizukuDemoContext : DbContext
     public virtual DbSet<TOrder> TOrders { get; set; }
     public virtual DbSet<TOrderDetail> TOrderDetails { get; set; }
     public virtual DbSet<TChatbotFaq> TChatbotFaqs { get; set; }
+    public virtual DbSet<TLiveChatMessage> TLiveChatMessages { get; set; }
 
     public virtual DbSet<TMemberStoreItem> TMemberStoreItem { get; set; }
 
@@ -475,7 +476,7 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasColumnName("fName");
             entity.Property(e => e.FSortOrder).HasColumnName("fSortOrder");
 
-            
+
         });
 
         modelBuilder.Entity<TProductVariant>(entity =>
@@ -495,7 +496,7 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("fSkuCode");
             entity.Property(e => e.FStock).HasColumnName("fStock");
-            // ✨ 加上這段：強制指定外鍵關聯，解決 TProductFId 報錯
+            // 加上這段：強制指定外鍵關聯，解決 TProductFId 報錯
             entity.HasOne(d => d.TProduct)
                 .WithMany(p => p.TProductVariants)
                 .HasForeignKey(d => d.FProductId)
@@ -623,6 +624,15 @@ public partial class DbShizukuDemoContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("fKeyword");
             entity.Property(e => e.fAnswer).HasColumnName("fAnswer");
+        });
+
+        modelBuilder.Entity<TLiveChatMessage>(entity =>
+        {
+            entity.HasKey(e => e.FId).HasName("PK_LiveChatMessages");
+
+            entity.ToTable("tLiveChatMessage");
+
+            entity.Property(e => e.FId).HasColumnName("fId");
         });
 
         OnModelCreatingPartial(modelBuilder);
