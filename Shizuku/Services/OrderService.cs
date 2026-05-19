@@ -278,13 +278,30 @@ namespace Shizuku.Services
         {
             var stats = await (from od in _db.TOrderDetails
                                join o in _db.TOrders on od.FOrderId equals o.FId
+                               join v in _db.TProductVariants on od.FVariantId equals v.FId//13
+                               join p in _db.TProducts on v.FProductId equals p.FId//13
+                               join c in _db.TProductColors on v.FColorId equals c.FId//13
+                               join s in _db.TProductSizes on v.FSizeId equals s.FId//13
                                where o.FStatus != 5 // 排除取消的訂單
-                               group od by od.FVariantId into g
-                               select new VariantSalesStatsDto
+                               group new { od, p, c, s } by new//13
                                {
-                                   VariantId = g.Key,
-                                   TotalQuantitySold = g.Sum(x => x.FQuantity),
-                                   TotalRevenue = g.Sum(x => x.FSubtotal)
+                                   od.FVariantId,
+                                   p.FName,
+                                   p.FProduct,
+                                   ColorName = c.FName,
+                                   SizeName = s.FName
+                               }
+                               
+                               into g
+                               select new VariantSalesStatsDto//13
+                               {
+                                   VariantId = g.Key.FVariantId,
+                                   ProductName = g.Key.FName,
+                                   ProductCode = g.Key.FProduct,
+                                   Color = g.Key.ColorName,
+                                   Size = g.Key.SizeName,
+                                   TotalQuantitySold = g.Sum(x => x.od.FQuantity),
+                                   TotalRevenue = g.Sum(x => x.od.FSubtotal)
                                })
                                .OrderByDescending(x => x.TotalQuantitySold)
                                .Take(10)
