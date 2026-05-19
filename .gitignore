@@ -362,3 +362,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Shizuku/appsettings.Development.json
+/Shizuku/wwwroot/uploads/products
