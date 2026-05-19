@@ -21,6 +21,7 @@ namespace Shizuku.ViewModels
         [DisplayName("價格")]
         [DisplayFormat(DataFormatString = "{0:C0}")]
         public decimal fPrice { get; set; }
+        public decimal? fMinPrice { get; set; }
 
         [DisplayName("上架狀態")]
         public byte fStatus { get; set; }
@@ -37,14 +38,11 @@ namespace Shizuku.ViewModels
     // =============================================
     public class VariantSummaryDto
     {
-        [DisplayName("顏色")]
-        public string fColor { get; set; }
-
-        [DisplayName("尺寸")]
-        public string fSize { get; set; }
-
-        [DisplayName("庫存")]
+        public int fId { get; set; }  
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
         public int fStock { get; set; }
+        public decimal? fPrice { get; set; }
     }
 
     // =============================================
@@ -130,8 +128,8 @@ namespace Shizuku.ViewModels
     /// <summary>分類下拉選單用</summary>
     public class CategoryOptionDto
     {
-        public int ID { get; set; }
-        public string FullName { get; set; }
+        public int fId { get; set; }
+        public string fullName { get; set; } = string.Empty;
     }
     /// <summary>規格庫存編輯用 DTO</summary>
     public class VariantEditDto
@@ -141,6 +139,7 @@ namespace Shizuku.ViewModels
         public string? fSize { get; set; }     // 尺寸名稱（顯示用）
         public int fStock { get; set; }       // 可編輯
         public string? fSkuCode { get; set; }  // 唯讀顯示
+        public decimal? fPrice { get; set; }
     }
     // =============================================
     // 後台 Dashboard 用
@@ -190,5 +189,112 @@ namespace Shizuku.ViewModels
         public string fColor { get; set; } = string.Empty;
         public string fSize { get; set; } = string.Empty;
         public string fStockStatus { get; set; } = string.Empty;
+    }
+    /// <summary>進貨紀錄 DTO</summary>
+    public class StockRecordDto
+    {
+        public int fId { get; set; }
+        public int fVariantId { get; set; }
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public string fProductName { get; set; } = string.Empty;
+        public string fType { get; set; } = string.Empty;
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
+        public DateTime fCreatedAt { get; set; }
+    }
+
+    /// <summary>新增進貨 DTO</summary>
+    public class StockRecordCreateDto
+    {
+        public int fVariantId { get; set; }
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
+        public string fType { get; set; } = "進貨";
+    }
+
+    // 規格庫存（子列）
+    public class InventoryVariantDto
+    {
+        public int fVariantId { get; set; }
+        public string fSkuCode { get; set; } = string.Empty;
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public int fStock { get; set; }
+        public decimal fPrice { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string fStockStatus { get; set; } = string.Empty;
+    }
+
+    // 商品庫存（主列）
+    public class InventoryProductDto
+    {
+        public int fProductId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public string fProduct { get; set; } = string.Empty;
+        public string? fImage { get; set; }
+        public int fTotalStock { get; set; }
+        public List<InventoryVariantDto> fVariants { get; set; } = new();
+    }
+    /// <summary>進貨單列表 DTO</summary>
+    public class PurchaseOrderDto
+    {
+        public int fId { get; set; }
+        public string fOrderNo { get; set; } = string.Empty;
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public int fTotalQuantity { get; set; }
+        public decimal fTotalAmount { get; set; }
+        public int fItemCount { get; set; }
+        public DateTime fCreatedAt { get; set; }
+    }
+
+    /// <summary>進貨單明細 DTO</summary>
+    public class PurchaseOrderDetailDto
+    {
+        public int fId { get; set; }
+        public int fVariantId { get; set; }
+        public string fProductName { get; set; } = string.Empty;
+        public string fColor { get; set; } = string.Empty;
+        public string fSize { get; set; } = string.Empty;
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public decimal? fAmount { get; set; }
+        public string? fNote { get; set; }
+    }
+
+    /// <summary>進貨單詳細（含明細）</summary>
+    public class PurchaseOrderFullDto
+    {
+        public int fId { get; set; }
+        public string fOrderNo { get; set; } = string.Empty;
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public int fTotalQuantity { get; set; }
+        public decimal fTotalAmount { get; set; }
+        public DateTime fCreatedAt { get; set; }
+        public List<PurchaseOrderDetailDto> fDetails { get; set; } = new();
+    }
+
+    /// <summary>新增進貨單 DTO</summary>
+    public class PurchaseOrderCreateDto
+    {
+        public string? fSupplier { get; set; }
+        public string? fPaymentMethod { get; set; }
+        public string? fNote { get; set; }
+        public List<PurchaseOrderDetailCreateDto> fDetails { get; set; } = new();
+    }
+
+    /// <summary>新增進貨單明細 DTO</summary>
+    public class PurchaseOrderDetailCreateDto
+    {
+        public int fVariantId { get; set; }
+        public int fQuantity { get; set; }
+        public decimal? fCostPrice { get; set; }
+        public string? fNote { get; set; }
     }
 }

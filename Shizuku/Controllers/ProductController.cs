@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Shizuku.DTOs;
+using Shizuku.Models;
 using Shizuku.Services;
 using Shizuku.ViewModels;
 
@@ -18,7 +20,9 @@ namespace Shizuku.Controllers
 
         /// <summary>取得商品列表</summary>
         [HttpGet]
-        public IActionResult List([FromQuery] string? keyword, [FromQuery] int? categoryId)
+        public IActionResult List(
+            [FromQuery] string? keyword,
+            [FromQuery] int? categoryId)
         {
             var datas = _productService.GetProductList(keyword, categoryId);
             return Ok(new ApiResponse<object>
@@ -76,6 +80,50 @@ namespace Shizuku.Controllers
             });
         }
 
+        [HttpGet("{id}/images")]
+        
+        public IActionResult GetImages(int id)
+        {
+            var images = _productService.GetProductImages(id);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = images
+            });
+        }
+        /// <summary>取得進貨單列表</summary>
+        [HttpGet("purchase-orders")]
+        public IActionResult GetPurchaseOrders()
+        {
+            var orders = _productService.GetPurchaseOrders();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = orders
+            });
+        }
+
+        /// <summary>取得進貨單詳細</summary>
+        [HttpGet("purchase-orders/{id}")]
+        public IActionResult GetPurchaseOrder(int id)
+        {
+            var order = _productService.GetPurchaseOrder(id);
+            if (order == null)
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "找不到此進貨單"
+                });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = order
+            });
+        }
         /// <summary>新增商品</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
@@ -95,7 +143,7 @@ namespace Shizuku.Controllers
                 {
                     Success = true,
                     Message = "新增成功",
-                    Data = new { id = newId }
+                    Data = new { fId = newId }
                 });
             }
             catch (Exception ex)
@@ -109,6 +157,25 @@ namespace Shizuku.Controllers
             }
         }
 
+        /// <summary>新增進貨單</summary>
+        [HttpPost("purchase-orders")]
+        public IActionResult CreatePurchaseOrder([FromBody] PurchaseOrderCreateDto dto)
+        {
+            if (dto.fDetails == null || dto.fDetails.Count == 0)
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "請至少選擇一筆商品"
+                });
+
+            var newId = _productService.CreatePurchaseOrder(dto);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "進貨成功",
+                Data = new { fId = newId }
+            });
+        }
         /// <summary>上傳商品圖片</summary>
         [HttpPost("{id}/image")]
         public async Task<IActionResult> UploadImage(int id, IFormFile photo)
@@ -136,7 +203,20 @@ namespace Shizuku.Controllers
                 Data = new { imageUrl }
             });
         }
+        [HttpPost("{id}/image/extra")]
+        public async Task<IActionResult> UploadExtraImage(int id, IFormFile photo)
+        {
+            if (photo == null) return BadRequest();
 
+            var imageUrl = await _productService.SaveExtraImageAsync(id, photo);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "上傳成功",
+                Data = imageUrl
+            });
+        }
         /// <summary>更新商品基本資料</summary>
         [HttpPut("{id}")]
         public IActionResult Edit(int id, [FromBody] ProductEditDto dto)
@@ -213,6 +293,38 @@ namespace Shizuku.Controllers
                 Success = true,
                 Message = "查詢成功",
                 Data = inventory
+            });
+        }
+
+        /// <summary>取得進貨紀錄</summary>
+        [HttpGet("stock-records")]
+        public IActionResult GetStockRecords()
+        {
+            var records = _productService.GetStockRecords();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = records
+            });
+        }
+
+        /// <summary>新增進貨紀錄</summary>
+        [HttpPost("stock-records")]
+        public IActionResult AddStockRecord([FromBody] StockRecordCreateDto dto)
+        {
+            var result = _productService.AddStockRecord(dto);
+            if (!result)
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "新增失敗，規格不存在"
+                });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "進貨成功"
             });
         }
 

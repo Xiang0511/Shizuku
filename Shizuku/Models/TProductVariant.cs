@@ -20,4 +20,6 @@ public partial class TProductVariant
     public int FStock { get; set; }
 
     public decimal? FPrice { get; set; }
+    public decimal? FCostPrice { get; set; }
+
 }
