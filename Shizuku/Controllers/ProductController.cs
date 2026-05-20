@@ -217,6 +217,8 @@ namespace Shizuku.Controllers
                 Data = imageUrl
             });
         }
+        //新增新規格
+        [HttpPost("{id}/variants")]
         /// <summary>更新商品基本資料</summary>
         [HttpPut("{id}")]
         public IActionResult Edit(int id, [FromBody] ProductEditDto dto)
