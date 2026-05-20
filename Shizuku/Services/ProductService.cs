@@ -21,7 +21,7 @@ namespace Shizuku.Services
         {
             var query = _context.TProducts.Where(p => p.FStatus != 0);
             //= isAdmin
-
+            query = query.OrderByDescending(p => p.FCreatedAt);
             if (!string.IsNullOrEmpty(keyword))
             {
                 query = query.Where(p =>
@@ -184,6 +184,7 @@ namespace Shizuku.Services
                     FColorId = v.fColorId,
                     FSizeId = v.fSizeId,
                     FStock = v.fStock,
+                    FPrice = v.fPrice,
                     FSkuCode = $"{productCode}-{v.fColorId}-{v.fSizeId}"
                 };
 
@@ -681,6 +682,26 @@ public List<StockRecordDto> GetStockRecords()
             CurrentStock = v.FStock,
             ProductName = v.TProduct.FName
             }).ToListAsync();
+        }
+        public void AddVariants(int productId, List<VariantInputDto> variants)
+        {
+            var product = _context.TProducts.Find(productId);
+            if (product == null) return;
+
+            foreach (var v in variants)
+            {
+                if (v.fColorId == 0 || v.fSizeId == 0) continue;
+                _context.TProductVariants.Add(new TProductVariant
+                {
+                    FProductId = productId,
+                    FColorId = v.fColorId,
+                    FSizeId = v.fSizeId,
+                    FStock = v.fStock,
+                    FPrice = v.fPrice,
+                    FSkuCode = $"{product.FProduct}-{v.fColorId}-{v.fSizeId}"
+                });
+            }
+            _context.SaveChanges();
         }
     }
 }

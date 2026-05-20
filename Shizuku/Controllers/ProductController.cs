@@ -219,6 +219,15 @@ namespace Shizuku.Controllers
         }
         //新增新規格
         [HttpPost("{id}/variants")]
+        public IActionResult AddVariants(int id, [FromBody] List<VariantInputDto> variants)
+        {
+            _productService.AddVariants(id, variants);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "規格新增成功"
+            });
+        }
         /// <summary>更新商品基本資料</summary>
         [HttpPut("{id}")]
         public IActionResult Edit(int id, [FromBody] ProductEditDto dto)

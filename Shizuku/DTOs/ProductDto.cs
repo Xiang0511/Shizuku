@@ -82,39 +82,18 @@ namespace Shizuku.ViewModels
     // =============================================
     public class ProductCreateDto
     {
-        [DisplayName("商品名稱")]
         [Required(ErrorMessage = "請填寫商品名稱")]
         public string fName { get; set; }
 
-        [DisplayName("價格")]
         [Required(ErrorMessage = "請填寫價格")]
         public decimal fPrice { get; set; }
 
-        [DisplayName("產品分類")]
         [Required(ErrorMessage = "請選擇分類")]
         public int fCategoryId { get; set; }
 
-        [DisplayName("產品描述")]
+   
         public string? fDescription { get; set; }
 
-        //[DisplayName("上傳圖片")]
-        //public IFormFile? fPhoto { get; set; }
-
-        //[DisplayName("顏色")]
-        //[Required(ErrorMessage = "請選擇顏色")]
-        //public int fColorId { get; set; }
-
-        //[DisplayName("尺寸")]
-        //[Required(ErrorMessage = "請選擇尺寸")]
-        //public int fSizeId { get; set; }
-
-        //[DisplayName("初始庫存")]
-        //[Range(0, 9999, ErrorMessage = "庫存不可為負數")]
-        //public int fStock { get; set; }
-
-
-        // ✨ 這個不能少，前端 Variants[0].fColorId 才有地方綁
-        [DisplayName("規格列表")]
         public List<VariantInputDto> Variants { get; set; } = new();
     }
     public class VariantInputDto
@@ -124,6 +103,8 @@ namespace Shizuku.ViewModels
 
         [Range(0, 9999, ErrorMessage = "庫存不可為負數")]
         public int fStock { get; set; }
+
+        public decimal fPrice { get; set; }
     }
     /// <summary>分類下拉選單用</summary>
     public class CategoryOptionDto
