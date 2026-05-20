@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Shizuku.Models;
 using Shizuku.ViewModels;
 using Shizuku.DTOs;
@@ -645,17 +645,14 @@ public List<StockRecordDto> GetStockRecords()
         }
 
 
-        /// <summary>扣除庫存 (下單用)</summary>
+        /// <summary>扣除庫存 (下單用 - 更新防超賣)</summary>
         public async Task<bool> DeductStockAsync(int variantId, int quantity)
         {
-            var variant = await _context.TProductVariants.FindAsync(variantId);
-            if (variant == null || variant.FStock < quantity)
-            {
-                return false; // 找不到規格或庫存不足
-            }
-            variant.FStock -= quantity;
-            await _context.SaveChangesAsync();
-            return true;
+            int affectedRows = await _context.TProductVariants
+                .Where(v => v.FId == variantId && v.FStock >= quantity)
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.FStock, v => v.FStock - quantity));
+
+            return affectedRows > 0;
         }
 
         /// <summary>回補庫存 (取消訂單用)</summary>
