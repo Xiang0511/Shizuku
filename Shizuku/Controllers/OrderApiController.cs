@@ -224,6 +224,26 @@ namespace Shizuku.Controllers
             }
         }
 
+        // 取得前台首頁熱銷商品排行數據 (GET /api/orderApi/top-products)
+        [HttpGet("top-products")]
+        public async Task<IActionResult> GetTopProducts()
+        {
+            try
+            {
+                var stats = await _orderService.GetTopSellingProductsAsync();
+                return Ok(new ApiResponse<List<ProductSalesStatsDto>>
+                {
+                    Success = true,
+                    Message = "查詢成功",
+                    Data = stats
+                });
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError("查詢熱銷商品統計失敗", ex);
+            }
+        }
+
         // 前台會員申請退款 (POST /api/OrderApi/{orderNo}/refund)
         [HttpPost("{orderNo}/refund")]
         public async Task<IActionResult> RequestRefund(string orderNo, [FromBody] RefundRequestDto request)

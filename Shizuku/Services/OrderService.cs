@@ -293,6 +293,69 @@ namespace Shizuku.Services
             return stats;
         }
 
+        // 取得前台首頁熱銷商品排行數據 (以商品為單位加總，且商品需處於上架狀態。不足 8 個時以最新商品補足至 8 個)
+        public async Task<List<ProductSalesStatsDto>> GetTopSellingProductsAsync()
+        {
+            var stats = await (from od in _db.TOrderDetails
+                               join v in _db.TProductVariants on od.FVariantId equals v.FId
+                               join p in _db.TProducts on v.FProductId equals p.FId
+                               join o in _db.TOrders on od.FOrderId equals o.FId
+                               where o.FStatus != 5 && p.FStatus == 1 // 排除取消訂單，且必須是上架狀態的商品
+                               group od by new { p.FId, p.FName, p.FPrice } into g
+                               select new ProductSalesStatsDto
+                               {
+                                   ProductId = g.Key.FId,
+                                   ProductName = g.Key.FName,
+                                   Price = g.Key.FPrice,
+                                   ImageUrl = _db.TProductImages
+                                       .Where(img => img.FProductId == g.Key.FId && img.FIsMain == 1)
+                                       .Select(img => img.FImageUrl)
+                                       .FirstOrDefault() ?? _db.TProductImages
+                                           .Where(img => img.FProductId == g.Key.FId)
+                                           .OrderBy(img => img.FSortOrder)
+                                           .Select(img => img.FImageUrl)
+                                           .FirstOrDefault(),
+                                   TotalQuantitySold = g.Sum(x => x.FQuantity),
+                                   TotalRevenue = g.Sum(x => x.FSubtotal)
+                               })
+                               .OrderByDescending(x => x.TotalQuantitySold)
+                               .Take(8)
+                               .ToListAsync();
+
+            if (stats.Count < 8)
+            {
+                var existingProductIds = stats.Select(s => s.ProductId).ToList();
+                int need = 8 - stats.Count;
+
+                var fallbackProducts = await _db.TProducts
+                    .Where(p => p.FStatus == 1 && !existingProductIds.Contains(p.FId))
+                    .OrderByDescending(p => p.FCreatedAt)
+                    .ThenByDescending(p => p.FId)
+                    .Take(need)
+                    .Select(p => new ProductSalesStatsDto
+                    {
+                        ProductId = p.FId,
+                        ProductName = p.FName,
+                        Price = p.FPrice,
+                        ImageUrl = _db.TProductImages
+                            .Where(img => img.FProductId == p.FId && img.FIsMain == 1)
+                            .Select(img => img.FImageUrl)
+                            .FirstOrDefault() ?? _db.TProductImages
+                                .Where(img => img.FProductId == p.FId)
+                                .OrderBy(img => img.FSortOrder)
+                                .Select(img => img.FImageUrl)
+                                .FirstOrDefault(),
+                        TotalQuantitySold = 0,
+                        TotalRevenue = 0
+                    })
+                    .ToListAsync();
+
+                stats.AddRange(fallbackProducts);
+            }
+
+            return stats;
+        }
+
         // 會員自行取消訂單並回補庫存
         public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
         {
