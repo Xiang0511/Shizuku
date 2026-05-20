@@ -122,6 +122,36 @@ namespace Shizuku.Services
             };
         }
 
+        /// <summary>取得相關商品（同分類）</summary>
+        public List<ProductListDto> GetRelatedProducts(int productId)
+        {
+            var product = _context.TProducts.FirstOrDefault(p => p.FId == productId);
+            if (product == null) return new List<ProductListDto>();
+
+            return _context.TProducts
+                .Where(p => p.FCategoryId == product.FCategoryId
+                         && p.FId != productId
+                         && p.FStatus == 1)
+                .Take(6)
+                .Select(p => new ProductListDto
+                {
+                    fId = p.FId,
+                    fName = p.FName,
+                    fProduct = p.FProduct,
+                    fPrice = p.FPrice,
+                    fStatus = (byte)p.FStatus,
+                    fMinPrice = _context.TProductVariants
+                        .Where(v => v.FProductId == p.FId && v.FPrice != null)
+                        .Select(v => v.FPrice)
+                        .OrderBy(v => v)
+                        .FirstOrDefault() ?? p.FPrice,
+                    fImage = _context.TProductImages
+                        .Where(img => img.FProductId == p.FId && img.FIsMain == 1)
+                        .Select(img => img.FImageUrl)
+                        .FirstOrDefault()
+                }).ToList();
+        }
+
         /// <summary>更新商品基本資料</summary>
         public bool Update(ProductEditDto dto)
         {

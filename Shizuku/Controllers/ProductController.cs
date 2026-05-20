@@ -124,6 +124,18 @@ namespace Shizuku.Controllers
                 Data = order
             });
         }
+        /// <summary>取得相關商品</summary>
+        [HttpGet("{id}/related")]
+        public IActionResult GetRelated(int id)
+        {
+            var related = _productService.GetRelatedProducts(id);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = related
+            });
+        }
         /// <summary>新增商品</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
