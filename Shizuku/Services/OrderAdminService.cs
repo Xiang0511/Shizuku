@@ -336,7 +336,15 @@ namespace Shizuku.Services
         {
             if (methodId == null) return "未知付款方式";
             var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == methodId);
-            return method != null ? method.FMethodName : "未知付款方式";
+            if (method != null) return method.FMethodName;
+
+            return methodId switch
+            {
+                1 => "綠界金流",
+                2 => "LINE Pay",
+                3 => "貨到付款",
+                _ => "未知付款方式"
+            };
         }
     }
 }

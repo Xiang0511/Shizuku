@@ -196,7 +196,7 @@ namespace Shizuku.Services
                 if (paymentTx != null)
                 {
                     var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == paymentTx.FMethodId);
-                    methodName = method?.FMethodName ?? "未知";
+                    methodName = method != null ? method.FMethodName : (paymentTx.FMethodId == 1 ? "綠界金流" : (paymentTx.FMethodId == 2 ? "LINE Pay" : (paymentTx.FMethodId == 3 ? "貨到付款" : "未知")));
                 }
 
                 // 取得會員名稱

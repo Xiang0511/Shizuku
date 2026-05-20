@@ -30,7 +30,7 @@ namespace Shizuku.Services
                     x.pt.FId,
                     x.pt.FTransactionNo,
                     OrderNo = x.o != null ? x.o.FOrderNo : "未知訂單",
-                    MethodName = pm != null ? pm.FMethodName : "未知付款方式",
+                    MethodName = pm != null ? pm.FMethodName : (x.pt.FMethodId == 1 ? "綠界金流" : (x.pt.FMethodId == 2 ? "LINE Pay" : (x.pt.FMethodId == 3 ? "貨到付款" : "未知付款方式"))),
                     x.pt.FAmount,
                     x.pt.FGatewayTradeNo,
                     x.pt.FStatus,
