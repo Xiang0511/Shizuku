@@ -16,6 +16,7 @@
 
         public int? FPoints { get; set; }
 
+        public string? FImage { get; set; }
         //[cite_start]// 專業建議：未來若有 JWT Token 或權限，也可加在此處 [cite: 87]
         // public string Token { get; set; }// 新增這一行
         public string? Token { get; set; }

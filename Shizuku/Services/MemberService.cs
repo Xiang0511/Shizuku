@@ -134,7 +134,8 @@ namespace Shizuku.Services
                 FBirthday = member.FBirthday,
                 FPhone = member.FPhone,
                 FLevel=member.FLevel,
-                FPoints=member.FPoints
+                FPoints=member.FPoints,
+                FImage=member.FImage
             };
 
             return new ApiResponse<MemberLoginResponseDto>
