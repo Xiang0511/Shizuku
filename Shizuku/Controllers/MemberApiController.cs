@@ -367,6 +367,19 @@ namespace Shizuku.Controllers
             return result.Success ? Ok(result) : BadRequest(result);
         }
 
+        [HttpPost("{memberId}/upload-avatar")]
+        public async Task<ActionResult<ApiResponse<string>>> UploadAvatar(int memberId, IFormFile file)
+        {
+            var result = await _memberService.UploadAvatarAsync(memberId, file);
+
+            if (!result.Success)
+            {
+                return BadRequest(result); // 400 錯誤
+            }
+
+            return Ok(result); // 200 成功
+        }
+
         [HttpGet("Lo")]
         public IActionResult Lo()
         {

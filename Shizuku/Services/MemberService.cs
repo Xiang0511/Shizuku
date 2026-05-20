@@ -12,12 +12,18 @@ namespace Shizuku.Services
         private readonly DbShizukuDemoContext _context;
         private readonly IMemoryCache _cache;
         private readonly VerificationService _verificationService;
+        private readonly IWebHostEnvironment _environment;
 
-        public MemberService(DbShizukuDemoContext context, IMemoryCache cache, VerificationService verificationService)
+        public MemberService(
+            DbShizukuDemoContext context, 
+            IMemoryCache cache, 
+            VerificationService verificationService, 
+            IWebHostEnvironment environment)
         {
             _context = context; 
             _cache = cache;
-            _verificationService= verificationService;
+            _verificationService = verificationService;
+            _environment = environment;
         }
 
         //登入
@@ -392,6 +398,69 @@ namespace Shizuku.Services
             }
 
             return new ApiResponse<string> { Success = false, Message = "生日變更失敗，無資料更動" };
+        }
+
+        public async Task<ApiResponse<string>> UploadAvatarAsync(int memberId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return new ApiResponse<string> { Success = false, Message = "請選擇要上傳的圖片" };
+            }
+
+            // 1. 檢查會員是否存在
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            try
+            {
+                // 2. 設定儲存資料夾 (wwwroot/uploads/avatars)
+                string uploadFolder = Path.Combine(_environment.WebRootPath, "uploads", "avatars");
+                if (!Directory.Exists(uploadFolder))
+                {
+                    Directory.CreateDirectory(uploadFolder);
+                }
+
+                // 3. 產生唯一檔名，避免重複（例如: 5a1b2c3d_profile.jpg）
+                string extension = Path.GetExtension(file.FileName);
+                string uniqueFileName = $"{Guid.NewGuid()}{extension}";
+                string filePath = Path.Combine(uploadFolder, uniqueFileName);
+
+                // 4. 將檔案實際寫入伺服器硬碟
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // 5. 刪除舊的大頭貼（可選：如果原本有舊圖，可以順便刪掉省空間）
+                if (!string.IsNullOrEmpty(member.FImage))
+                {
+                    string oldFilePath = Path.Combine(_environment.WebRootPath, "uploads", "avatars", member.FImage);
+                    if (File.Exists(oldFilePath))
+                    {
+                        File.Delete(oldFilePath);
+                    }
+                }
+
+                // 6. 更新資料庫的欄位（只存檔名）
+                member.FImage = uniqueFileName;
+                _context.TMembers.Update(member);
+                await _context.SaveChangesAsync();
+
+                // 7. 回傳新圖片的檔名，前端可以直接拿去拼湊成圖片網址
+                return new ApiResponse<string>
+                {
+                    Success = true,
+                    Message = "大頭貼更新成功",
+                    Data = uniqueFileName
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ApiResponse<string> { Success = false, Message = $"伺服器錯誤: {ex.Message}" };
+            }
         }
     }
 }
