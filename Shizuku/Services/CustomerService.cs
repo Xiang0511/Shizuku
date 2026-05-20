@@ -208,7 +208,7 @@ namespace Shizuku.Services
                 {
                     FMemberId = 0,
                     FCategoryId = dto.CategoryId == 0 ? 1 : dto.CategoryId,
-                    FGuestName = dto.LastName + dto.FirstName,
+                    FGuestName = dto.Name,
                     FGuestEmail = dto.Email,
                     FSubject = dto.Subject,
                     FDescription = dto.Description,
