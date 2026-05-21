@@ -17,9 +17,12 @@ namespace Shizuku.Services
         }
 
         /// <summary>取得商品列表，支援關鍵字搜尋（商品名稱或貨號）</summary>
-        public List<ProductListDto> GetProductList(string keyword, int? categoryId = null)//,bool isAdmin = false
+        public List<ProductListDto> GetProductList(string keyword, int? categoryId = null, bool isAdmin = false)//,bool isAdmin = false
         {
-            var query = _context.TProducts.Where(p => p.FStatus != 0);
+            var query = isAdmin
+       ? _context.TProducts.Where(p => p.FStatus != 0)   // 後台：顯示全部（除刪除）
+       : _context.TProducts.Where(p => p.FStatus == 1);  // 前台：只顯示上架
+
             //= isAdmin
             query = query.OrderByDescending(p => p.FCreatedAt);
             if (!string.IsNullOrEmpty(keyword))
@@ -448,7 +451,6 @@ namespace Shizuku.Services
                 var variants = _context.TProductVariants
                     .Where(v => v.FProductId == p.FId)
                     .ToList();
-                if (!variants.Any()) continue;
 
                 var variantDtos = variants.Select(v => new InventoryVariantDto
                 {
@@ -467,6 +469,7 @@ namespace Shizuku.Services
                     fCostPrice = v.FCostPrice,
                     fStockStatus = v.FStock == 0 ? "售完"
                     : v.FStock <= 5 ? "低庫存"
+                    : v.FStock <= 0 && !variants.Any() ? "缺貨"  // ← 新增
                     : "正常"
                 }).ToList();
                 result.Add(new InventoryProductDto
@@ -560,6 +563,13 @@ public List<StockRecordDto> GetStockRecords()
                     fOrderNo = o.FOrderNo,
                     fSupplier = o.FSupplier,
                     fPaymentMethod = o.FPaymentMethod,
+                    fType = o.FType,
+                    fStatus = o.FStatus,
+                    fInvoiceNo = o.FInvoiceNo,
+                    fInvoiceDate = o.FInvoiceDate,
+                    fTaxType = o.FTaxType,
+                    fUntaxedAmount = o.FUntaxedAmount,
+                    fTaxAmount = o.FTaxAmount,
                     fNote = o.FNote,
                     fTotalQuantity = o.FTotalQuantity,
                     fTotalAmount = o.FTotalAmount,
@@ -614,6 +624,13 @@ public List<StockRecordDto> GetStockRecords()
                 fSupplier = order.FSupplier,
                 fPaymentMethod = order.FPaymentMethod,
                 fNote = order.FNote,
+                fType = order.FType,          // ← 已加
+                fStatus = order.FStatus,        // ← 已加
+                fInvoiceNo = order.FInvoiceNo,     // ← 已加
+                fInvoiceDate = order.FInvoiceDate,   // ← 已加
+                fTaxType = order.FTaxType,       // ← 已加
+                fUntaxedAmount = order.FUntaxedAmount, // ← 已加
+                fTaxAmount = order.FTaxAmount,     // ← 已加
                 fTotalQuantity = order.FTotalQuantity,
                 fTotalAmount = order.FTotalAmount,
                 fCreatedAt = order.FCreatedAt,
@@ -630,18 +647,26 @@ public List<StockRecordDto> GetStockRecords()
                 .Count(o => o.FOrderNo.StartsWith($"PO-{dateStr}")) + 1;
             string orderNo = $"PO-{dateStr}-{todayCount:D3}";
 
-            int totalQty = dto.fDetails.Sum(d => d.fQuantity);
-            decimal totalAmt = dto.fDetails.Sum(d =>
-                d.fQuantity * (d.fCostPrice ?? 0));
+            decimal untaxed = dto.fDetails.Sum(d => d.fQuantity * (d.fCostPrice ?? 0));
+            decimal taxAmt = dto.fTaxType == "應稅" ? Math.Round(untaxed * 0.05m, 0) : 0;
+            decimal total = untaxed + taxAmt;
 
             var order = new TPurchaseOrder
             {
                 FOrderNo = orderNo,
                 FSupplier = dto.fSupplier,
                 FPaymentMethod = dto.fPaymentMethod,
+                FType = dto.fType,          // ← 加
+                FStatus = dto.fStatus,        // ← 加
+                FInvoiceNo = dto.fInvoiceNo,     // ← 加
+                FInvoiceDate = dto.fInvoiceDate,   // ← 加
+                FTaxType = dto.fTaxType,       // ← 加
+                FTaxRate = dto.fTaxRate,       // ← 加
+                FUntaxedAmount = untaxed,            // ← 加
+                FTaxAmount = taxAmt,             // ← 加
                 FNote = dto.fNote,
-                FTotalQuantity = totalQty,
-                FTotalAmount = totalAmt,
+                FTotalQuantity = dto.fDetails.Sum(d => d.fQuantity),
+                FTotalAmount = total,// ← 改成含稅總計
                 FCreatedAt = DateTime.Now
             };
 
@@ -660,21 +685,33 @@ public List<StockRecordDto> GetStockRecords()
                     FNote = d.fNote
                 });
 
-                // 更新庫存和成本價
                 var variant = _context.TProductVariants
-                    .FirstOrDefault(v => v.FId == d.fVariantId);
-                if (variant != null)
+           .FirstOrDefault(v => v.FId == d.fVariantId);
+                if (variant == null) continue;
+
+                // ✨ 根據類型決定庫存增減
+                switch (dto.fType)
                 {
-                    variant.FStock += d.fQuantity;
-                    if (d.fCostPrice.HasValue)
-                        variant.FCostPrice = d.fCostPrice.Value;
+                    case "進貨":
+                    case "銷售退回":
+                        variant.FStock += d.fQuantity;
+                        break;
+                    case "退貨":
+                    case "報廢":
+                        variant.FStock -= d.fQuantity;
+                        break;
+                    case "手動盤點":
+                        variant.FStock = d.fQuantity;
+                        break;
                 }
+
+                if (d.fCostPrice.HasValue)
+                    variant.FCostPrice = d.fCostPrice.Value;
             }
 
             _context.SaveChanges();
             return order.FId;
         }
-
 
         /// <summary>扣除庫存 (下單用)</summary>
         public async Task<bool> DeductStockAsync(int variantId, int quantity)

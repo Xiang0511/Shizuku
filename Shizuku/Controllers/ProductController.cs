@@ -22,9 +22,10 @@ namespace Shizuku.Controllers
         [HttpGet]
         public IActionResult List(
             [FromQuery] string? keyword,
-            [FromQuery] int? categoryId)
+            [FromQuery] int? categoryId,
+            [FromQuery]bool isAdmin = false)
         {
-            var datas = _productService.GetProductList(keyword, categoryId);
+            var datas = _productService.GetProductList(keyword, categoryId,isAdmin);
             return Ok(new ApiResponse<object>
             {
                 Success = true,
