@@ -5,6 +5,7 @@ using Serilog;
 using Shizuku.DTOs; // 引入 DTOs 命名空間
 using Shizuku.Models;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 
 namespace Shizuku.Services
 {
@@ -89,7 +90,10 @@ namespace Shizuku.Services
             }
 
             // 4. 驗證密碼
-            bool isPasswordValid = member.FPassword == dto.FPassword;
+            var passwordHasher = new PasswordHasher<TMember>();
+            var verificationResult = passwordHasher.VerifyHashedPassword(member, member.FPassword ?? "", dto.FPassword);
+
+            bool isPasswordValid = verificationResult == PasswordVerificationResult.Success;
 
             if (!isPasswordValid)
             {
@@ -194,6 +198,9 @@ namespace Shizuku.Services
                 FAccessFailedCount = 0,
                 FPoints=1000
             };
+
+            var passwordHasher = new PasswordHasher<TMember>();
+            newMember.FPassword = passwordHasher.HashPassword(newMember, dto.FPassword);
 
             _context.TMembers.Add(newMember);
 
