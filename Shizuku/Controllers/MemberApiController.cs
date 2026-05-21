@@ -278,7 +278,7 @@ namespace Shizuku.Controllers
             {
                 1 => "手機號碼",
                 2 => "會員生日",
-                //3 => "登入密碼", // 新增 Type 3 的電子郵件文字
+                3 => "登入密碼", // 新增 Type 3 的電子郵件文字
                 _ => "安全資料"
             };
             string emailSubject = $"【Shizuku】安全變更：{typeName}修改驗證信";
@@ -364,6 +364,27 @@ namespace Shizuku.Controllers
             }
 
             var result = await _memberService.UpdateBirthdayAsync(memberId, dto.FNewBirthday, dto.FVerifiedCode);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [Authorize]
+        [HttpPost("security/update-password")]
+        public async Task<IActionResult> UpdatePassword([FromBody] MemberSecurityDto.SecurityUpdatePasswordDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FNewPassword) || string.IsNullOrEmpty(dto.FConfirmPassword))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入完整的新密碼與確認密碼" });
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int memberId))
+            {
+                return Unauthorized(new ApiResponse<string> { Success = false, Message = "未授權的存取" });
+            }
+
+            // 呼叫 Service
+            var result = await _memberService.UpdatePasswordAsync(memberId, dto.FNewPassword, dto.FConfirmPassword, dto.FVerifiedCode);
+
             return result.Success ? Ok(result) : BadRequest(result);
         }
 

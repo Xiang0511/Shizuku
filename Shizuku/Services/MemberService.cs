@@ -1,11 +1,12 @@
 ﻿using Google.Apis.Auth;
+using Humanizer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 using Shizuku.DTOs; // 引入 DTOs 命名空間
 using Shizuku.Models;
 using System.Text.Json;
-using Microsoft.AspNetCore.Identity;
 
 namespace Shizuku.Services
 {
@@ -306,7 +307,7 @@ namespace Shizuku.Services
             {
                 1 => $"PhoneChangeVerifyPassed_{memberId}",
                 2 => $"BirthdayChangeVerifyPassed_{memberId}",
-                //3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
+                3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
                 _ => throw new ArgumentException("未支援的安全變更類型")
             };
 
@@ -325,7 +326,7 @@ namespace Shizuku.Services
             {
                 1 => $"PhoneChangeVerifyPassed_{memberId}",
                 2 => $"BirthdayChangeVerifyPassed_{memberId}",
-                //3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
+                3 => $"PasswordChangeVerifyPassed_{memberId}", // 新增 Type 3 的 Key
                 _ => throw new ArgumentException("未支援的安全變更類型")
             };
 
@@ -407,6 +408,50 @@ namespace Shizuku.Services
             }
 
             return new ApiResponse<string> { Success = false, Message = "生日變更失敗，無資料更動" };
+        }
+
+        // 3. 實際寫入資料庫並保存新密碼 (含二次密碼與安全權杖校驗)
+        public async Task<ApiResponse<string>> UpdatePasswordAsync(int memberId, string newPassword, string confirmPassword, string verifiedCode)
+        {
+            // 二次密碼後端防線：確認兩次輸入一致
+            if (newPassword != confirmPassword)
+            {
+                return new ApiResponse<string> { Success = false, Message = "兩次輸入的新密碼不一致" };
+            }
+
+            // 雙重保險：確認密碼快取權杖正確，防止網頁繞過
+            if (!_cache.TryGetValue($"PasswordChangeVerifyPassed_{memberId}", out string? savedCode) ||
+                !string.Equals(savedCode, verifiedCode, StringComparison.Ordinal))
+            {
+                return new ApiResponse<string> { Success = false, Message = "安全權杖錯誤或失效，請重新進行首步驗證" };
+            }
+
+            var member = await _context.TMembers.FindAsync(memberId);
+            if (member == null)
+            {
+                return new ApiResponse<string> { Success = false, Message = "找不到該會員" };
+            }
+
+            // 開始變更密碼 (注意：這裡請換成你專案實際使用的密碼雜湊/加密演算法，例如 BCrypt 或 Salt+SHA256)
+            // 範例：member.FPassword = _passwordHasher.Hash(newPassword);
+
+            var passwordHasher = new PasswordHasher<TMember>();
+            member.FPassword = passwordHasher.HashPassword(member, newPassword);
+
+            member.FUpdatedTime = DateTime.Now;
+
+            _context.TMembers.Update(member);
+            var isSaved = await _context.SaveChangesAsync() > 0;
+
+            if (isSaved)
+            {
+                // 變更成功後清除密碼快取，防止重複使用
+                _cache.Remove($"PasswordChangeVerifyPassed_{memberId}");
+
+                return new ApiResponse<string> { Success = true, Message = "密碼修改成功，下次請使用新密碼登入" };
+            }
+
+            return new ApiResponse<string> { Success = false, Message = "密碼變更失敗，無資料更動" };
         }
 
         public async Task<ApiResponse<string>> UploadAvatarAsync(int memberId, IFormFile file)
