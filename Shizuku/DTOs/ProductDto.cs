@@ -231,6 +231,15 @@ namespace Shizuku.ViewModels
         public decimal fTotalAmount { get; set; }
         public int fItemCount { get; set; }
         public DateTime fCreatedAt { get; set; }
+        public string fType { get; set; } = "進貨";
+        public string fStatus { get; set; } = "已完成";
+        public string? fInvoiceNo { get; set; }
+        public DateTime? fInvoiceDate { get; set; }
+        public string fTaxType { get; set; } = "應稅";
+        public decimal fTaxRate { get; set; } = 5.00m;
+        public decimal fUntaxedAmount { get; set; }
+        public decimal fTaxAmount { get; set; }
+
     }
 
     /// <summary>進貨單明細 DTO</summary>
@@ -255,6 +264,13 @@ namespace Shizuku.ViewModels
         public string? fSupplier { get; set; }
         public string? fPaymentMethod { get; set; }
         public string? fNote { get; set; }
+        public string fType { get; set; } = "進貨";      // ← 加
+        public string fStatus { get; set; } = "已完成";    // ← 加
+        public string? fInvoiceNo { get; set; }                // ← 加
+        public DateTime? fInvoiceDate { get; set; }                // ← 加
+        public string fTaxType { get; set; } = "應稅";      // ← 加
+        public decimal fUntaxedAmount { get; set; }                // ← 加
+        public decimal fTaxAmount { get; set; }                // ← 加
         public int fTotalQuantity { get; set; }
         public decimal fTotalAmount { get; set; }
         public DateTime fCreatedAt { get; set; }
@@ -268,6 +284,15 @@ namespace Shizuku.ViewModels
         public string? fPaymentMethod { get; set; }
         public string? fNote { get; set; }
         public List<PurchaseOrderDetailCreateDto> fDetails { get; set; } = new();
+        public string fType { get; set; } = "進貨";
+        public string fStatus { get; set; } = "已完成";
+        public string? fInvoiceNo { get; set; }
+        public DateTime? fInvoiceDate { get; set; }
+        public string fTaxType { get; set; } = "應稅";
+        public decimal fTaxRate { get; set; } = 5.00m;
+        public decimal fUntaxedAmount { get; set; }
+        public decimal fTaxAmount { get; set; }
+
     }
 
     /// <summary>新增進貨單明細 DTO</summary>
