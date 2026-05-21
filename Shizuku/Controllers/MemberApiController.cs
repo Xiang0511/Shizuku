@@ -380,6 +380,35 @@ namespace Shizuku.Controllers
             return Ok(result); // 200 成功
         }
 
+        // Google 第三方登入 API
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.IdToken))
+            {
+                return BadRequest(new ApiResponse<MemberLoginResponseDto>
+                {
+                    Success = false,
+                    Message = "請提供有效的 Google 驗證憑證"
+                });
+            }
+            // 調用 Service 進行驗證與自動註冊
+            var serviceResult = await _memberService.LoginWithGoogleAsync(dto.IdToken);
+            if (!serviceResult.Success)
+            {
+                return Unauthorized(serviceResult);
+            }
+            var loginDto = serviceResult.Data!;
+            // 簽發本站 JWT Token 並賦予傳回的 DTO
+            loginDto.Token = _jwtHelper.GenerateToken(loginDto.FId, loginDto.FName ?? "", loginDto.FEmail ?? "");
+            return Ok(new ApiResponse<MemberLoginResponseDto>
+            {
+                Success = true,
+                Message = "登入成功",
+                Data = loginDto
+            });
+        }
+
         [HttpGet("Lo")]
         public IActionResult Lo()
         {

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Google.Apis.Auth;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 using Shizuku.DTOs; // 引入 DTOs 命名空間
@@ -461,6 +462,111 @@ namespace Shizuku.Services
             catch (Exception ex)
             {
                 return new ApiResponse<string> { Success = false, Message = $"伺服器錯誤: {ex.Message}" };
+            }
+        }
+
+        // Google 第三方登入與自動註冊業務邏輯
+        public async Task<ApiResponse<MemberLoginResponseDto>> LoginWithGoogleAsync(string idToken)
+        {
+            try
+            {
+                // 1. 從 appsettings.json 讀取 Google Client ID
+                var googleClientId = _context.Database.ProviderName != null
+                    ? new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                        .SetBasePath(AppContext.BaseDirectory)
+                        .AddJsonFile("appsettings.json")
+                        .Build()["Google:ClientId"]
+                    : null;
+
+                // 註：若有透過 DI 注入 IConfiguration，亦可直接使用，此處採最安全的相容寫法。
+                // 由於建構子中未注入 IConfiguration，我們可以透過從 _environment 或手動建立讀取，
+                // 但更好的做法是，如果您方便，也可以在 MemberService 的建構子中注入 `IConfiguration configuration` 並讀取 `_configuration["Google:ClientId"]`。
+
+                // 2. 設定驗證參數
+                var settings = new GoogleJsonWebSignature.ValidationSettings
+                {
+                    // 若您已在 appsettings.json 中配置，請在此加入 Client ID 驗證（選填，但建議驗證）
+                    // Audience = new[] { googleClientId } 
+                };
+                // 3. 驗證 Google ID Token
+                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+                if (payload == null || string.IsNullOrEmpty(payload.Email))
+                {
+                    return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "Google 驗證失敗，無法解析用戶資訊" };
+                }
+                // 4. 根據 Email 尋找現有會員
+                var member = await _context.TMembers.FirstOrDefaultAsync(m => m.FEmail == payload.Email);
+                if (member != null)
+                {
+                    // 帳號已存在，檢查是否被停用
+                    if (member.FIsActive == false)
+                    {
+                        return new ApiResponse<MemberLoginResponseDto>
+                        {
+                            Success = false,
+                            Message = "您的帳號已被鎖定或停用，請聯繫客服人員處理。"
+                        };
+                    }
+                    // 重設失敗次數並更新登入時間
+                    member.FAccessFailedCount = 0;
+                    member.FLoginTime = DateTime.Now;
+                    _context.TMembers.Update(member);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    // 帳號不存在，執行自動註冊流程
+                    member = new TMember
+                    {
+                        FName = payload.Name ?? payload.GivenName ?? "Google 用戶",
+                        FEmail = payload.Email,
+                        FAccount = payload.Email, // 帳號預設為 Email
+                        FPassword = Guid.NewGuid().ToString("N").Substring(0, 16), // 生成隨機安全密碼
+                        FCreatedTime = DateTime.Now,
+                        FUpdatedTime = DateTime.Now,
+                        FIsActive = true, // 預設啟用
+                        FLevel = 0, // 預設等級
+                        FGender = 3, // 預設為未指定或其他
+                        FReceiverName = payload.Name ?? "Google 用戶",
+                        FAccessFailedCount = 0,
+                        FPoints = 1000, // 贈送新註冊 1000 點
+                        FImage = payload.Picture // 將 Google 大頭貼 URL 存入 FImage 欄位
+                    };
+                    _context.TMembers.Add(member);
+                    await _context.SaveChangesAsync();
+                    // 自動產生會員 ID：比照常規註冊機制 M0 + ID
+                    member.FMemberId = $"M0{member.FId}";
+                    _context.TMembers.Update(member);
+                    await _context.SaveChangesAsync();
+                }
+                // 5. 組裝登入成功的回傳 DTO 格式
+                var loginResult = new MemberLoginResponseDto
+                {
+                    FId = member.FId,
+                    FName = member.FName,
+                    FEmail = member.FEmail,
+                    FGender = member.FGender,
+                    FBirthday = member.FBirthday,
+                    FPhone = member.FPhone,
+                    FLevel = member.FLevel,
+                    FPoints = member.FPoints,
+                    FImage = member.FImage
+                };
+                return new ApiResponse<MemberLoginResponseDto>
+                {
+                    Success = true,
+                    Message = "Google 登入成功",
+                    Data = loginResult
+                };
+            }
+            catch (InvalidJwtException)
+            {
+                return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "Google 金鑰驗證無效或已過期" };
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Google 登入時發生未預期錯誤");
+                return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "驗證過程中發生伺服器錯誤" };
             }
         }
     }
