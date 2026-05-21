@@ -454,6 +454,19 @@ namespace Shizuku.Services
             return new ApiResponse<string> { Success = false, Message = "密碼變更失敗，無資料更動" };
         }
 
+        public async Task<ApiResponse<int>> GetMemberIdByEmailAsync(string email)
+        {
+            var member = await _context.TMembers
+                .FirstOrDefaultAsync(m => m.FEmail == email); // 如果資料庫欄位是 fEmail，請改成 m.fEmail
+
+            if (member == null)
+            {
+                return new ApiResponse<int> { Success = false, Message = "找不到該會員" };
+            }
+
+            return new ApiResponse<int> { Success = true, Message = "成功", Data = member.FId }; // 欄位名請依 TMembers 實際主鍵為主
+        }
+
         public async Task<ApiResponse<string>> UploadAvatarAsync(int memberId, IFormFile file)
         {
             if (file == null || file.Length == 0)

@@ -33,9 +33,12 @@
 
         public class SecurityUpdatePasswordDto
         {
+            public required string FEmail { get; set; }
             public required string FNewPassword { get; set; }
             public required string FConfirmPassword { get; set; } // 用於二次確認
             public required string FVerifiedCode { get; set; }     // 第一步留下來的驗證碼權杖
         }
+
+
     }
 }
