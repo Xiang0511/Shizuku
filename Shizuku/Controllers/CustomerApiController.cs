@@ -96,5 +96,35 @@ namespace Shizuku.Controllers
                 Data = new { reply = botReply }
             });
         }
+        // -----------------------------------------------------------
+        // 3. 前台：顧客登入後，撈取「自己的」客服表單歷史紀錄
+        // -----------------------------------------------------------
+        [HttpGet("History/{memberId}")]
+        public async Task<IActionResult> GetMemberTickets(int memberId)
+        {
+            try
+            {
+                // Controller 只需要呼叫 Service，一行搞定邏輯！
+                var tickets = await _customerService.GetMemberTicketsAsync(memberId);
+
+                // 套用組長規範：成功、提示訊息、塞入資料
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "成功取得個人客服紀錄",
+                    Data = tickets
+                });
+            }
+            catch (Exception ex)
+            {
+                // 發生例外錯誤時，完美攔截並回傳 BadRequest
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "系統發生錯誤：" + ex.Message,
+                    Data = null
+                });
+            }
+        }
     }
 }

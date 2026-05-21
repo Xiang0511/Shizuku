@@ -1,11 +1,12 @@
-﻿using Shizuku.Models;
-using Shizuku.Wraps;
+﻿using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Mvc.Rendering;
+using Shizuku.DTOs;
+using Shizuku.Models;
+using Shizuku.Wraps;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Shizuku.DTOs;
 
 namespace Shizuku.Services
 {
@@ -206,7 +207,7 @@ namespace Shizuku.Services
             {
                 var newTicket = new TTicketsCustomer
                 {
-                    FMemberId = 0,
+                    FMemberId = dto.MemberId,    //  修正：把 0 換成 dto.MemberId，讓前端傳來的 ID 順利存進資料庫！
                     FCategoryId = dto.CategoryId == 0 ? 1 : dto.CategoryId,
                     FGuestName = dto.Name,
                     FGuestEmail = dto.Email,
@@ -280,6 +281,25 @@ namespace Shizuku.Services
 
             // 5. 如果所有的關鍵字都沒匹配到，回傳預設訊息
             return "不好意思，我不太明白您的意思。您可以嘗試詢問關於運費、退換貨或門市的問題，或是填寫聯絡表單，我們會盡快由專人為您解答。";
+        }
+        // 根據會員 ID 撈取歷史客服紀錄
+        public async Task<List<TicketHistoryDto>> GetMemberTicketsAsync(int memberId)
+        {
+            var list = await _db.TTicketsCustomers
+                .Where(t => t.FMemberId == memberId)
+                .OrderByDescending(t => t.FCreatedAt)
+                .Select(t => new TicketHistoryDto
+                {
+                    Id = t.FId,
+                    Category = "問題分類 " + t.FCategoryId.ToString(), // 若有關聯表可換成分類名稱
+                    Subject = t.FSubject,
+                    Content = t.FDescription, // 客人的發問內容
+                    CreateTime = t.FCreatedAt.HasValue ? t.FCreatedAt.Value.ToString("yyyy-MM-dd HH:mm") : "",
+                    Status = (t.FStatus == "Closed" || t.FStatus == "已處理") ? 1 : 0
+                })
+                .ToListAsync();
+
+            return list;
         }
     }
 }
