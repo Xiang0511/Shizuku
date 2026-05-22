@@ -577,6 +577,20 @@ namespace Shizuku.Controllers
             var resp = await _memberService.GetBlacklistedAsync();
             return Ok(resp);
         }
+
+        // 解除封鎖會員
+        [HttpPut("MemberList/unban/{id}")]
+        public async Task<IActionResult> RemoveFromBlacklist(int id)
+        {
+            var result = await _memberService.RemoveFromBlacklistAsync(id);
+
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
     }
 
 

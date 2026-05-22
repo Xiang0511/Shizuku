@@ -676,5 +676,42 @@ namespace Shizuku.Services
             return new ApiResponse<List<MemberListDto>> { Success = true,Message="黑名單列表", Data = list };
         }
 
+        // 解除封鎖會員
+        public async Task<ApiResponse<string>> RemoveFromBlacklistAsync(int id)
+        {
+            var member = await _context.TMembers.FindAsync(id);
+
+            if (member == null)
+            {
+                return new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "找不到該會員",
+                    Data = null
+                };
+            }
+
+            if (member.FIsActive == true)
+            {
+                return new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "該會員並非處於封鎖狀態",
+                    Data = null
+                };
+            }
+
+            // 將狀態改回啟用
+            member.FIsActive = true;
+            await _context.SaveChangesAsync();
+
+            return new ApiResponse<string>
+            {
+                Success = true,
+                Message = "已成功解除封鎖",
+                Data = member.FMemberId // 回傳解除封鎖的會員編號作為參考
+            };
+        }
+
     }
 }
