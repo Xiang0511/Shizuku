@@ -356,10 +356,10 @@ namespace Shizuku.Services
             return stats;
         }
 
-        // 會員自行取消訂單並回補庫存
-        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        // 會員自行取消訂單並回補庫存 (by ID)
+        public async Task<ApiResponse<object>> CancelOrderAsync(int orderId)
         {
-            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FId == orderId);
             if (order == null)
             {
                 return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
@@ -369,6 +369,32 @@ namespace Shizuku.Services
                 return new ApiResponse<object> { Success = false, Message = "只有未付款訂單才能取消" };
             }
 
+            return await CancelOrderInternalAsync(order);
+        }
+
+        // 會員自行取消訂單並回補庫存 (by OrderNo, 優先處理未付款狀態者以解決重複訂單編號問題)
+        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        {
+            var order = await _db.TOrders
+                .Where(o => o.FOrderNo == orderNo)
+                .OrderBy(o => o.FStatus == 1 ? 0 : 1) // 未付款(1)優先，已取消(5)等後排
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+            {
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            }
+            if (order.FStatus != 1) 
+            {
+                return new ApiResponse<object> { Success = false, Message = "只有未付款訂單才能取消" };
+            }
+
+            return await CancelOrderInternalAsync(order);
+        }
+
+        // 內部統一處理訂單取消與庫存回補的共用邏輯
+        private async Task<ApiResponse<object>> CancelOrderInternalAsync(TOrder order)
+        {
             using (var transaction = _db.Database.BeginTransaction())
             {
                 try
