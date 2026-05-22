@@ -11,6 +11,7 @@ namespace Shizuku.DTOs
         public string Note { get; set; }
         public int PaymentMethodId { get; set; }
         public List<CartItemDto> CartItems { get; set; } = new List<CartItemDto>();
+        public string? IdempotencyKey { get; set; } // 用於防重等冪性檢查
     }
 
     public class CartItemDto

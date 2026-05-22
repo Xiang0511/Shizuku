@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shizuku.DTOs;
 using Shizuku.Services;
 
 namespace Shizuku.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [Route("api/admin/payments")]
     [ApiController]
     public class AdminPaymentApiController : ControllerBase

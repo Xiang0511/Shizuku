@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Shizuku.DTOs;
 using Shizuku.Enums;
 using Shizuku.Models;
@@ -13,19 +14,24 @@ namespace Shizuku.Services
     // 專責處理前台會員購物車結帳、訂單創立、庫存扣減、會員訂單明細查詢、自行取消以及綠界/LINE Pay 付款連結之動態生成
     public class OrderService
     {
+        private static readonly object IdempotencyLock = new object();
+
         private readonly DbShizukuDemoContext _db;
         private readonly ProductService _productService;
         private readonly PaymentFactory _paymentFactory;
+        private readonly IMemoryCache _cache;
 
         // 建構子注入
         public OrderService(
             DbShizukuDemoContext db, 
             ProductService productService, 
-            PaymentFactory paymentFactory)
+            PaymentFactory paymentFactory,
+            IMemoryCache cache)
         {
             _db = db;
             _productService = productService;
             _paymentFactory = paymentFactory;
+            _cache = cache;
         }
 
         // 前台會員結帳建立新訂單
@@ -34,6 +40,35 @@ namespace Shizuku.Services
             if (request.CartItems == null || !request.CartItems.Any())
             {
                 return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車內無商品，無法建立訂單！" };
+            }
+
+            // 等冪性交易防禦機制 (Idempotency Key Check)
+            string? cacheKey = null;
+            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            {
+                cacheKey = $"idempotency_checkout_{request.IdempotencyKey}";
+                
+                lock (IdempotencyLock)
+                {
+                    if (_cache.TryGetValue(cacheKey, out object? cachedVal))
+                    {
+                        if (cachedVal is ApiResponse<CreateOrderResponseDto> cachedResponse)
+                        {
+                            return cachedResponse;
+                        }
+                        if (cachedVal is string status && status == "Processing")
+                        {
+                            return new ApiResponse<CreateOrderResponseDto>
+                            {
+                                Success = false,
+                                Message = "訂單正在處理中，請勿重複提交！"
+                            };
+                        }
+                    }
+
+                    // 先寫入 Processing 狀態防重
+                    _cache.Set(cacheKey, "Processing", TimeSpan.FromMinutes(2));
+                }
             }
 
             using (var transaction = _db.Database.BeginTransaction())
@@ -141,7 +176,7 @@ namespace Shizuku.Services
 
                     transaction.Commit();
 
-                    return new ApiResponse<CreateOrderResponseDto>
+                    var response = new ApiResponse<CreateOrderResponseDto>
                     {
                         Success = true,
                         Message = "訂單建立成功！",
@@ -151,10 +186,25 @@ namespace Shizuku.Services
                             PaymentUrl = paymentUrl
                         }
                     };
+
+                    // 建立成功後，將最終成功回應寫入快取，保存 10 分鐘
+                    if (cacheKey != null)
+                    {
+                        _cache.Set(cacheKey, response, TimeSpan.FromMinutes(10));
+                    }
+
+                    return response;
                 }
                 catch (Exception ex)
                 {
                     transaction.Rollback();
+
+                    // 發生錯誤，將快取中的 Processing 狀態清除，允許重試
+                    if (cacheKey != null)
+                    {
+                        _cache.Remove(cacheKey);
+                    }
+
                     return new ApiResponse<CreateOrderResponseDto>
                     {
                         Success = false,

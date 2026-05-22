@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Shizuku.DTOs;
 using Shizuku.Enums;
@@ -5,6 +6,7 @@ using Shizuku.Services;
 
 namespace Shizuku.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class OrderApiController : ControllerBase
@@ -91,6 +93,7 @@ namespace Shizuku.Controllers
         }
 
         // 產生自動轉向綠界收銀台的 HTML 表單 (GET /api/orderApi/ecpay/{orderNo})
+        [AllowAnonymous]
         [HttpGet("ecpay/{orderNo}")]
         public async Task<IActionResult> GenerateECPayForm(string orderNo)
         {
@@ -103,6 +106,7 @@ namespace Shizuku.Controllers
         }
 
         // 綠界金流非同步交易回傳通知 (POST /api/orderApi/ecpayResult)
+        [AllowAnonymous]
         [HttpPost("ecpayResult")]
         public async Task<IActionResult> ECPayResult([FromForm] IFormCollection form)
         {
@@ -205,6 +209,7 @@ namespace Shizuku.Controllers
         }
 
         // 取得前台統計用銷量數據 (GET /api/orderApi/sales-stats)
+        [AllowAnonymous]
         [HttpGet("sales-stats")]
         public async Task<IActionResult> GetSalesStats()
         {
@@ -225,6 +230,7 @@ namespace Shizuku.Controllers
         }
 
         // 取得前台首頁熱銷商品排行數據 (GET /api/orderApi/top-products)
+        [AllowAnonymous]
         [HttpGet("top-products")]
         public async Task<IActionResult> GetTopProducts()
         {
