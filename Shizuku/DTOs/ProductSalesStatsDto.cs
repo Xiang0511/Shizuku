@@ -8,5 +8,7 @@ namespace Shizuku.DTOs
         public string? ImageUrl { get; set; }
         public int TotalQuantitySold { get; set; }
         public decimal TotalRevenue { get; set; }
+        public bool IsHot { get; set; }
+        public bool IsNew { get; set; }
     }
 }

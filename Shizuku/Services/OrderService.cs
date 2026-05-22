@@ -366,7 +366,9 @@ namespace Shizuku.Services
                                            .Select(img => img.FImageUrl)
                                            .FirstOrDefault(),
                                    TotalQuantitySold = g.Sum(x => x.FQuantity),
-                                   TotalRevenue = g.Sum(x => x.FSubtotal)
+                                   TotalRevenue = g.Sum(x => x.FSubtotal),
+                                   IsHot = true,
+                                   IsNew = false
                                })
                                .OrderByDescending(x => x.TotalQuantitySold)
                                .Take(8)
@@ -396,7 +398,9 @@ namespace Shizuku.Services
                                 .Select(img => img.FImageUrl)
                                 .FirstOrDefault(),
                         TotalQuantitySold = 0,
-                        TotalRevenue = 0
+                        TotalRevenue = 0,
+                        IsHot = false,
+                        IsNew = true
                     })
                     .ToListAsync();
 
