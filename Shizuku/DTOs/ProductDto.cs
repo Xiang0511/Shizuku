@@ -248,6 +248,8 @@ namespace Shizuku.ViewModels
         public int fId { get; set; }
         public int fVariantId { get; set; }
         public string fProductName { get; set; } = string.Empty;
+        public string fSkuCode { get; set; } = string.Empty;  // ← 改這行
+
         public string fColor { get; set; } = string.Empty;
         public string fSize { get; set; } = string.Empty;
         public int fQuantity { get; set; }

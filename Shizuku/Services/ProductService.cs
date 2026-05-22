@@ -597,6 +597,10 @@ public List<StockRecordDto> GetStockRecords()
                             .FirstOrDefault())
                         .Select(p => p.FName)
                         .FirstOrDefault() ?? "",
+                    fSkuCode = _context.TProductVariants
+                    .Where(v => v.FId == d.FVariantId)
+                    .Select(v => v.FSkuCode)
+                    .FirstOrDefault() ?? "",
                     fColor = _context.TProductColors
                         .Where(c => c.FId == _context.TProductVariants
                             .Where(v => v.FId == d.FVariantId)
@@ -694,14 +698,14 @@ public List<StockRecordDto> GetStockRecords()
                 {
                     case "進貨":
                     case "銷售退回":
+                    case "調整進":
                         variant.FStock += d.fQuantity;
                         break;
                     case "退貨":
+                    case "進貨退出":
                     case "報廢":
+                    case "調整出":
                         variant.FStock -= d.fQuantity;
-                        break;
-                    case "手動盤點":
-                        variant.FStock = d.fQuantity;
                         break;
                 }
 
