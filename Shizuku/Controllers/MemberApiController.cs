@@ -555,6 +555,21 @@ namespace Shizuku.Controllers
             var authHeader = Request.Headers["Authorization"].ToString();
             return Ok(new { header = authHeader });
         }
+
+        //後台
+        [HttpGet("MemberList/list")]
+        public async Task<IActionResult> GetMemberList()
+        {
+            var members = await _memberService.GetMemberListAsync();
+
+            return Ok(new ApiResponse<List<MemberListDto>>
+            {
+                Success = true,
+                Message = "成功取得會員列表",
+                Data = members
+            });
+        }
+
     }
 
 

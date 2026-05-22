@@ -634,5 +634,25 @@ namespace Shizuku.Services
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "驗證過程中發生伺服器錯誤" };
             }
         }
+
+        //後台
+        public async Task<List<MemberListDto>> GetMemberListAsync()
+        {
+            return await _context.TMembers
+                .Select(m => new MemberListDto
+                {
+                    FId = m.FId,
+                    FMemberId = m.FMemberId,
+                    FName = m.FName,
+                    FEmail = m.FEmail,
+                    FPhone = m.FPhone,
+                    FIsActive = m.FIsActive,
+                    FLevel = m.FLevel,
+                    FCreatedTime = m.FCreatedTime
+                })
+                .ToListAsync();
+        }
+
+
     }
 }
