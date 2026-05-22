@@ -702,7 +702,8 @@ namespace Shizuku.Services
             }
 
             // 將狀態改回啟用
-            member.FIsActive = true;
+            member.FIsActive = true; 
+            member.FAccessFailedCount = 0;
             await _context.SaveChangesAsync();
 
             return new ApiResponse<string>
