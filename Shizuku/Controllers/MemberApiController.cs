@@ -557,6 +557,7 @@ namespace Shizuku.Controllers
         }
 
         //後台
+        //會員列表
         [HttpGet("MemberList/list")]
         public async Task<IActionResult> GetMemberList()
         {
@@ -569,7 +570,13 @@ namespace Shizuku.Controllers
                 Data = members
             });
         }
-
+        //黑名單列表
+        [HttpGet("MemberList/blacklist")]
+        public async Task<IActionResult> GetBlacklisted()
+        {
+            var resp = await _memberService.GetBlacklistedAsync();
+            return Ok(resp);
+        }
     }
 
 

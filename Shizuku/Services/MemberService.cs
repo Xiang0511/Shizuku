@@ -636,9 +636,12 @@ namespace Shizuku.Services
         }
 
         //後台
+
+        //會員列表
         public async Task<List<MemberListDto>> GetMemberListAsync()
         {
             return await _context.TMembers
+                .Where(m => m.FIsActive == true)
                 .Select(m => new MemberListDto
                 {
                     FId = m.FId,
@@ -653,6 +656,25 @@ namespace Shizuku.Services
                 .ToListAsync();
         }
 
+        //會員黑名單列表
+        public async Task<ApiResponse<List<MemberListDto>>> GetBlacklistedAsync()
+        {
+            var list = await _context.TMembers
+            .Where(m => m.FIsActive == false)
+            .Select(m => new MemberListDto
+            {
+                FId = m.FId,
+                FMemberId = m.FMemberId,
+                FName = m.FName,
+                FEmail = m.FEmail,
+                FPhone = m.FPhone,
+                FIsActive = m.FIsActive,
+                FLevel = m.FLevel,
+                FCreatedTime = m.FCreatedTime
+            })
+            .ToListAsync();
+            return new ApiResponse<List<MemberListDto>> { Success = true,Message="黑名單列表", Data = list };
+        }
 
     }
 }
