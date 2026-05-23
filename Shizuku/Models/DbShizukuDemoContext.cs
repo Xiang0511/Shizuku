@@ -67,6 +67,7 @@ public partial class DbShizukuDemoContext : DbContext
 
     public virtual DbSet<TMemberStoreItem> TMemberStoreItem { get; set; }
 
+    public virtual DbSet<TSystemConfig> TSystemConfigs { get; set; } = null!;
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning OTo protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseSqlServer("Data Source=.;Initial Catalog=dbShizukuDemo;Integrated Security=True;Encrypt=False");
@@ -681,6 +682,12 @@ public partial class DbShizukuDemoContext : DbContext
             entity.ToTable("tLiveChatMessage");
 
             entity.Property(e => e.FId).HasColumnName("fId");
+        });
+
+        modelBuilder.Entity<TSystemConfig>(entity =>
+        {
+            entity.Property(e => e.FIsActive)
+                  .HasConversion<bool>(); 
         });
 
         OnModelCreatingPartial(modelBuilder);
