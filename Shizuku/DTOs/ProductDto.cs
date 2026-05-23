@@ -91,7 +91,9 @@ namespace Shizuku.ViewModels
         [Required(ErrorMessage = "請選擇分類")]
         public int fCategoryId { get; set; }
 
-   
+        public byte fStatus { get; set; } = 3;
+
+
         public string? fDescription { get; set; }
 
         public List<VariantInputDto> Variants { get; set; } = new();
@@ -225,6 +227,8 @@ namespace Shizuku.ViewModels
         public List<InventoryVariantDto> fVariants { get; set; } = new();
     }
     /// <summary>進貨單列表 DTO</summary>
+
+
     public class PurchaseOrderDto
     {
         public int fId { get; set; }

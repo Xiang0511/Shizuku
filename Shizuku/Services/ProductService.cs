@@ -200,7 +200,7 @@ namespace Shizuku.Services
                 FDescription = dto.fDescription,
                 FProduct = productCode,
                 FCreatedAt = DateTime.Now,
-                FStatus = 1
+                FStatus = dto.fStatus
             };
 
             _context.TProducts.Add(newProduct);
@@ -487,44 +487,148 @@ namespace Shizuku.Services
             }
             return result;
         }
-            /// <summary>取得進貨紀錄</summary>
-public List<StockRecordDto> GetStockRecords()
+        //進銷存報表
+        public List<InventoryProductDto> GetInventoryReport()
         {
-            return _context.TProductStockRecords
-                .OrderByDescending(r => r.FCreatedAt)
-                .Select(r => new StockRecordDto
+            var products = _context.TProducts
+                .Where(p => p.FStatus != 0)
+                .OrderByDescending(p => p.FCreatedAt)
+                .ToList();
+
+            var result = new List<InventoryProductDto>();
+            int no = 1;
+
+            foreach (var p in products)
+            {
+                var variants = _context.TProductVariants
+                    .Where(v => v.FProductId == p.FId)
+                    .ToList();
+
+                var variantDtos = variants.Select(v =>
                 {
-                    fId = r.FId,
-                    fVariantId = r.FVariantId,
-                    fType = r.FType,
-                    fQuantity = r.FQuantity,
-                    fCostPrice = r.FCostPrice,
-                    fNote = r.FNote,
-                    fCreatedAt = r.FCreatedAt,
-                    fColor = _context.TProductColors
-                        .Where(c => c.FId == _context.TProductVariants
-                            .Where(v => v.FId == r.FVariantId)
-                            .Select(v => v.FColorId)
-                            .FirstOrDefault())
-                        .Select(c => c.FName)
-                        .FirstOrDefault() ?? "",
-                    fSize = _context.TProductSizes
-                        .Where(s => s.FId == _context.TProductVariants
-                            .Where(v => v.FId == r.FVariantId)
-                            .Select(v => v.FSizeId)
-                            .FirstOrDefault())
-                        .Select(s => s.FName)
-                        .FirstOrDefault() ?? "",
-                    fProductName = _context.TProducts
-                        .Where(p => p.FId == _context.TProductVariants
-                            .Where(v => v.FId == r.FVariantId)
-                            .Select(v => v.FProductId)
-                            .FirstOrDefault())
-                        .Select(p => p.FName)
-                        .FirstOrDefault() ?? ""
+                    // 進貨數量
+                    var purchaseQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "進貨"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    // 銷售退回
+                    var returnQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "銷售退回"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    // 進貨退出
+                    var purchaseReturnQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "進貨退出"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    // 報廢
+                    var scrapQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "報廢"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    // 銷量（從訂單）
+                    var salesQty = _context.TOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TOrders
+                            .Where(o => o.FStatus != 5),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    var stockStatus = v.FStock == 0 ? "售完"
+                                   : v.FStock <= 5 ? "低庫存"
+                                   : "正常";
+
+                    return new InventoryVariantDto
+                    {
+                        fVariantId = v.FId,
+                        fSkuCode = v.FSkuCode ?? "",
+                        fColor = _context.TProductColors
+                            .Where(c => c.FId == v.FColorId)
+                            .Select(c => c.FName).FirstOrDefault() ?? "",
+                        fSize = _context.TProductSizes
+                            .Where(s => s.FId == v.FSizeId)
+                            .Select(s => s.FName).FirstOrDefault() ?? "",
+                        fStock = v.FStock,
+                        fPrice = v.FPrice ?? 0,
+                        fCostPrice = v.FCostPrice ?? 0,
+                        fStockStatus = stockStatus,
+                        fPurchaseQty = purchaseQty,
+                        fSalesQty = salesQty,
+                        fReturnQty = returnQty,
+                        fPurchaseReturnQty = purchaseReturnQty,
+                        fScrapQty = scrapQty
+                    };
                 }).ToList();
+
+                result.Add(new InventoryProductDto
+                {
+                    fProductId = p.FId,
+                    fProductName = p.FName,
+                    fProduct = p.FProduct ?? "",
+                    fImage = _context.TProductImages
+                        .Where(img => img.FProductId == p.FId && img.FIsMain == 1)
+                        .Select(img => img.FImageUrl)
+                        .FirstOrDefault(),
+                    fTotalStock = variantDtos.Sum(v => v.fStock),
+                    fVariants = variantDtos
+                });
+            }
+
+            return result;
         }
 
+        /// <summary>取得進貨紀錄</summary>
+        public List<StockRecordDto> GetStockRecords(int? variantId = null)
+        {
+            var details = _context.TPurchaseOrderDetails.AsQueryable();
+
+            if (variantId.HasValue)
+                details = details.Where(d => d.FVariantId == variantId.Value);
+
+            var result = details.ToList();
+
+            return result.Select(d =>
+            {
+                var order = _context.TPurchaseOrders.FirstOrDefault(o => o.FId == d.FOrderId);
+                var variant = _context.TProductVariants.FirstOrDefault(v => v.FId == d.FVariantId);
+                var product = variant != null ? _context.TProducts.FirstOrDefault(p => p.FId == variant.FProductId) : null;
+                var color = variant != null ? _context.TProductColors.FirstOrDefault(c => c.FId == variant.FColorId) : null;
+                var size = variant != null ? _context.TProductSizes.FirstOrDefault(s => s.FId == variant.FSizeId) : null;
+
+                return new StockRecordDto
+                {
+                    fId = d.FId,
+                    fVariantId = d.FVariantId,
+                    fQuantity = d.FQuantity,
+                    fCostPrice = d.FCostPrice,
+                    fType = order?.FType ?? "",
+                    fNote = order?.FNote ?? "",
+                    fCreatedAt = order?.FCreatedAt ?? DateTime.Now,
+                    fProductName = product?.FName ?? "",
+                    fColor = color?.FName ?? "",
+                    fSize = size?.FName ?? ""
+                };
+            })
+            .OrderByDescending(r => r.fCreatedAt)
+            .ToList();
+        }
         /// <summary>新增進貨紀錄並更新庫存</summary>
         public bool AddStockRecord(StockRecordCreateDto dto)
         {
@@ -716,6 +820,8 @@ public List<StockRecordDto> GetStockRecords()
             _context.SaveChanges();
             return order.FId;
         }
+
+
 
         /// <summary>扣除庫存 (下單用)</summary>
         public async Task<bool> DeductStockAsync(int variantId, int quantity)
