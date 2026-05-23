@@ -325,5 +325,30 @@ namespace Shizuku.Services
 
             return list;
         }
+        /// <summary>
+        /// 後台專用：更新客服表單狀態
+        /// </summary>
+        public async Task<bool> UpdateTicketStatusAsync(int ticketId, string newStatus)
+        {
+            try
+            {
+                // 1. 去資料庫把那筆表單找出來
+                var ticket = await _db.TTicketsCustomers.FirstOrDefaultAsync(t => t.FId == ticketId);
+
+                if (ticket == null) return false; // 防呆：找不到就不做事
+
+                // 2. 更新狀態，並順手記錄最後修改時間
+                ticket.FStatus = newStatus;
+                ticket.FUpdatedAt = DateTime.Now;
+
+                // 3. 存檔
+                await _db.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
     }
 }

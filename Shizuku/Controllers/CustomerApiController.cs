@@ -156,5 +156,43 @@ namespace Shizuku.Controllers
                 });
             }
         }
+        // -----------------------------------------------------------
+        // 後台專用：修改客服表單狀態
+        // 路由：PUT https://localhost:7197/api/CustomerApi/Admin/TicketStatus
+        // -----------------------------------------------------------
+        [HttpPut("Admin/TicketStatus")]
+        public async Task<IActionResult> UpdateTicketStatus([FromBody] UpdateTicketStatusDto dto)
+        {
+            // 防呆檢查
+            if (dto == null || dto.TicketId <= 0 || string.IsNullOrEmpty(dto.NewStatus))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "資料格式錯誤",
+                    Data = null
+                });
+            }
+
+            // 呼叫 Service 去改資料庫
+            bool isSuccess = await _customerService.UpdateTicketStatusAsync(dto.TicketId, dto.NewStatus);
+
+            if (!isSuccess)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "更新失敗，找不到該筆紀錄或發生錯誤",
+                    Data = null
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = $"已成功將狀態更新為：{dto.NewStatus}",
+                Data = null
+            });
+        }
     }
 }
