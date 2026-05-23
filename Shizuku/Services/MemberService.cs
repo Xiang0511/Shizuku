@@ -32,6 +32,18 @@ namespace Shizuku.Services
         //登入
         public async Task<ApiResponse<MemberLoginResponseDto>> LoginAsync(MemberLoginRequestDto dto)
         {
+            // 先撈取資料庫的安全設定
+            var captchaConfig = await _context.TSystemConfigs.FindAsync("Captcha");
+            var lockoutConfig = await _context.TSystemConfigs.FindAsync("Lockout");
+
+            // 預設防呆值（萬一資料庫沒資料時的替代方案）
+            int captchaThreshold = captchaConfig?.FFailedAttemptsThreshold ?? 3;
+            int lockThreshold = lockoutConfig?.FFailedAttemptsThreshold ?? 6;
+
+            // 是否啟用該機制
+            bool isCaptchaEnabled = captchaConfig?.FIsActive ?? true;
+            bool isLockoutEnabled = lockoutConfig?.FIsActive ?? true;
+
             var member = await _context.TMembers
                 .FirstOrDefaultAsync(m => m.FEmail == dto.FEmail);
 
@@ -40,9 +52,6 @@ namespace Shizuku.Services
             {
                 return new ApiResponse<MemberLoginResponseDto> { Success = false, Message = "帳號或密碼錯誤" };
             }
-
-            int captchaThreshold = 3;
-            int lockThreshold = 6;
 
             // 2. 檢查帳號是否已經被鎖定或停用
             if (member.FIsActive == false)
@@ -59,8 +68,8 @@ namespace Shizuku.Services
                 };
             }
 
-            // 3. 檢查是否需要驗證碼
-            bool isCaptchaRequired = member.FAccessFailedCount >= captchaThreshold;
+            // 3. 檢查是否需要驗證碼（必須機制有啟用，且錯誤次數達標）
+            bool isCaptchaRequired = isCaptchaEnabled && (member.FAccessFailedCount >= captchaThreshold);
 
             if (isCaptchaRequired)
             {
@@ -69,8 +78,8 @@ namespace Shizuku.Services
                     // 驗證碼打錯，count + 1
                     member.FAccessFailedCount = (member.FAccessFailedCount ?? 0) + 1;
 
-                    // 檢查加完這一次之後，有沒有剛好觸發硬鎖定門檻
-                    if (member.FAccessFailedCount >= lockThreshold)
+                    // 檢查加完這一次之後，有沒有剛好觸發硬鎖定門檻（必須鎖定機制有啟用）
+                    if (isLockoutEnabled && member.FAccessFailedCount >= lockThreshold)
                     {
                         member.FIsActive = false;
                     }
@@ -103,12 +112,14 @@ namespace Shizuku.Services
 
                 string returnMessage;
 
-                if (member.FAccessFailedCount >= lockThreshold)
+                // 判斷硬鎖定（需啟用且達標）
+                if (isLockoutEnabled && member.FAccessFailedCount >= lockThreshold)
                 {
                     member.FIsActive = false;
                     returnMessage = "密碼錯誤次數已達上限，帳號已被鎖定，請聯繫客服人員處理。";
                 }
-                else if (member.FAccessFailedCount >= captchaThreshold)
+                // 判斷驗證碼提示（需啟用且達標）
+                else if (isCaptchaEnabled && member.FAccessFailedCount >= captchaThreshold)
                 {
                     returnMessage = "電子信箱或密碼輸入錯誤，下次登入請輸入驗證碼。";
                 }
@@ -139,9 +150,9 @@ namespace Shizuku.Services
                 FGender = member.FGender,
                 FBirthday = member.FBirthday,
                 FPhone = member.FPhone,
-                FLevel=member.FLevel,
-                FPoints=member.FPoints,
-                FImage=member.FImage
+                FLevel = member.FLevel,
+                FPoints = member.FPoints,
+                FImage = member.FImage
             };
 
             return new ApiResponse<MemberLoginResponseDto>
@@ -151,7 +162,6 @@ namespace Shizuku.Services
                 Data = loginResult
             };
         }
-
         private async Task<bool> ValidateCaptchaAsync(string? id, string? answer)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(answer)) return false;
