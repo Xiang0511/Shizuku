@@ -301,5 +301,29 @@ namespace Shizuku.Services
 
             return list;
         }
+        /// <summary>
+        /// 後台專用：撈取全站所有的客服表單紀錄
+        /// </summary>
+        public async Task<List<AdminTicketListDto>> GetAllTicketsForAdminAsync()
+        {
+            var list = await _db.TTicketsCustomers
+                .OrderByDescending(t => t.FCreatedAt) // 讓最新發問的表單排在最上面
+                .Select(t => new AdminTicketListDto
+                {
+                    Id = t.FId,
+                    MemberId = t.FMemberId,
+                    // 防呆：如果客人沒填名字或信箱，就給預設值
+                    GuestName = string.IsNullOrEmpty(t.FGuestName) ? "無名氏" : t.FGuestName,
+                    Email = string.IsNullOrEmpty(t.FGuestEmail) ? "無" : t.FGuestEmail,
+                    Category = "問題分類 " + t.FCategoryId.ToString(),
+                    Subject = t.FSubject,
+                    Content = t.FDescription,
+                    Status = string.IsNullOrEmpty(t.FStatus) ? "待處理" : t.FStatus,
+                    CreateTime = t.FCreatedAt.HasValue ? t.FCreatedAt.Value.ToString("yyyy-MM-dd HH:mm") : ""
+                })
+                .ToListAsync();
+
+            return list;
+        }
     }
 }

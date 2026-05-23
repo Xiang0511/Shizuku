@@ -126,5 +126,35 @@ namespace Shizuku.Controllers
                 });
             }
         }
+        // -----------------------------------------------------------
+        // 後台專用：取得所有客人的聯絡表單
+        // 路由：GET https://localhost:7197/api/CustomerApi/Admin/AllTickets
+        // -----------------------------------------------------------
+        [HttpGet("Admin/AllTickets")]
+        public async Task<IActionResult> GetAllTicketsForAdmin()
+        {
+            try
+            {
+                // 呼叫我們剛剛在 Service 寫好的方法
+                var tickets = await _customerService.GetAllTicketsForAdminAsync();
+
+                // 套用你們組長的 ApiResponse 格式回傳
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "成功取得所有表單紀錄",
+                    Data = tickets
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "系統發生錯誤：" + ex.Message,
+                    Data = null
+                });
+            }
+        }
     }
 }
