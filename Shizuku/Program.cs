@@ -96,6 +96,7 @@ try
 
 
     builder.Services.AddScoped<SystemService>();
+    builder.Services.AddScoped<SystemLogsService>();
 
     // 新增合併進來的服務
     builder.Services.AddScoped<JwtHelper>();
