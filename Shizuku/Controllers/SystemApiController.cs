@@ -13,6 +13,8 @@ namespace Shizuku.Controllers
         {
             _systemService = systemService;
         }
+
+        // PUT: api/SystemApi/config
         [HttpPut("config")]
         public async Task<ActionResult<ApiResponse<bool>>> UpdateConfig([FromBody] UpdateConfigDto dto)
         {
@@ -34,6 +36,33 @@ namespace Shizuku.Controllers
             }
 
             return Ok(result);
+        }
+
+        // GET: api/SystemApi/config
+        [HttpGet("config")]
+        public async Task<ActionResult<ApiResponse<SystemConfigResponseDto>>> GetSystemConfigAsync()
+        {
+            try
+            {
+                // 非同步獲取整理好的設定資料
+                var configData = await _systemService.GetSystemConfigAsync();
+
+                return Ok(new ApiResponse<SystemConfigResponseDto>
+                {
+                    Success = true,
+                    Message = "載入系統設定資料成功",
+                    Data = configData
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<SystemConfigResponseDto>
+                {
+                    Success = false,
+                    Message = $"後端載入系統設定失敗: {ex.Message}",
+                    Data = null
+                });
+            }
         }
     }
 }
