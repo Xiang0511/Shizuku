@@ -207,6 +207,11 @@ namespace Shizuku.ViewModels
         public decimal fPrice { get; set; }
         public decimal? fCostPrice { get; set; }
         public string fStockStatus { get; set; } = string.Empty;
+        public int fPurchaseQty { get; set; }  // ← 加
+        public int fSalesQty { get; set; }  // ← 加
+        public int fReturnQty { get; set; }  // ← 加
+        public int fPurchaseReturnQty { get; set; }  // ← 加
+        public int fScrapQty { get; set; }  // ← 加
     }
 
     // 商品庫存（主列）

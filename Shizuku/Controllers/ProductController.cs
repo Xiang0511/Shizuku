@@ -189,6 +189,18 @@ namespace Shizuku.Controllers
                 Data = new { fId = newId }
             });
         }
+        //取得進銷存報表商品與規格
+        [HttpGet("inventory-report")]
+        public IActionResult GetInventoryReport()
+        {
+            var report = _productService.GetInventoryReport();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = report
+            });
+        }
         /// <summary>上傳商品圖片</summary>
         [HttpPost("{id}/image")]
         public async Task<IActionResult> UploadImage(int id, IFormFile photo)
@@ -322,9 +334,9 @@ namespace Shizuku.Controllers
 
         /// <summary>取得進貨紀錄</summary>
         [HttpGet("stock-records")]
-        public IActionResult GetStockRecords()
+        public IActionResult GetStockRecords([FromQuery] int? variantId = null)
         {
-            var records = _productService.GetStockRecords();
+            var records = _productService.GetStockRecords(variantId);
             return Ok(new ApiResponse<object>
             {
                 Success = true,
