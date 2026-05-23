@@ -92,6 +92,11 @@ try
     builder.Services.AddScoped<RefundAdminService>();
     builder.Services.AddHostedService<OrderTimeoutService>();
 
+
+
+
+    builder.Services.AddScoped<SystemService>();
+
     // 新增合併進來的服務
     builder.Services.AddScoped<JwtHelper>();
     builder.Services.AddScoped<EmailService>();
