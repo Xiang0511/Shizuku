@@ -345,6 +345,26 @@ namespace Shizuku.Controllers
             });
         }
 
+        [HttpGet("variant-by-sku")]
+        public IActionResult GetVariantBySku([FromQuery] string sku)
+        {
+            var result = _productService.GetVariantBySku(sku);
+
+            if (result == null)
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "找不到此規格"
+                });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = result
+            });
+        }
+
         /// <summary>新增進貨紀錄</summary>
         [HttpPost("stock-records")]
         public IActionResult AddStockRecord([FromBody] StockRecordCreateDto dto)

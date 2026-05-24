@@ -214,6 +214,8 @@ namespace Shizuku.ViewModels
         public int fReturnQty { get; set; }  // ← 加
         public int fPurchaseReturnQty { get; set; }  // ← 加
         public int fScrapQty { get; set; }  // ← 加
+        public int fAdjustInQty { get; set; }  // ← 加調整進
+        public int fAdjustOutQty { get; set; }  // ← 加調整出
     }
 
     // 商品庫存（主列）

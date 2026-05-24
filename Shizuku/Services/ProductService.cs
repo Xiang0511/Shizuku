@@ -541,6 +541,23 @@ namespace Shizuku.Services
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
+                    // 調整進
+                    var adjustInQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "調整進"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
+
+                    // 調整出
+                    var adjustOutQty = _context.TPurchaseOrderDetails
+                        .Where(d => d.FVariantId == v.FId)
+                        .Join(_context.TPurchaseOrders
+                            .Where(o => o.FType == "調整出"),
+                            d => d.FOrderId, o => o.FId,
+                            (d, o) => d.FQuantity)
+                        .Sum();
 
                     // 銷量（從訂單）
                     var salesQty = _context.TOrderDetails
@@ -573,7 +590,9 @@ namespace Shizuku.Services
                         fSalesQty = salesQty,
                         fReturnQty = returnQty,
                         fPurchaseReturnQty = purchaseReturnQty,
-                        fScrapQty = scrapQty
+                        fScrapQty = scrapQty,
+                        fAdjustInQty = adjustInQty,
+                        fAdjustOutQty = adjustOutQty,
                     };
                 }).ToList();
 
@@ -880,5 +899,35 @@ namespace Shizuku.Services
             }
             _context.SaveChanges();
         }
+        public object? GetVariantBySku(string sku)
+        {
+            TProductVariant? variant = null;
+
+            // 先用 SKU 查
+            variant = _context.TProductVariants
+                .FirstOrDefault(v => v.FSkuCode == sku);
+
+            // 找不到再用 variantId 查
+            if (variant == null && int.TryParse(sku, out int id))
+                variant = _context.TProductVariants
+                    .FirstOrDefault(v => v.FId == id);
+
+            if (variant == null) return null;
+
+            var product = _context.TProducts.FirstOrDefault(p => p.FId == variant.FProductId);
+            var color = _context.TProductColors.FirstOrDefault(c => c.FId == variant.FColorId);
+            var size = _context.TProductSizes.FirstOrDefault(s => s.FId == variant.FSizeId);
+
+            return new
+            {
+                fVariantId = variant.FId,
+                fProductName = product?.FName ?? "",
+                fSkuCode = variant.FSkuCode,
+                fColor = color?.FName ?? "",
+                fSize = size?.FName ?? "",
+                fStock = variant.FStock
+            };
+        }
+
     }
 }
