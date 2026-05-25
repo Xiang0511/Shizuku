@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Shizuku.Models.System;
 using System;
 using System.Collections.Generic;
@@ -67,6 +67,7 @@ public partial class DbShizukuDemoContext : DbContext
 
     public virtual DbSet<TMemberStoreItem> TMemberStoreItem { get; set; }
 
+    public virtual DbSet<TSystemConfig> TSystemConfigs { get; set; } = null!;
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning OTo protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseSqlServer("Data Source=.;Initial Catalog=dbShizukuDemo;Integrated Security=True;Encrypt=False");
@@ -521,7 +522,9 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FVariantId).HasColumnName("fVariantId");
             entity.Property(e => e.FType).HasColumnName("fType");
             entity.Property(e => e.FQuantity).HasColumnName("fQuantity");
-            entity.Property(e => e.FCostPrice).HasColumnName("fCostPrice");
+            entity.Property(e => e.FCostPrice)
+                .HasColumnName("fCostPrice")
+                .HasColumnType("decimal(18, 2)");
             entity.Property(e => e.FNote).HasColumnName("fNote");
             entity.Property(e => e.FCreatedAt).HasColumnName("fCreatedAt");
         });
@@ -535,8 +538,18 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FPaymentMethod).HasColumnName("fPaymentMethod");
             entity.Property(e => e.FNote).HasColumnName("fNote");
             entity.Property(e => e.FTotalQuantity).HasColumnName("fTotalQuantity");
-            entity.Property(e => e.FTotalAmount).HasColumnName("fTotalAmount");
+            entity.Property(e => e.FTotalAmount)
+                .HasColumnName("fTotalAmount")
+                .HasColumnType("decimal(18, 2)");
             entity.Property(e => e.FCreatedAt).HasColumnName("fCreatedAt");
+            entity.Property(e => e.FType).HasColumnName("fType");
+            entity.Property(e => e.FStatus).HasColumnName("fStatus");
+            entity.Property(e => e.FInvoiceNo).HasColumnName("fInvoiceNo");
+            entity.Property(e => e.FInvoiceDate).HasColumnName("fInvoiceDate");
+            entity.Property(e => e.FTaxType).HasColumnName("fTaxType");
+            entity.Property(e => e.FTaxRate).HasColumnName("fTaxRate");
+            entity.Property(e => e.FUntaxedAmount).HasColumnName("fUntaxedAmount");
+            entity.Property(e => e.FTaxAmount).HasColumnName("fTaxAmount");
         });
 
         modelBuilder.Entity<TPurchaseOrderDetail>(entity =>
@@ -547,8 +560,12 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FOrderId).HasColumnName("fOrderId");
             entity.Property(e => e.FVariantId).HasColumnName("fVariantId");
             entity.Property(e => e.FQuantity).HasColumnName("fQuantity");
-            entity.Property(e => e.FCostPrice).HasColumnName("fCostPrice");
-            entity.Property(e => e.FAmount).HasColumnName("fAmount");
+            entity.Property(e => e.FCostPrice)
+                .HasColumnName("fCostPrice")
+                .HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.FAmount)
+                .HasColumnName("fAmount")
+                .HasColumnType("decimal(18, 2)");
             entity.Property(e => e.FNote).HasColumnName("fNote");
         });
 
@@ -681,6 +698,48 @@ public partial class DbShizukuDemoContext : DbContext
             entity.ToTable("tLiveChatMessage");
 
             entity.Property(e => e.FId).HasColumnName("fId");
+        });
+
+        modelBuilder.Entity<TOrder>(entity =>
+        {
+            entity.ToTable("tOrders");
+            entity.HasKey(e => e.FId);
+            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FOrderNo).HasColumnName("fOrder_no");
+            entity.Property(e => e.FMemberId).HasColumnName("fMember_id");
+            entity.Property(e => e.FTotalAmount)
+                .HasColumnName("fTotal_amount")
+                .HasColumnType("decimal(18, 0)");
+            entity.Property(e => e.FStatus).HasColumnName("fStatus");
+            entity.Property(e => e.FReceiverName).HasColumnName("fReceiver_name");
+            entity.Property(e => e.FReceiverPhone).HasColumnName("fReceiver_phone");
+            entity.Property(e => e.FReceiverAddress).HasColumnName("fReceiver_address");
+            entity.Property(e => e.FNote).HasColumnName("fNote");
+            entity.Property(e => e.FCreatedAt).HasColumnName("fCreated_at").HasColumnType("datetime");
+            entity.Property(e => e.FUpdatedAt).HasColumnName("fUpdated_at").HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<TOrderDetail>(entity =>
+        {
+            entity.ToTable("tOrderDetails");
+            entity.HasKey(e => e.FId);
+            entity.Property(e => e.FId).HasColumnName("fId");
+            entity.Property(e => e.FOrderId).HasColumnName("fOrder_id");
+            entity.Property(e => e.FVariantId).HasColumnName("fVariant_id");
+            entity.Property(e => e.FProductNameSnap).HasColumnName("fProduct_name_snap");
+            entity.Property(e => e.FPriceSnap)
+                .HasColumnName("fPrice_snap")
+                .HasColumnType("decimal(18, 0)");
+            entity.Property(e => e.FQuantity).HasColumnName("fQuantity");
+            entity.Property(e => e.FSubtotal)
+                .HasColumnName("fSubtotal")
+                .HasColumnType("decimal(18, 0)");
+        });
+
+        modelBuilder.Entity<TSystemConfig>(entity =>
+        {
+            entity.Property(e => e.FIsActive)
+                  .HasConversion<bool>(); 
         });
 
         OnModelCreatingPartial(modelBuilder);

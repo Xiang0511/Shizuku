@@ -251,8 +251,8 @@ namespace Shizuku.Services
         // 取得營收統計數據
         public async Task<object> GetRevenueStatsAsync(DateTime? startDate, DateTime? endDate)
         {
-            var start = startDate ?? DateTime.Today.AddDays(-6);
-            var end = endDate ?? DateTime.Now;
+            var start = (startDate ?? DateTime.Today.AddDays(-6)).ToLocalTime();
+            var end = (endDate ?? DateTime.Now).ToLocalTime();
 
             var validOrders = await _db.TOrders
                 .Where(o => (o.FStatus == 2 || o.FStatus == 3 || o.FStatus == 4) && o.FCreatedAt >= start && o.FCreatedAt <= end)
@@ -269,39 +269,56 @@ namespace Shizuku.Services
             {
                 dailyStats = validOrders
                     .GroupBy(o => new { o.FCreatedAt.Year, o.FCreatedAt.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                     .Select(g => new
                     {
                         Date = $"{g.Key.Year}/{g.Key.Month:D2}",
                         Amount = g.Sum(o => o.FTotalAmount),
                         Count = g.Count()
                     })
-                    .OrderBy(x => x.Date)
                     .ToList();
             }
             else
             {
                 dailyStats = validOrders
                     .GroupBy(o => o.FCreatedAt.Date)
+                    .OrderBy(g => g.Key)
                     .Select(g => new
                     {
                         Date = g.Key.ToString("MM/dd"),
                         Amount = g.Sum(o => o.FTotalAmount),
                         Count = g.Count()
                     })
-                    .OrderBy(x => x.Date)
                     .ToList();
             }
 
-            var paymentStats = await (from o in _db.TOrders
-                                     join pt in _db.TPaymentTransactions on o.FId equals pt.FOrderId
-                                     join pm in _db.TPaymentMethods on pt.FMethodId equals pm.FId
-                                     where (o.FStatus == 2 || o.FStatus == 3 || o.FStatus == 4) && o.FCreatedAt >= start && o.FCreatedAt <= end
-                                     group o by pm.FMethodName into g
-                                     select new
-                                     {
-                                         Method = g.Key ?? "未知",
-                                         Amount = g.Sum(o => o.FTotalAmount)
-                                     }).ToListAsync();
+            var rawPaymentStats = await (from o in _db.TOrders
+                                         join pt in _db.TPaymentTransactions on o.FId equals pt.FOrderId
+                                         where (o.FStatus == 2 || o.FStatus == 3 || o.FStatus == 4) && o.FCreatedAt >= start && o.FCreatedAt <= end
+                                         group o by pt.FMethodId into g
+                                         select new
+                                         {
+                                             MethodId = g.Key,
+                                             Amount = g.Sum(o => o.FTotalAmount)
+                                         }).ToListAsync();
+
+            var paymentMethods = await _db.TPaymentMethods
+                .Where(pm => pm.FMethodName != null)
+                .ToDictionaryAsync(pm => pm.FId, pm => pm.FMethodName!);
+
+            var paymentStats = rawPaymentStats.Select(p => new
+            {
+                Method = (paymentMethods.TryGetValue(p.MethodId, out var name) && !string.IsNullOrEmpty(name))
+                    ? name
+                    : p.MethodId switch
+                    {
+                        1 => "綠界金流",
+                        2 => "LINE Pay",
+                        3 => "貨到付款",
+                        _ => "未知"
+                    },
+                Amount = p.Amount
+            }).ToList();
 
             return new
             {
@@ -336,7 +353,15 @@ namespace Shizuku.Services
         {
             if (methodId == null) return "未知付款方式";
             var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == methodId);
-            return method != null ? method.FMethodName : "未知付款方式";
+            if (method != null) return method.FMethodName;
+
+            return methodId switch
+            {
+                1 => "綠界金流",
+                2 => "LINE Pay",
+                3 => "貨到付款",
+                _ => "未知付款方式"
+            };
         }
     }
 }

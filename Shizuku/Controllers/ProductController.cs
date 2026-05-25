@@ -22,9 +22,10 @@ namespace Shizuku.Controllers
         [HttpGet]
         public IActionResult List(
             [FromQuery] string? keyword,
-            [FromQuery] int? categoryId)
+            [FromQuery] int? categoryId,
+            [FromQuery]bool isAdmin = false)
         {
-            var datas = _productService.GetProductList(keyword, categoryId);
+            var datas = _productService.GetProductList(keyword, categoryId,isAdmin);
             return Ok(new ApiResponse<object>
             {
                 Success = true,
@@ -124,6 +125,18 @@ namespace Shizuku.Controllers
                 Data = order
             });
         }
+        /// <summary>取得相關商品</summary>
+        [HttpGet("{id}/related")]
+        public IActionResult GetRelated(int id)
+        {
+            var related = _productService.GetRelatedProducts(id);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = related
+            });
+        }
         /// <summary>新增商品</summary>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
@@ -176,6 +189,28 @@ namespace Shizuku.Controllers
                 Data = new { fId = newId }
             });
         }
+        //取得進銷存報表商品與規格
+        [HttpGet("inventory-report")]
+        public IActionResult GetInventoryReport()
+        {
+            var report = _productService.GetInventoryReport();
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = report
+            });
+        }
+        // 編輯進貨單
+        [HttpPut("purchase-orders/{id}/status")]
+        public IActionResult UpdatePurchaseOrderStatus(int id, [FromBody] string status)
+        {
+            var result = _productService.UpdatePurchaseOrderStatus(id, status);
+            if (!result)
+                return NotFound(new ApiResponse<object> { Success = false, Message = "找不到此異動單" });
+
+            return Ok(new ApiResponse<object> { Success = true, Message = "更新成功" });
+        }
         /// <summary>上傳商品圖片</summary>
         [HttpPost("{id}/image")]
         public async Task<IActionResult> UploadImage(int id, IFormFile photo)
@@ -215,6 +250,17 @@ namespace Shizuku.Controllers
                 Success = true,
                 Message = "上傳成功",
                 Data = imageUrl
+            });
+        }
+        //新增新規格
+        [HttpPost("{id}/variants")]
+        public IActionResult AddVariants(int id, [FromBody] List<VariantInputDto> variants)
+        {
+            _productService.AddVariants(id, variants);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "規格新增成功"
             });
         }
         /// <summary>更新商品基本資料</summary>
@@ -298,14 +344,34 @@ namespace Shizuku.Controllers
 
         /// <summary>取得進貨紀錄</summary>
         [HttpGet("stock-records")]
-        public IActionResult GetStockRecords()
+        public IActionResult GetStockRecords([FromQuery] int? variantId = null)
         {
-            var records = _productService.GetStockRecords();
+            var records = _productService.GetStockRecords(variantId);
             return Ok(new ApiResponse<object>
             {
                 Success = true,
                 Message = "查詢成功",
                 Data = records
+            });
+        }
+
+        [HttpGet("variant-by-sku")]
+        public IActionResult GetVariantBySku([FromQuery] string sku)
+        {
+            var result = _productService.GetVariantBySku(sku);
+
+            if (result == null)
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "找不到此規格"
+                });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "查詢成功",
+                Data = result
             });
         }
 

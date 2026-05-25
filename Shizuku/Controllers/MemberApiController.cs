@@ -251,7 +251,7 @@ namespace Shizuku.Controllers
             });
         }
 
-        // 步驟 1：發送修改資料驗證碼（手機、生日共用）
+        // 步驟 1：發送修改資料驗證碼
         [Authorize]
         [HttpPost("security/request-code")]
         public async Task<IActionResult> RequestSecurityCode([FromBody] MemberSecurityDto.SecurityRequestCodeDto dto)
@@ -278,7 +278,7 @@ namespace Shizuku.Controllers
             {
                 1 => "手機號碼",
                 2 => "會員生日",
-                //3 => "登入密碼", // 新增 Type 3 的電子郵件文字
+                3 => "登入密碼", // 新增 Type 3 的電子郵件文字
                 _ => "安全資料"
             };
             string emailSubject = $"【Shizuku】安全變更：{typeName}修改驗證信";
@@ -307,7 +307,7 @@ namespace Shizuku.Controllers
             }
         }
 
-        // 步驟 2：驗證安全驗證碼（手機、生日共用）
+        // 步驟 2：驗證安全驗證碼
         [Authorize]
         [HttpPost("security/verify-code")]
         public async Task<IActionResult> VerifySecurityCode([FromBody] MemberSecurityDto.SecurityVerifyCodeDto dto)
@@ -367,6 +367,176 @@ namespace Shizuku.Controllers
             return result.Success ? Ok(result) : BadRequest(result);
         }
 
+        // 步驟 3：確認變更密碼
+        [Authorize]
+        [HttpPost("security/update-password")]
+        public async Task<IActionResult> UpdatePassword([FromBody] MemberSecurityDto.SecurityUpdatePasswordDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FNewPassword) || string.IsNullOrEmpty(dto.FConfirmPassword))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入完整的新密碼與確認密碼" });
+            }
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int memberId))
+            {
+                return Unauthorized(new ApiResponse<string> { Success = false, Message = "未授權的存取" });
+            }
+
+            // 呼叫 Service
+            var result = await _memberService.UpdatePasswordAsync(memberId, dto.FNewPassword, dto.FConfirmPassword, dto.FVerifiedCode);
+
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // 1. 忘記密碼發送驗證碼
+        [AllowAnonymous] // 加上這個，允許未登入存取
+        [HttpPost("forgot-password/request-code")]
+        public async Task<IActionResult> ForgotRequestSecurityCode([FromBody] MemberSecurityDto.SecurityRequestCodeDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FEmail))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入有效的 Email" });
+            }
+
+            // 【修改點】改用 Email 去 Service 查出 MemberId，不再從 User.FindFirst 抓取
+            var memberResult = await _memberService.GetMemberIdByEmailAsync(dto.FEmail);
+            if (!memberResult.Success)
+            {
+                // 安全防禦：這裡也可以故意回傳成功，避免惡意人士探測 Email 是否註冊
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "找不到該 Email 綁定的會員" });
+            }
+            int memberId = memberResult.Data;
+
+            var serviceResult = await _memberService.GenerateSecurityCodeAsync(memberId, dto.FEmail, dto.FType);
+            if (!serviceResult.Success)
+            {
+                return BadRequest(serviceResult);
+            }
+
+            string code = serviceResult.Data!;
+            string typeName = dto.FType switch
+            {
+                1 => "手機號碼",
+                2 => "會員生日",
+                3 => "登入密碼",
+                _ => "安全資料"
+            };
+            string emailSubject = $"【Shizuku】安全變更：{typeName}修改驗證信";
+
+            string htmlContent = $@"
+    <div style='font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;'>
+        <h2 style='color: #4a4a4a; text-align: center;'>Shizuku 購物平台</h2>
+        <hr style='border: 0; border-top: 1px solid #eee;' />
+        <p>您好：</p>
+        <p>您正在進行變更 {typeName} 的身分驗證。您的 6 位數安全驗證碼如下：</p>
+        <div style='background-color: #f3f4f6; padding: 15px; border-radius: 6px; text-align: center; margin: 20px 0;'>
+            <h1 style='color: #2563eb; letter-spacing: 8px; margin: 0; font-size: 36px;'>{code}</h1>
+        </div>
+        <p style='color: #666; font-size: 13px;'>請於 10 分鐘內在網頁輸入此驗證碼。如果您沒有要求變更此資料，請立即忽略並檢查帳號安全。</p>
+    </div>";
+
+            try
+            {
+                await _emailService.SendEmailAsync(dto.FEmail, emailSubject, htmlContent);
+                return Ok(new ApiResponse<string> { Success = true, Message = "驗證碼已成功寄發至您的信箱。" });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "修改 {TypeName} 發送郵件失敗, MemberId: {MemberId}, Email: {Email}", typeName, memberId, dto.FEmail);
+                return StatusCode(500, new ApiResponse<string> { Success = false, Message = "郵件伺服器發送失敗，請稍後再試" });
+            }
+        }
+
+        // 2. 忘記密碼驗證認證碼
+        [AllowAnonymous] // 加上這個
+        [HttpPost("forgot-password/verify-code")]
+        public async Task<IActionResult> ForgotVerifySecurityCode([FromBody] MemberSecurityDto.SecurityVerifyCodeDto dto)
+        {
+            // 雖然這裡前端傳進來的 DTO 沒有 FEmail，建議你在 DTO 中加上 FEmail
+            // 或是把對應的資訊也改成從系統內查找，這裡必須先查到 memberId
+            if (dto == null || string.IsNullOrEmpty(dto.FCode) || string.IsNullOrEmpty(dto.FEmail))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請提供完整驗證資訊" });
+            }
+
+            var memberResult = await _memberService.GetMemberIdByEmailAsync(dto.FEmail);
+            if (!memberResult.Success)
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "驗證失敗" });
+            }
+            int memberId = memberResult.Data;
+
+            var result = await _memberService.VerifySecurityCodeAsync(memberId, dto.FCode, dto.FType);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // 3. 忘記密碼重設
+        [AllowAnonymous] // 加上這個
+        [HttpPost("forgot-password/reset")]
+        public async Task<IActionResult> ForgotPassword([FromBody] MemberSecurityDto.SecurityUpdatePasswordDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.FNewPassword) || string.IsNullOrEmpty(dto.FConfirmPassword) || string.IsNullOrEmpty(dto.FEmail))
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "請輸入完整欄位資訊" });
+            }
+
+            var memberResult = await _memberService.GetMemberIdByEmailAsync(dto.FEmail);
+            if (!memberResult.Success)
+            {
+                return BadRequest(new ApiResponse<string> { Success = false, Message = "帳號無效" });
+            }
+            int memberId = memberResult.Data;
+
+            // 呼叫 Service
+            var result = await _memberService.UpdatePasswordAsync(memberId, dto.FNewPassword, dto.FConfirmPassword, dto.FVerifiedCode);
+
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        // 更新照片
+        [HttpPost("{memberId}/upload-avatar")]
+        public async Task<ActionResult<ApiResponse<string>>> UploadAvatar(int memberId, IFormFile file)
+        {
+            var result = await _memberService.UploadAvatarAsync(memberId, file);
+
+            if (!result.Success)
+            {
+                return BadRequest(result); // 400 錯誤
+            }
+
+            return Ok(result); // 200 成功
+        }
+
+        // Google 第三方登入 API
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto dto)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.IdToken))
+            {
+                return BadRequest(new ApiResponse<MemberLoginResponseDto>
+                {
+                    Success = false,
+                    Message = "請提供有效的 Google 驗證憑證"
+                });
+            }
+            // 調用 Service 進行驗證與自動註冊
+            var serviceResult = await _memberService.LoginWithGoogleAsync(dto.IdToken);
+            if (!serviceResult.Success)
+            {
+                return Unauthorized(serviceResult);
+            }
+            var loginDto = serviceResult.Data!;
+            // 簽發本站 JWT Token 並賦予傳回的 DTO
+            loginDto.Token = _jwtHelper.GenerateToken(loginDto.FId, loginDto.FName ?? "", loginDto.FEmail ?? "");
+            return Ok(new ApiResponse<MemberLoginResponseDto>
+            {
+                Success = true,
+                Message = "登入成功",
+                Data = loginDto
+            });
+        }
+
         [HttpGet("Lo")]
         public IActionResult Lo()
         {
@@ -384,6 +554,42 @@ namespace Shizuku.Controllers
         {
             var authHeader = Request.Headers["Authorization"].ToString();
             return Ok(new { header = authHeader });
+        }
+
+        //後台
+        //會員列表
+        [HttpGet("MemberList/list")]
+        public async Task<IActionResult> GetMemberList()
+        {
+            var members = await _memberService.GetMemberListAsync();
+
+            return Ok(new ApiResponse<List<MemberListDto>>
+            {
+                Success = true,
+                Message = "成功取得會員列表",
+                Data = members
+            });
+        }
+        //黑名單列表
+        [HttpGet("MemberList/blacklist")]
+        public async Task<IActionResult> GetBlacklisted()
+        {
+            var resp = await _memberService.GetBlacklistedAsync();
+            return Ok(resp);
+        }
+
+        // 解除封鎖會員
+        [HttpPut("MemberList/unban/{id}")]
+        public async Task<IActionResult> RemoveFromBlacklist(int id)
+        {
+            var result = await _memberService.RemoveFromBlacklistAsync(id);
+
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
         }
     }
 

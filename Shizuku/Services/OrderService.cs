@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Shizuku.DTOs;
 using Shizuku.Enums;
 using Shizuku.Models;
@@ -13,19 +14,24 @@ namespace Shizuku.Services
     // 專責處理前台會員購物車結帳、訂單創立、庫存扣減、會員訂單明細查詢、自行取消以及綠界/LINE Pay 付款連結之動態生成
     public class OrderService
     {
+        private static readonly object IdempotencyLock = new object();
+
         private readonly DbShizukuDemoContext _db;
         private readonly ProductService _productService;
         private readonly PaymentFactory _paymentFactory;
+        private readonly IMemoryCache _cache;
 
         // 建構子注入
         public OrderService(
             DbShizukuDemoContext db, 
             ProductService productService, 
-            PaymentFactory paymentFactory)
+            PaymentFactory paymentFactory,
+            IMemoryCache cache)
         {
             _db = db;
             _productService = productService;
             _paymentFactory = paymentFactory;
+            _cache = cache;
         }
 
         // 前台會員結帳建立新訂單
@@ -34,6 +40,35 @@ namespace Shizuku.Services
             if (request.CartItems == null || !request.CartItems.Any())
             {
                 return new ApiResponse<CreateOrderResponseDto> { Success = false, Message = "購物車內無商品，無法建立訂單！" };
+            }
+
+            // 等冪性交易防禦機制 (Idempotency Key Check)
+            string? cacheKey = null;
+            if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            {
+                cacheKey = $"idempotency_checkout_{request.IdempotencyKey}";
+                
+                lock (IdempotencyLock)
+                {
+                    if (_cache.TryGetValue(cacheKey, out object? cachedVal))
+                    {
+                        if (cachedVal is ApiResponse<CreateOrderResponseDto> cachedResponse)
+                        {
+                            return cachedResponse;
+                        }
+                        if (cachedVal is string status && status == "Processing")
+                        {
+                            return new ApiResponse<CreateOrderResponseDto>
+                            {
+                                Success = false,
+                                Message = "訂單正在處理中，請勿重複提交！"
+                            };
+                        }
+                    }
+
+                    // 先寫入 Processing 狀態防重
+                    _cache.Set(cacheKey, "Processing", TimeSpan.FromMinutes(2));
+                }
             }
 
             using (var transaction = _db.Database.BeginTransaction())
@@ -141,7 +176,7 @@ namespace Shizuku.Services
 
                     transaction.Commit();
 
-                    return new ApiResponse<CreateOrderResponseDto>
+                    var response = new ApiResponse<CreateOrderResponseDto>
                     {
                         Success = true,
                         Message = "訂單建立成功！",
@@ -151,10 +186,25 @@ namespace Shizuku.Services
                             PaymentUrl = paymentUrl
                         }
                     };
+
+                    // 建立成功後，將最終成功回應寫入快取，保存 10 分鐘
+                    if (cacheKey != null)
+                    {
+                        _cache.Set(cacheKey, response, TimeSpan.FromMinutes(10));
+                    }
+
+                    return response;
                 }
                 catch (Exception ex)
                 {
                     transaction.Rollback();
+
+                    // 發生錯誤，將快取中的 Processing 狀態清除，允許重試
+                    if (cacheKey != null)
+                    {
+                        _cache.Remove(cacheKey);
+                    }
+
                     return new ApiResponse<CreateOrderResponseDto>
                     {
                         Success = false,
@@ -278,13 +328,30 @@ namespace Shizuku.Services
         {
             var stats = await (from od in _db.TOrderDetails
                                join o in _db.TOrders on od.FOrderId equals o.FId
+                               join v in _db.TProductVariants on od.FVariantId equals v.FId//13
+                               join p in _db.TProducts on v.FProductId equals p.FId//13
+                               join c in _db.TProductColors on v.FColorId equals c.FId//13
+                               join s in _db.TProductSizes on v.FSizeId equals s.FId//13
                                where o.FStatus != 5 // 排除取消的訂單
-                               group od by od.FVariantId into g
-                               select new VariantSalesStatsDto
+                               group new { od, p, c, s } by new//13
                                {
-                                   VariantId = g.Key,
-                                   TotalQuantitySold = g.Sum(x => x.FQuantity),
-                                   TotalRevenue = g.Sum(x => x.FSubtotal)
+                                   od.FVariantId,
+                                   p.FName,
+                                   p.FProduct,
+                                   ColorName = c.FName,
+                                   SizeName = s.FName
+                               }
+                               
+                               into g
+                               select new VariantSalesStatsDto//13
+                               {
+                                   VariantId = g.Key.FVariantId,
+                                   ProductName = g.Key.FName,
+                                   ProductCode = g.Key.FProduct,
+                                   Color = g.Key.ColorName,
+                                   Size = g.Key.SizeName,
+                                   TotalQuantitySold = g.Sum(x => x.od.FQuantity),
+                                   TotalRevenue = g.Sum(x => x.od.FSubtotal)
                                })
                                .OrderByDescending(x => x.TotalQuantitySold)
                                .Take(10)
@@ -293,10 +360,77 @@ namespace Shizuku.Services
             return stats;
         }
 
-        // 會員自行取消訂單並回補庫存
-        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        // 取得前台首頁熱銷商品排行數據 (以商品為單位加總，且商品需處於上架狀態。不足 8 個時以最新商品補足至 8 個)
+        public async Task<List<ProductSalesStatsDto>> GetTopSellingProductsAsync()
         {
-            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FOrderNo == orderNo);
+            var stats = await (from od in _db.TOrderDetails
+                               join v in _db.TProductVariants on od.FVariantId equals v.FId
+                               join p in _db.TProducts on v.FProductId equals p.FId
+                               join o in _db.TOrders on od.FOrderId equals o.FId
+                               where o.FStatus != 5 && p.FStatus == 1 // 排除取消訂單，且必須是上架狀態的商品
+                               group od by new { p.FId, p.FName, p.FPrice } into g
+                               select new ProductSalesStatsDto
+                               {
+                                   ProductId = g.Key.FId,
+                                   ProductName = g.Key.FName,
+                                   Price = g.Key.FPrice,
+                                   ImageUrl = _db.TProductImages
+                                       .Where(img => img.FProductId == g.Key.FId && img.FIsMain == 1)
+                                       .Select(img => img.FImageUrl)
+                                       .FirstOrDefault() ?? _db.TProductImages
+                                           .Where(img => img.FProductId == g.Key.FId)
+                                           .OrderBy(img => img.FSortOrder)
+                                           .Select(img => img.FImageUrl)
+                                           .FirstOrDefault(),
+                                   TotalQuantitySold = g.Sum(x => x.FQuantity),
+                                   TotalRevenue = g.Sum(x => x.FSubtotal),
+                                   IsHot = true,
+                                   IsNew = false
+                               })
+                               .OrderByDescending(x => x.TotalQuantitySold)
+                               .Take(8)
+                               .ToListAsync();
+
+            if (stats.Count < 8)
+            {
+                var existingProductIds = stats.Select(s => s.ProductId).ToList();
+                int need = 8 - stats.Count;
+
+                var fallbackProducts = await _db.TProducts
+                    .Where(p => p.FStatus == 1 && !existingProductIds.Contains(p.FId))
+                    .OrderByDescending(p => p.FCreatedAt)
+                    .ThenByDescending(p => p.FId)
+                    .Take(need)
+                    .Select(p => new ProductSalesStatsDto
+                    {
+                        ProductId = p.FId,
+                        ProductName = p.FName,
+                        Price = p.FPrice,
+                        ImageUrl = _db.TProductImages
+                            .Where(img => img.FProductId == p.FId && img.FIsMain == 1)
+                            .Select(img => img.FImageUrl)
+                            .FirstOrDefault() ?? _db.TProductImages
+                                .Where(img => img.FProductId == p.FId)
+                                .OrderBy(img => img.FSortOrder)
+                                .Select(img => img.FImageUrl)
+                                .FirstOrDefault(),
+                        TotalQuantitySold = 0,
+                        TotalRevenue = 0,
+                        IsHot = false,
+                        IsNew = true
+                    })
+                    .ToListAsync();
+
+                stats.AddRange(fallbackProducts);
+            }
+
+            return stats;
+        }
+
+        // 會員自行取消訂單並回補庫存 (by ID)
+        public async Task<ApiResponse<object>> CancelOrderAsync(int orderId)
+        {
+            var order = await _db.TOrders.FirstOrDefaultAsync(o => o.FId == orderId);
             if (order == null)
             {
                 return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
@@ -306,6 +440,32 @@ namespace Shizuku.Services
                 return new ApiResponse<object> { Success = false, Message = "只有未付款訂單才能取消" };
             }
 
+            return await CancelOrderInternalAsync(order);
+        }
+
+        // 會員自行取消訂單並回補庫存 (by OrderNo, 優先處理未付款狀態者以解決重複訂單編號問題)
+        public async Task<ApiResponse<object>> CancelOrderAsync(string orderNo)
+        {
+            var order = await _db.TOrders
+                .Where(o => o.FOrderNo == orderNo)
+                .OrderBy(o => o.FStatus == 1 ? 0 : 1) // 未付款(1)優先，已取消(5)等後排
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+            {
+                return new ApiResponse<object> { Success = false, Message = "找不到該筆訂單" };
+            }
+            if (order.FStatus != 1) 
+            {
+                return new ApiResponse<object> { Success = false, Message = "只有未付款訂單才能取消" };
+            }
+
+            return await CancelOrderInternalAsync(order);
+        }
+
+        // 內部統一處理訂單取消與庫存回補的共用邏輯
+        private async Task<ApiResponse<object>> CancelOrderInternalAsync(TOrder order)
+        {
             using (var transaction = _db.Database.BeginTransaction())
             {
                 try
@@ -437,7 +597,15 @@ namespace Shizuku.Services
         {
             if (methodId == null) return "未知付款方式";
             var method = await _db.TPaymentMethods.FirstOrDefaultAsync(m => m.FId == methodId);
-            return method != null ? method.FMethodName : "未知付款方式";
+            if (method != null) return method.FMethodName;
+
+            return methodId switch
+            {
+                1 => "綠界金流",
+                2 => "LINE Pay",
+                3 => "貨到付款",
+                _ => "未知付款方式"
+            };
         }
     }
 }

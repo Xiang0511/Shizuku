@@ -44,6 +44,7 @@ try
     builder.Services.AddControllersWithViews();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
+    builder.Services.AddMemoryCache();
 
     builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
         options.UseSqlServer(connectionString));
@@ -91,6 +92,12 @@ try
     builder.Services.AddScoped<AnomalyMonitorService>();
     builder.Services.AddScoped<RefundAdminService>();
     builder.Services.AddHostedService<OrderTimeoutService>();
+
+
+
+
+    builder.Services.AddScoped<SystemService>();
+    builder.Services.AddScoped<SystemLogsService>();
 
     // 新增合併進來的服務
     builder.Services.AddScoped<JwtHelper>();
