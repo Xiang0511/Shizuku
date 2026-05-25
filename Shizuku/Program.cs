@@ -44,6 +44,7 @@ try
     builder.Services.AddControllersWithViews();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
+    builder.Services.AddMemoryCache();
 
     builder.Services.AddDbContext<DbShizukuDemoContext>(options =>
         options.UseSqlServer(connectionString));

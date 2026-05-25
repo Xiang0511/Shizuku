@@ -99,39 +99,99 @@ namespace Shizuku.Services
         public bool ValidateECPayCallback(IDictionary<string, string> form, out string orderNo)
         {
             string responseJson = System.Text.Json.JsonSerializer.Serialize(form);
-
-            form.TryGetValue("RtnCode", out string rtnCode);
-            form.TryGetValue("MerchantTradeNo", out string merchantTradeNo);
             orderNo = null;
 
-            if (!string.IsNullOrEmpty(merchantTradeNo))
+            try
             {
-                // 還原真實的訂單編號（前 17 碼為 Shizuku 標準訂單編號）
-                string actualOrderNo = merchantTradeNo.Length >= 17 ? merchantTradeNo.Substring(0, 17) : merchantTradeNo;
-                orderNo = actualOrderNo;
-
-                // 同步寫入非同步付款通知日誌
-                var order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == actualOrderNo);
-                if (order != null)
+                if (form == null || !form.ContainsKey("CheckMacValue"))
                 {
-                    var transaction = _db.TPaymentTransactions
-                        .OrderByDescending(t => t.FCreatedAt)
-                        .FirstOrDefault(t => t.FOrderId == order.FId);
+                    return false;
+                }
 
-                    if (transaction != null)
+                // 1. 進行雜湊簽章 (CheckMacValue) 安全性驗證，防堵付款通知偽造
+                string receivedMac = form["CheckMacValue"];
+                string hashKey = _config["ECPay:HashKey"] ?? "";
+                string hashIV = _config["ECPay:HashIV"] ?? "";
+
+                var parameters = new Dictionary<string, string>();
+                foreach (var kvp in form)
+                {
+                    if (!kvp.Key.Equals("CheckMacValue", StringComparison.OrdinalIgnoreCase))
                     {
-                        _db.TPaymentLogs.Add(new TPaymentLog
-                        {
-                            FPaymentTransactionsId = transaction.FId,
-                            FActionType = "Notification",
-                            FResponseData = responseJson,
-                            FCreatedAt = DateTime.Now
-                        });
-                        _db.SaveChanges();
+                        parameters[kvp.Key] = kvp.Value;
                     }
                 }
 
-                if (rtnCode == "1") return true;
+                string computedMac = ECPayHelper.BuildCheckMacValue(parameters, hashKey, hashIV);
+                if (!string.Equals(receivedMac, computedMac, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("ECPay 簽章驗證失敗！");
+                    return false;
+                }
+
+                // 2. 取得交易序號並還原真實的訂單編號
+                if (form.TryGetValue("MerchantTradeNo", out string merchantTradeNo) && !string.IsNullOrEmpty(merchantTradeNo))
+                {
+                    // A. 先以 GatewayTradeNo 從交易記錄中搜尋對應的 Order
+                    TOrder order = null;
+                    var transaction = _db.TPaymentTransactions
+                        .FirstOrDefault(t => t.FGatewayTradeNo == merchantTradeNo);
+                    if (transaction != null)
+                    {
+                        order = _db.TOrders.FirstOrDefault(o => o.FId == transaction.FOrderId);
+                    }
+
+                    // B. Fallback：如果找不到，使用長度裁切還原訂單編號 (原本訂單編號為 14 碼，而 tradeNoForECPay 是 14 碼 + 3 碼毫秒 = 17 碼)
+                    if (order == null && merchantTradeNo.Length > 3)
+                    {
+                        string fallbackOrderNo = merchantTradeNo.Substring(0, merchantTradeNo.Length - 3);
+                        order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == fallbackOrderNo);
+                    }
+
+                    // C. Fallback：如果再找不到，直接比對原字串
+                    if (order == null)
+                    {
+                        order = _db.TOrders.FirstOrDefault(o => o.FOrderNo == merchantTradeNo);
+                    }
+
+                    if (order != null)
+                    {
+                        orderNo = order.FOrderNo;
+
+                        // 同步寫入非同步付款通知日誌
+                        var orderTx = _db.TPaymentTransactions
+                            .OrderByDescending(t => t.FCreatedAt)
+                            .FirstOrDefault(t => t.FOrderId == order.FId);
+
+                        if (orderTx != null)
+                        {
+                            _db.TPaymentLogs.Add(new TPaymentLog
+                            {
+                                FPaymentTransactionsId = orderTx.FId,
+                                FActionType = "Notification",
+                                FResponseData = responseJson,
+                                FCreatedAt = DateTime.Now
+                            });
+                            _db.SaveChanges();
+                        }
+                    }
+                    else
+                    {
+                        // 若都找不到，以防萬一仍回傳原字串
+                        orderNo = merchantTradeNo;
+                    }
+
+                    // 3. 根據綠界的回傳碼，1 代表付款成功
+                    if (form.TryGetValue("RtnCode", out string rtnCode) && rtnCode == "1")
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"驗證 ECPay 發生異常: {ex.Message}");
+                return false;
             }
 
             return false;

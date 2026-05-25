@@ -46,9 +46,16 @@ namespace Shizuku.Services
 
                             foreach (var order in timeoutOrders)
                             {
-                                // 2. 直接呼叫我們寫好的 CancelOrderAsync 方法，它會自動處理庫存回補
-                                await orderService.CancelOrderAsync(order.FOrderNo);
-                                _logger.LogInformation($"訂單 {order.FOrderNo} 已因超時自動取消。");
+                                // 2. 呼叫 CancelOrderAsync 方法 (傳入唯一 ID 以避免重複單號衝突)
+                                var result = await orderService.CancelOrderAsync(order.FId);
+                                if (result.Success)
+                                {
+                                    _logger.LogInformation($"訂單 {order.FOrderNo} (ID: {order.FId}) 已因超時自動取消。");
+                                }
+                                else
+                                {
+                                    _logger.LogError($"自動取消訂單 {order.FOrderNo} (ID: {order.FId}) 失敗：{result.Message}");
+                                }
                             }
                         }
                     }
