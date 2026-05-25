@@ -538,6 +538,14 @@ public partial class DbShizukuDemoContext : DbContext
             entity.Property(e => e.FTotalQuantity).HasColumnName("fTotalQuantity");
             entity.Property(e => e.FTotalAmount).HasColumnName("fTotalAmount");
             entity.Property(e => e.FCreatedAt).HasColumnName("fCreatedAt");
+            entity.Property(e => e.FType).HasColumnName("fType");
+            entity.Property(e => e.FStatus).HasColumnName("fStatus");
+            entity.Property(e => e.FInvoiceNo).HasColumnName("fInvoiceNo");
+            entity.Property(e => e.FInvoiceDate).HasColumnName("fInvoiceDate");
+            entity.Property(e => e.FTaxType).HasColumnName("fTaxType");
+            entity.Property(e => e.FTaxRate).HasColumnName("fTaxRate");
+            entity.Property(e => e.FUntaxedAmount).HasColumnName("fUntaxedAmount");
+            entity.Property(e => e.FTaxAmount).HasColumnName("fTaxAmount");
         });
 
         modelBuilder.Entity<TPurchaseOrderDetail>(entity =>
