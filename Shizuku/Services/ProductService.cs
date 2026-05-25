@@ -816,22 +816,24 @@ namespace Shizuku.Services
            .FirstOrDefault(v => v.FId == d.fVariantId);
                 if (variant == null) continue;
 
-                // ✨ 根據類型決定庫存增減
-                switch (dto.fType)
-                {
-                    case "進貨":
-                    case "銷售退回":
-                    case "調整進":
-                        variant.FStock += d.fQuantity;
-                        break;
-                    case "退貨":
-                    case "進貨退出":
-                    case "報廢":
-                    case "調整出":
-                        variant.FStock -= d.fQuantity;
-                        break;
-                }
 
+                if (dto.fStatus == "已完成")
+                {
+                    switch (dto.fType)
+                    {
+                        case "進貨":
+                        case "銷售退回":
+                        case "調整進":
+                            variant.FStock += d.fQuantity;
+                            break;
+                        case "退貨":
+                        case "進貨退出":
+                        case "報廢":
+                        case "調整出":
+                            variant.FStock -= d.fQuantity;
+                            break;
+                    }
+                }
                 if (d.fCostPrice.HasValue)
                     variant.FCostPrice = d.fCostPrice.Value;
             }
@@ -840,7 +842,43 @@ namespace Shizuku.Services
             return order.FId;
         }
 
+        public bool UpdatePurchaseOrderStatus(int id, string status)
+        {
+            var order = _context.TPurchaseOrders.FirstOrDefault(o => o.FId == id);
+            if (order == null) return false;
 
+            var oldStatus = order.FStatus;
+            order.FStatus = status;
+
+            // 如果從未處理改成已完成，才更新庫存
+            if (oldStatus == "未處理" && status == "已完成")
+            {
+                var details = _context.TPurchaseOrderDetails.Where(d => d.FOrderId == id).ToList();
+                foreach (var d in details)
+                {
+                    var variant = _context.TProductVariants.FirstOrDefault(v => v.FId == d.FVariantId);
+                    if (variant == null) continue;
+
+                    switch (order.FType)
+                    {
+                        case "進貨":
+                        case "銷售退回":
+                        case "調整進":
+                            variant.FStock += d.FQuantity;
+                            break;
+                        case "退貨":
+                        case "進貨退出":
+                        case "報廢":
+                        case "調整出":
+                            variant.FStock -= d.FQuantity;
+                            break;
+                    }
+                }
+            }
+
+            _context.SaveChanges();
+            return true;
+        }
 
         /// <summary>扣除庫存 (下單用)</summary>
         public async Task<bool> DeductStockAsync(int variantId, int quantity)

@@ -201,6 +201,16 @@ namespace Shizuku.Controllers
                 Data = report
             });
         }
+        // 編輯進貨單
+        [HttpPut("purchase-orders/{id}/status")]
+        public IActionResult UpdatePurchaseOrderStatus(int id, [FromBody] string status)
+        {
+            var result = _productService.UpdatePurchaseOrderStatus(id, status);
+            if (!result)
+                return NotFound(new ApiResponse<object> { Success = false, Message = "找不到此異動單" });
+
+            return Ok(new ApiResponse<object> { Success = true, Message = "更新成功" });
+        }
         /// <summary>上傳商品圖片</summary>
         [HttpPost("{id}/image")]
         public async Task<IActionResult> UploadImage(int id, IFormFile photo)
