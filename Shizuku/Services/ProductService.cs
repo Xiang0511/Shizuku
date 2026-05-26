@@ -616,12 +616,21 @@ namespace Shizuku.Services
         /// <summary>取得進貨紀錄</summary>
         public List<StockRecordDto> GetStockRecords(int? variantId = null)
         {
+            // 只取已完成的進貨單 ID
+            var completedOrderIds = _context.TPurchaseOrders
+                .Where(o => o.FStatus == "已完成")
+                .Select(o => o.FId)
+                .ToHashSet();
+
             var details = _context.TPurchaseOrderDetails.AsQueryable();
 
             if (variantId.HasValue)
                 details = details.Where(d => d.FVariantId == variantId.Value);
 
-            var result = details.ToList();
+            var result = details
+        .Where(d => completedOrderIds.Contains(d.FOrderId))  // ← 加這行
+        .ToList();
+
 
             return result.Select(d =>
             {
@@ -768,6 +777,7 @@ namespace Shizuku.Services
         /// <summary>新增進貨單</summary>
         public int CreatePurchaseOrder(PurchaseOrderCreateDto dto)
         {
+             Console.WriteLine($"fStatus: {dto.fStatus}");
             // 自動生成進貨單號 PO-YYYYMMDD-XXX
             string dateStr = DateTime.Now.ToString("yyyyMMdd");
             int todayCount = _context.TPurchaseOrders
