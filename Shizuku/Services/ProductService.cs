@@ -510,7 +510,7 @@ namespace Shizuku.Services
                     var purchaseQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "進貨"),
+                            .Where(o => o.FType == "進貨" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -519,7 +519,7 @@ namespace Shizuku.Services
                     var returnQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "銷售退回"),
+                            .Where(o => o.FType == "銷售退回" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -528,7 +528,7 @@ namespace Shizuku.Services
                     var purchaseReturnQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "進貨退出"),
+                            .Where(o => o.FType == "進貨退出" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -537,7 +537,7 @@ namespace Shizuku.Services
                     var scrapQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "報廢"),
+                            .Where(o => o.FType == "報廢" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -545,7 +545,7 @@ namespace Shizuku.Services
                     var adjustInQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "調整進"),
+                            .Where(o => o.FType == "調整進" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -554,7 +554,7 @@ namespace Shizuku.Services
                     var adjustOutQty = _context.TPurchaseOrderDetails
                         .Where(d => d.FVariantId == v.FId)
                         .Join(_context.TPurchaseOrders
-                            .Where(o => o.FType == "調整出"),
+                           .Where(o => o.FType == "調整出" && o.FStatus == "已完成"),
                             d => d.FOrderId, o => o.FId,
                             (d, o) => d.FQuantity)
                         .Sum();
@@ -616,12 +616,21 @@ namespace Shizuku.Services
         /// <summary>取得進貨紀錄</summary>
         public List<StockRecordDto> GetStockRecords(int? variantId = null)
         {
+            // 只取已完成的進貨單 ID
+            var completedOrderIds = _context.TPurchaseOrders
+                .Where(o => o.FStatus == "已完成")
+                .Select(o => o.FId)
+                .ToHashSet();
+
             var details = _context.TPurchaseOrderDetails.AsQueryable();
 
             if (variantId.HasValue)
                 details = details.Where(d => d.FVariantId == variantId.Value);
 
-            var result = details.ToList();
+            var result = details
+        .Where(d => completedOrderIds.Contains(d.FOrderId))  // ← 加這行
+        .ToList();
+
 
             return result.Select(d =>
             {
@@ -768,6 +777,7 @@ namespace Shizuku.Services
         /// <summary>新增進貨單</summary>
         public int CreatePurchaseOrder(PurchaseOrderCreateDto dto)
         {
+             Console.WriteLine($"fStatus: {dto.fStatus}");
             // 自動生成進貨單號 PO-YYYYMMDD-XXX
             string dateStr = DateTime.Now.ToString("yyyyMMdd");
             int todayCount = _context.TPurchaseOrders
